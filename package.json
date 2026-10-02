@@ -1,0 +1,65 @@
+{
+  "name": "c-script-localhost-panel",
+  "productName": "C-Script LocalHost Panel",
+  "version": "1.0.0",
+  "description": "C-Script LocalHost Panel — local PHP & MySQL development environment",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --enable-logging",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.cscript.localhostpanel",
+    "productName": "C-Script LocalHost Panel",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "extraResources": [
+      {
+        "from": "resources/bundled",
+        "to": "bundled",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "assets/**/*",
+      "renderer/**/*",
+      "src/**/*"
+    ]
+  },
+  "keywords": [
+    "electron",
+    "php",
+    "mysql",
+    "local",
+    "development",
+    "c-script"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^44.4.5",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "mysql2": "^3.24.4"
+  }
+}

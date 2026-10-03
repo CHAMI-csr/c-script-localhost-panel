@@ -366,6 +366,7 @@ input:checked + .toggle-slider:before{transform:translateX(14px);background-colo
 .php-stat-card.accent-orange{border-left:3px solid var(--orange)}
 .php-stat-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;justify-content:space-between}
 .php-stat-value{font-size:17px;font-weight:700;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.php-stat-value.php-path-value{font-size:12px!important;font-weight:500;line-height:1.45;white-space:normal;overflow-wrap:anywhere;word-break:break-word}
 .php-stat-sub{font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .php-section-header{display:flex;align-items:center;justify-content:space-between;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 .php-section-heading{font-size:13px;font-weight:700;color:var(--text1);display:flex;align-items:center;gap:8px}
@@ -495,7 +496,7 @@ webview{flex:1;width:100%;border:none}
 
 /* ── Themes ── */
 /* ═══════════════════════════════════════════════════
-   THEMES (Dracula, Nord, Monokai, Light)
+   THEMES (Heavy Dark, Dracula, Nord, Monokai, Light)
 ═══════════════════════════════════════════════════ */
 body[data-theme="dracula"]{
   --bg0:#191A21;--bg1:#21222C;--bg2:#282A36;--bg3:#343746;--bg4:#44475A;
@@ -785,6 +786,31 @@ body[data-theme="light"] .port-quick-kill-bar{
 .port-stat-card{padding:12px 18px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;gap:14px}
 .port-stat-num{font-size:20px;font-weight:700;color:var(--accent);font-family:var(--font-mono)}
 .port-stat-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+/* Quiet, consistent product styling */
+:root{--bg0:#000000;--bg1:#090A0C;--bg2:#101113;--bg3:#18191C;--bg4:#232428;--accent:#5865F2;--accent2:#4752C4;--green:#23A559;--red:#F23F43;--yellow:#F0B232;--blue:#00A8FC;--orange:#F0A04B;--purple:#B9A3F5;--text1:#F2F3F5;--text2:#C5C7CC;--text3:#8B8E96;--border:#202124;--border2:#303136;--radius:7px;--radius-sm:5px}
+body[data-theme="dark"] .nav-item.active{background:rgba(88,101,242,.16);border-left-color:var(--accent)}
+body[data-theme="dark"] .tree-db-row.active-db{background:rgba(88,101,242,.14)}
+body[data-theme="dark"] .btn-primary{background:var(--accent);border-color:var(--accent)}
+body[data-theme="dark"] .btn-primary:hover{background:#4752C4}
+body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-height:1.45;letter-spacing:.05px}
+.panel-header{min-height:56px;padding:0 22px;border-bottom-color:var(--border)}
+.app-update-card{display:flex;align-items:center;gap:14px;padding:15px 17px;margin-bottom:20px;background:var(--bg2);border:1px solid var(--border2);border-radius:9px}.app-update-icon{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 38px;border-radius:8px;background:rgba(114,170,255,.12);color:var(--accent);font-size:22px}.app-update-copy{flex:1;min-width:0}.app-update-title{font-size:13px;font-weight:700;color:var(--text1)}.app-update-status{font-size:11px;color:var(--text3);margin-top:3px;overflow-wrap:anywhere}.app-update-actions{display:flex;gap:7px;align-items:center}.app-update-progress-wrap{display:flex;align-items:center;gap:8px;margin-top:8px}.app-update-progress-track{height:5px;max-width:240px;flex:1;background:var(--bg4);border-radius:6px;overflow:hidden}.app-update-progress{height:100%;width:0;background:var(--accent);transition:width .2s}.app-update-progress-wrap span{font-size:10px;color:var(--text2);min-width:34px}
+.btn{border-radius:6px;font-weight:600;letter-spacing:.05px;box-shadow:none;transition:background .15s,border-color .15s,color .15s}
+.btn:hover{transform:none;box-shadow:none}
+.input{border-radius:6px;background:var(--bg0);border-color:var(--border2);transition:border-color .15s,box-shadow .15s}
+.input:focus{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 18%,transparent)}
+.modal{border:1px solid var(--border2);box-shadow:0 24px 70px rgba(0,0,0,.42)}
+.modal-header{padding:17px 20px}.modal-footer{padding:13px 20px}
+.table-builder-modal{width:1040px;max-width:96vw}.table-builder-body{max-height:min(76vh,780px);overflow:auto;padding:20px}
+.modal-title-main{font-size:15px;font-weight:700;color:var(--text1)}.modal-subtitle{font-size:11px;color:var(--text3);margin-top:3px}.modal-subtitle span{color:var(--text2)}
+.table-builder-top{display:grid;grid-template-columns:1.2fr .8fr .8fr 1.2fr;gap:12px}.table-builder-heading{display:flex;align-items:center;justify-content:space-between;margin:12px 0 10px;padding-top:16px;border-top:1px solid var(--border)}.table-builder-heading>div{display:flex;flex-direction:column;gap:2px}.table-builder-heading strong{font-size:13px}.table-builder-heading span{font-size:11px;color:var(--text3)}
+.builder-columns-head,.builder-column-row{display:grid;grid-template-columns:minmax(120px,1.5fr) minmax(105px,1fr) 72px minmax(155px,1.3fr) 46px 118px 34px;gap:8px;align-items:center}
+.builder-columns-head{padding:0 8px 7px;color:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.55px}
+.builder-columns{display:flex;flex-direction:column;gap:7px}.builder-column-row{padding:8px;background:var(--bg1);border:1px solid var(--border);border-radius:7px}.builder-column-row .input{min-width:0;height:34px;padding:6px 8px;font-size:11px}.builder-column-row .builder-check{display:flex;align-items:center;justify-content:center}.builder-column-row input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px}.builder-default-wrap{display:grid;grid-template-columns:1fr;position:relative}.builder-default-value{display:none}.builder-default-wrap.has-value .builder-default{display:none}.builder-default-wrap.has-value .builder-default-value{display:block}.builder-key-options{display:flex;gap:9px;align-items:center;font-size:10px;color:var(--text2);white-space:nowrap}.builder-key-options label{display:flex;align-items:center;gap:4px}.builder-remove{border:0;background:transparent;color:var(--text3);font-size:17px;border-radius:5px;height:30px}.builder-remove:hover{background:rgba(229,118,118,.12);color:var(--red)}.builder-note{margin-top:14px;padding:10px 12px;background:rgba(123,156,244,.07);border:1px solid rgba(123,156,244,.16);border-radius:6px;color:var(--text2);font-size:11px}
+.db-settings-modal{width:760px;max-width:95vw;max-height:calc(100vh - 32px)}.db-settings-modal>.modal-body{overflow:auto;min-height:0}.db-settings-section{padding:2px 0 18px}.db-settings-section+.db-settings-section{border-top:1px solid var(--border);padding-top:18px}.db-settings-section-title{font-size:12px;font-weight:700;margin-bottom:12px}.db-server-settings-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.server-setting-card{padding:10px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;min-width:0}.server-setting-label{font-size:10px;text-transform:uppercase;letter-spacing:.45px;color:var(--text3);font-weight:700}.server-setting-value{font-size:12px;color:var(--text1);margin-top:4px;overflow-wrap:anywhere}.settings-loading,.settings-help{font-size:11px;color:var(--text3)}.settings-help{margin:-5px 0 14px}.password-result{font-size:11px;margin-top:10px;color:var(--text2)}.password-result.success{color:var(--green)}.password-result.error{color:var(--red)}
+.db-connected-actions{align-items:center;gap:6px}.server-setting-card{align-self:start}.server-setting-value{word-break:break-word}.server-setting-value.sql-mode{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.settings-inline-result{display:inline-block;margin-left:9px;font-size:11px;color:var(--text2)}.settings-inline-result.success{color:var(--green)}.settings-inline-result.error{color:var(--red)}.settings-badge{margin-left:6px;padding:2px 6px;border-radius:10px;background:rgba(114,170,255,.12);color:var(--accent);font-size:9px;text-transform:uppercase;letter-spacing:.5px}
+@media(max-width:760px){.table-builder-top{grid-template-columns:1fr 1fr}.builder-columns-head{display:none}.builder-column-row{grid-template-columns:1fr 1fr 68px 34px}.builder-column-row .builder-default{grid-column:1/3}.builder-key-options{grid-column:1/4}.db-server-settings-grid{grid-template-columns:1fr 1fr}.db-connected-actions{flex-wrap:wrap;justify-content:flex-end}.db-settings-modal{max-height:calc(100vh - 16px)}}
+@media(max-width:640px){.app-update-card{align-items:flex-start;flex-wrap:wrap}.app-update-actions{width:100%;padding-left:52px}}
 </style>
 </head>
 <body>
@@ -940,7 +966,7 @@ body[data-theme="light"] .port-quick-kill-bar{
           </div>
         </div>
 
-        <!-- Active Services (Styled after Laravel Herd's Active Services Menu) -->
+        <!-- Active Services -->
         <div class="dash-services-card">
           <div class="dash-services-header">
             <div class="dash-services-title">
@@ -1051,7 +1077,9 @@ body[data-theme="light"] .port-quick-kill-bar{
             <svg class="tab-icon-svg" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
             + New Session
           </button>
+          <div id="db-connected-actions" class="db-connected-actions" style="display:none">
           <button class="btn btn-sm" onclick="loadDatabases()">Refresh</button>
+          <button class="btn btn-sm" onclick="openDatabaseSettings()" title="Server settings and account password">Database Settings</button>
           <button class="btn btn-primary btn-sm" onclick="openCreateDBModal()">+ New DB</button>
           <button class="btn btn-sm" onclick="createTableForCurrentDB()">+ New Table</button>
           <button class="btn btn-sm" onclick="switchMainView('er')">
@@ -1060,6 +1088,7 @@ body[data-theme="light"] .port-quick-kill-bar{
           </button>
           <button class="btn btn-sm" onclick="importSQLFile()">Import SQL</button>
           <button class="btn btn-sm" onclick="exportDatabaseBackup()">Backup DB</button>
+          </div>
           <button class="btn btn-danger btn-sm" onclick="disconnectMySQL()" id="db-disconnect-btn" style="display:none">Disconnect</button>
         </div>
       </div>
@@ -1560,7 +1589,7 @@ DESCRIBE tablename;"></textarea>
             <div class="form-group" style="flex:1">
               <label class="form-label">Interface Theme</label>
               <select class="input select" id="s-app-theme" onchange="applyTheme(this.value)">
-                <option value="dark">Dark (Default)</option>
+                <option value="dark">Heavy Dark (Default)</option>
                 <option value="dracula">Dracula (Vibrant Purple)</option>
                 <option value="nord">Nord (Arctic Blue)</option>
                 <option value="monokai">Monokai (Warm Dark)</option>
@@ -1629,17 +1658,16 @@ DESCRIBE tablename;"></textarea>
             <div id="scanned-phps-container" style="display:none;margin-top:10px;background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px"></div>
           </div>
 
-          <!-- Standalone PHP Downloader & Herd Independence -->
+          <!-- Standalone PHP Downloader -->
           <div style="margin-top:16px;padding:14px;background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.25);border-radius:var(--radius-sm)">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
               <div style="display:flex;align-items:center;gap:8px">
                 <span style="font-size:18px">🛡️</span>
                 <div>
-                  <span style="font-weight:700;font-size:13px;color:var(--text1)">Standalone PHP Versions (Herd-Independent)</span>
-                  <div style="font-size:11px;color:var(--text3)">Installed in LocalHost AppData. Will NEVER be lost if Herd/XAMPP is deleted.</div>
+                  <span style="font-weight:700;font-size:13px;color:var(--text1)">Standalone PHP Versions</span>
+                  <div style="font-size:11px;color:var(--text3)">Installed in this app's LocalHost storage.</div>
                 </div>
               </div>
-              <button class="btn btn-sm btn-success" onclick="migrateHerdPhpAction()" id="btn-migrate-herd" style="font-size:11px;font-weight:700">🛡️ Protect / Copy Herd's PHP</button>
             </div>
 
             <div id="php-catalog-list" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
@@ -1668,7 +1696,6 @@ DESCRIBE tablename;"></textarea>
                 </div>
               </div>
               <div style="display:flex;gap:6px" id="nginx-action-buttons">
-                <button class="btn btn-sm btn-success" onclick="migrateHerdNginxAction()" id="btn-migrate-herd-nginx" style="font-size:11px;font-weight:700">🛡️ Copy Herd's NGINX</button>
                 <button class="btn btn-sm btn-accent" onclick="downloadNginxAction()" id="btn-dl-nginx" style="font-size:11px;font-weight:700">⬇️ Install Official NGINX (2MB)</button>
               </div>
             </div>
@@ -1778,15 +1805,21 @@ DESCRIBE tablename;"></textarea>
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
               <h1 style="font-size:22px;font-weight:700;color:var(--text1);margin:0">C-Script LocalHost Panel</h1>
-              <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3)">v1.0.0</span>
+              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3)">v1.0.1</span>
             </div>
             <p style="margin:0 0 10px 0;font-size:13px;color:var(--text3);line-height:1.4">Modern, High-Performance Local Development Environment for PHP, NGINX &amp; MySQL.</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(63,207,142,0.12);color:var(--green);border:1px solid rgba(63,207,142,0.25)">✓ 100% Standalone (Herd Independent)</span>
+              <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(63,207,142,0.12);color:var(--green);border:1px solid rgba(63,207,142,0.25)">✓ Standalone</span>
               <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.25)">⚡ Fast Reverse Proxy</span>
               <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(234,179,8,0.12);color:#eab308;border:1px solid rgba(234,179,8,0.25)">🔒 Auto Local SSL</span>
             </div>
           </div>
+        </div>
+
+        <div class="app-update-card">
+          <div class="app-update-icon">↻</div>
+          <div class="app-update-copy"><div class="app-update-title">App updates</div><div id="app-update-status" class="app-update-status">Check GitHub for the latest version.</div><div id="app-update-progress-wrap" class="app-update-progress-wrap" style="display:none"><div class="app-update-progress-track"><div id="app-update-progress" class="app-update-progress"></div></div><span id="app-update-progress-label">0%</span></div></div>
+          <div class="app-update-actions"><button class="btn btn-sm" id="app-update-check" onclick="checkForAppUpdates()">Check for updates</button><button class="btn btn-sm btn-primary" id="app-update-download" onclick="downloadAppUpdate()" style="display:none">Download update</button><button class="btn btn-sm btn-primary" id="app-update-install" onclick="installAppUpdate()" style="display:none">Restart to update</button></div>
         </div>
 
         <!-- Developer Profile Card -->
@@ -1807,7 +1840,7 @@ DESCRIBE tablename;"></textarea>
             </button>
           </div>
           <div style="font-size:13px;color:var(--text2);line-height:1.6">
-            Developed with dedication by <strong>Chamika Sandeepa</strong>. Designed to empower Windows web developers with a blazing-fast, lightweight, portable, and completely autonomous local web hosting stack without requiring third-party tools like Herd, XAMPP, or Laragon.
+            Developed with dedication by <strong>Chamika Sandeepa</strong>. A blazing-fast, lightweight, portable local web hosting stack for Windows developers.
           </div>
         </div>
 
@@ -1919,6 +1952,56 @@ DESCRIBE tablename;"></textarea>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-create-db')">Cancel</button>
       <button class="btn btn-primary" onclick="createDatabase()">Create Database</button>
+    </div>
+  </div>
+</div>
+
+<!-- Structured Table Builder -->
+<div class="modal-overlay" id="modal-create-table">
+  <div class="modal table-builder-modal">
+    <div class="modal-header"><div><div class="modal-title-main">Create table</div><div class="modal-subtitle">Define columns and indexes for <span id="builder-database-label"></span></div></div><button class="btn-icon" onclick="closeModal('modal-create-table')">✕</button></div>
+    <div class="modal-body table-builder-body">
+      <div class="table-builder-top form-row">
+        <div class="form-group"><label class="form-label">Table name</label><input class="input" id="builder-table-name" placeholder="users" autocomplete="off"></div>
+        <div class="form-group"><label class="form-label">Storage engine</label><select class="input select" id="builder-engine"><option>InnoDB</option><option>MyISAM</option><option>MEMORY</option></select></div>
+        <div class="form-group"><label class="form-label">Character set</label><select class="input select" id="builder-charset" onchange="updateBuilderCollations()"><option value="utf8mb4">utf8mb4</option><option value="utf8">utf8</option><option value="latin1">latin1</option><option value="ascii">ascii</option></select></div>
+        <div class="form-group"><label class="form-label">Collation</label><select class="input select" id="builder-collation"></select></div>
+      </div>
+      <div class="table-builder-heading"><div><strong>Columns</strong><span>Set a primary key and choose suitable types.</span></div><button class="btn btn-sm" onclick="addBuilderColumn()">＋ Add column</button></div>
+      <div class="builder-columns-head"><span>Name</span><span>Type</span><span>Length</span><span>Default</span><span>Null</span><span>Key</span><span></span></div>
+      <div id="builder-columns" class="builder-columns"></div>
+      <div class="form-group" style="margin-top:16px"><label class="form-label">Table comment <span class="form-hint">Optional</span></label><input class="input" id="builder-comment" placeholder="What is this table for?"></div>
+      <div class="builder-note">InnoDB is recommended for transactions and foreign keys. The table is created immediately when you save.</div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('modal-create-table')">Cancel</button><button class="btn btn-primary" id="builder-create-button" onclick="submitCreateTable()">Create table</button></div>
+  </div>
+</div>
+
+<!-- Database settings -->
+<div class="modal-overlay" id="modal-database-settings">
+  <div class="modal db-settings-modal">
+    <div class="modal-header"><div><div class="modal-title-main">Database settings</div><div class="modal-subtitle">Server configuration, defaults and account security</div></div><button class="btn-icon" onclick="closeModal('modal-database-settings')">✕</button></div>
+    <div class="modal-body">
+      <section class="db-settings-section"><div class="db-settings-section-title">Connected server</div><div id="db-server-settings-grid" class="db-server-settings-grid"><div class="settings-loading">Loading server details…</div></div><button class="btn btn-sm" style="margin-top:12px" onclick="openSessionModal();closeModal('modal-database-settings')">Edit connection</button></section>
+      <section class="db-settings-section"><div class="db-settings-section-title">Connection defaults</div><p class="settings-help">These options apply to this connection. They return to the server defaults when you reconnect.</p>
+        <div class="form-row"><div class="form-group"><label class="form-label">Default engine</label><select class="input select" id="settings-engine"><option>InnoDB</option><option>MyISAM</option><option>MEMORY</option></select></div><div class="form-group"><label class="form-label">Time zone</label><input class="input" id="settings-time-zone" placeholder="SYSTEM or +00:00"></div></div>
+        <div class="form-row"><div class="form-group"><label class="form-label">Connection character set</label><select class="input select" id="settings-charset" onchange="updateSettingsCollations()"><option value="utf8mb4">utf8mb4</option><option value="utf8">utf8</option><option value="latin1">latin1</option><option value="ascii">ascii</option></select></div><div class="form-group"><label class="form-label">Connection collation</label><select class="input select" id="settings-collation"></select></div></div>
+        <div class="form-group"><label class="form-label">SQL mode</label><input class="input" id="settings-sql-mode" placeholder="Comma separated modes"></div>
+        <button class="btn btn-primary" id="settings-session-save" onclick="saveSessionSettings()">Apply connection settings</button><span id="settings-session-result" class="settings-inline-result" aria-live="polite"></span>
+      </section>
+      <section class="db-settings-section"><div class="db-settings-section-title">Database defaults</div><p class="settings-help">Sets the default character set and collation for new tables in one database. Existing tables are unchanged.</p>
+        <div class="form-row"><div class="form-group"><label class="form-label">Database</label><select class="input select" id="settings-database" onchange="loadSelectedDatabaseDefaults()"></select></div><div class="form-group"><label class="form-label">Character set</label><select class="input select" id="settings-db-charset" onchange="updateDatabaseCollations()"><option value="utf8mb4">utf8mb4</option><option value="utf8">utf8</option><option value="latin1">latin1</option><option value="ascii">ascii</option></select></div></div>
+        <div class="form-row"><div class="form-group"><label class="form-label">Collation</label><select class="input select" id="settings-db-collation"></select></div><div class="form-group" style="display:flex;align-items:end"><button class="btn btn-primary" id="settings-db-save" onclick="saveDatabaseDefaults()">Save database defaults</button></div></div><div id="settings-db-result" class="settings-inline-result" aria-live="polite"></div>
+      </section>
+      <section class="db-settings-section"><div class="db-settings-section-title">Server limits <span class="settings-badge">Runtime</span></div><p class="settings-help">Applies immediately, requires server privileges, and resets when MySQL/MariaDB restarts.</p>
+        <div class="form-row"><div class="form-group"><label class="form-label">Maximum connections</label><input class="input" id="settings-max-connections" type="number" min="1" max="100000"></div><div class="form-group"><label class="form-label">Maximum packet (MB)</label><input class="input" id="settings-max-packet" type="number" min="0.001" max="1024" step="0.001"></div></div>
+        <button class="btn" id="settings-limits-save" onclick="saveServerLimits()">Apply server limits</button><span id="settings-limits-result" class="settings-inline-result" aria-live="polite"></span>
+      </section>
+      <section class="db-settings-section password-section"><div class="db-settings-section-title">Change account password</div><p class="settings-help">Changes the password for the account used by this connection. Your current password is checked first.</p>
+        <div class="form-group"><label class="form-label" for="db-password-current">Current password</label><input class="input" id="db-password-current" type="password" autocomplete="current-password"></div>
+        <div class="form-row"><div class="form-group"><label class="form-label" for="db-password-new">New password</label><input class="input" id="db-password-new" type="password" autocomplete="new-password"></div><div class="form-group"><label class="form-label" for="db-password-confirm">Confirm new password</label><input class="input" id="db-password-confirm" type="password" autocomplete="new-password"></div></div>
+        <button class="btn btn-primary" id="db-password-save" onclick="submitOwnPasswordChange()">Update password</button><div id="db-password-result" class="password-result" aria-live="polite"></div>
+      </section>
     </div>
   </div>
 </div>
@@ -2744,19 +2827,15 @@ function toggleSessionNode() {
 // ══════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
+  await initUpdaterUI();
   await checkPHPStatus();
   await checkMySQLStatus();
   loadNginxInfo();
   loadMysqlInstallerInfo();
   await loadSites();
   await loadDashboardServices();
-  // Periodic background check for services when on dashboard
-  setInterval(() => {
-    const dashPanel = document.getElementById('panel-dashboard');
-    if (dashPanel && dashPanel.classList.contains('active')) {
-      loadDashboardServices(false);
-    }
-  }, 4000);
+  // Keep service health current while the app is open, even on other panels.
+  setInterval(() => refreshDashboardServiceHealth(), 5000);
   document.getElementById('sql-editor').addEventListener('keydown', e => {
     if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); runSQL(); }
   });
@@ -2908,6 +2987,22 @@ function switchPanel(panel) {
 // DASHBOARD & ACTIVE SERVICES
 // ══════════════════════════════════════════════════════════
 let currentDashboardServices = [];
+let dashboardHealthCheckRunning = false;
+
+async function refreshDashboardServiceHealth() {
+  if (dashboardHealthCheckRunning) return;
+  dashboardHealthCheckRunning = true;
+  try {
+    const list = await api.services.list();
+    currentDashboardServices = Array.isArray(list) ? list : [];
+    renderDashboardServices(currentDashboardServices);
+    updateDashboardStats(currentDashboardServices);
+  } catch (err) {
+    console.error('Service health check failed:', err);
+  } finally {
+    dashboardHealthCheckRunning = false;
+  }
+}
 
 async function loadDashboardServices(notify = false) {
   try {
@@ -3409,6 +3504,7 @@ async function connectMySQL(customSession = null) {
 
       document.getElementById('db-connect-screen').style.display='none';
       document.getElementById('db-connected-screen').style.display='flex';
+      document.getElementById('db-connected-actions').style.display='flex';
       document.getElementById('db-disconnect-btn').style.display='';
       document.getElementById('mysql-status-dot').className='status-dot green';
       document.getElementById('mysql-status-text').textContent='MySQL';
@@ -3438,6 +3534,7 @@ async function disconnectMySQL() {
   DB.connected=false; DB.allDatabases=[]; DB.activeDB=''; DB.activeTable='';
   document.getElementById('db-connect-screen').style.display='';
   document.getElementById('db-connected-screen').style.display='none';
+  document.getElementById('db-connected-actions').style.display='none';
   document.getElementById('db-disconnect-btn').style.display='none';
   const tableTabs = document.getElementById('table-tab-container');
   if (tableTabs) tableTabs.innerHTML = '';
@@ -3504,7 +3601,7 @@ function renderTree() {
         <span class="tree-db-icon">${icon}</span>
         <span class="tree-db-name" title="${db.name}">${db.name}</span>
         <div class="tree-db-actions">
-          ${!isSystem?`<button class="tree-act-btn" title="Create Table" onclick="event.stopPropagation();openCreateTableSQL('${db.name}')">+</button>`:''}
+          ${!isSystem?`<button class="tree-act-btn" title="Create Table" onclick="event.stopPropagation();openCreateTableModal('${db.name}')">+</button>`:''}
           ${!isSystem?`<button class="tree-act-btn del" title="Drop Database" onclick="event.stopPropagation();dropDatabase('${db.name}')"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>`:''}
         </div>
       </div>
@@ -5239,24 +5336,158 @@ async function dropCurrentTable(){
   else toast('Error: '+r.error,'error');
 }
 
-function openCreateTableSQL(db){
-  switchMainView('sql');
-  document.getElementById('tab-sql-editor').classList.add('active');
-  const sel = document.getElementById('sql-db-select');
-  for(let o of sel.options){ if(o.value===db){o.selected=true;break;} }
-  DB.activeDB=db;
-  document.getElementById('sql-editor').value = `CREATE TABLE \`${db}\`.\`new_table\` (
-  \`id\` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (\`id\`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+const BUILDER_COLLATIONS={utf8mb4:['utf8mb4_unicode_ci','utf8mb4_general_ci'],utf8:['utf8_unicode_ci','utf8_general_ci'],latin1:['latin1_swedish_ci','latin1_general_ci'],ascii:['ascii_general_ci','ascii_bin']};
+let builderDatabase='';
+function updateBuilderCollations(){
+  const charset=document.getElementById('builder-charset').value;
+  document.getElementById('builder-collation').innerHTML=BUILDER_COLLATIONS[charset].map(c=>`<option value="${c}">${c}</option>`).join('');
 }
-
+function addBuilderColumn(initial={}){
+  const wrap=document.getElementById('builder-columns');
+  const row=document.createElement('div');row.className='builder-column-row';
+  const isId=wrap.children.length===0;
+  row.innerHTML=`<input class="input builder-name" placeholder="column_name" value="${initial.name|| (isId?'id':'')}">
+    <select class="input builder-type" onchange="syncBuilderColumn(this)"><option>INT</option><option>BIGINT</option><option>VARCHAR</option><option>TEXT</option><option>DATE</option><option>DATETIME</option><option>TIMESTAMP</option><option>DECIMAL</option><option>BOOLEAN</option><option>JSON</option><option>BLOB</option></select>
+    <input class="input builder-length" type="text" inputmode="numeric" value="${initial.length|| (isId?'':'255')}" placeholder="—" ${isId?'disabled':''}>
+    <div class="builder-default-wrap"><select class="input builder-default" onchange="toggleBuilderDefault(this)"><option value="none">No default</option><option value="value">Value…</option><option value="current_timestamp">Current time</option></select><input class="input builder-default-value" placeholder="Default value" title="Default value"></div>
+    <label class="builder-check"><input class="builder-nullable" type="checkbox" ${!isId?'checked':''} ${isId?'disabled':''} title="Allow NULL"></label>
+    <div class="builder-key-options"><label title="Primary key"><input class="builder-primary" type="checkbox" ${isId?'checked':''} onchange="syncBuilderPrimary(this)"> PK</label><label title="Unique index"><input class="builder-unique" type="checkbox"> UQ</label><label title="Auto increment"><input class="builder-auto" type="checkbox" ${isId?'checked':''}> AI</label></div>
+    <button class="builder-remove" title="Remove column" onclick="this.closest('.builder-column-row').remove()">×</button>`;
+  row.querySelector('.builder-type').value=initial.type||'INT';
+  row.querySelector('.builder-default').value=initial.defaultMode||'none';
+  wrap.appendChild(row);syncBuilderColumn(row.querySelector('.builder-type'));
+}
+function syncBuilderPrimary(input){
+  const row=input.closest('.builder-column-row');
+  if(input.checked){row.querySelector('.builder-nullable').checked=false;row.querySelector('.builder-nullable').disabled=true;}
+  else row.querySelector('.builder-nullable').disabled=false;
+}
+function toggleBuilderDefault(select){select.parentElement.classList.toggle('has-value',select.value==='value');}
+function syncBuilderColumn(select){
+  const row=select.closest('.builder-column-row'),type=select.value;
+  const length=row.querySelector('.builder-length');
+  length.disabled=!['VARCHAR','DECIMAL'].includes(type);
+  length.placeholder=type==='DECIMAL'?'10,2':(type==='VARCHAR'?'255':'—');
+  if(type==='DECIMAL'&&!/^\d{1,2},\d{1,2}$/.test(length.value))length.value='10,2';
+  if(type==='VARCHAR'&&!/^\d+$/.test(length.value))length.value='255';
+  const def=row.querySelector('.builder-default');
+  for(const option of def.options){if(option.value==='current_timestamp') option.disabled=!['TIMESTAMP','DATETIME'].includes(type);}
+  if(def.value==='current_timestamp'&&!['TIMESTAMP','DATETIME'].includes(type))def.value='none';
+}
+function openCreateTableModal(db){
+  if(!DB.connected){toast('Connect to MySQL first','error');return;}
+  builderDatabase=db;document.getElementById('builder-database-label').textContent=db;
+  document.getElementById('builder-table-name').value='';document.getElementById('builder-engine').value='InnoDB';
+  document.getElementById('builder-charset').value='utf8mb4';document.getElementById('builder-comment').value='';
+  document.getElementById('builder-columns').innerHTML='';updateBuilderCollations();
+  addBuilderColumn({name:'id',type:'INT'});addBuilderColumn({name:'name',type:'VARCHAR'});addBuilderColumn({name:'created_at',type:'TIMESTAMP',defaultMode:'current_timestamp'});
+  openModal('modal-create-table');setTimeout(()=>document.getElementById('builder-table-name').focus(),100);
+}
 function createTableForCurrentDB(){
   const database=document.getElementById('sql-db-select').value||DB.activeDB;
   if(!database){toast('Select a database first','error');return;}
-  openCreateTableSQL(database);
-  toast('Edit the CREATE TABLE template, then click Run','info');
+  openCreateTableModal(database);
+}
+async function submitCreateTable(){
+  const table=document.getElementById('builder-table-name').value.trim();
+  const columns=[...document.querySelectorAll('#builder-columns .builder-column-row')].map(row=>{
+    const type=row.querySelector('.builder-type').value,rawLength=row.querySelector('.builder-length').value;
+    const defaults=row.querySelector('.builder-default').value;
+    return {name:row.querySelector('.builder-name').value.trim(),type,length:type==='DECIMAL'?undefined:parseInt(rawLength,10),precision:type==='DECIMAL'?parseInt(rawLength.split(',')[0],10):undefined,scale:type==='DECIMAL'?parseInt(rawLength.split(',')[1]||'2',10):undefined,nullable:row.querySelector('.builder-nullable').checked,primary:row.querySelector('.builder-primary').checked,unique:row.querySelector('.builder-unique').checked,autoIncrement:row.querySelector('.builder-auto').checked,defaultMode:defaults,defaultValue:defaults==='value'?row.querySelector('.builder-default-value').value:undefined};
+  });
+  if(!table){toast('Enter a table name','error');return;}
+  if(columns.some(c=>!c.name)){toast('Every column needs a name','error');return;}
+  if(columns.some(c=>c.defaultMode==='value'&&c.defaultValue==='')){toast('Enter each selected default value','error');return;}
+  const button=document.getElementById('builder-create-button');button.disabled=true;button.textContent='Creating…';
+  try{
+    const result=await api.mysql.createTable(builderDatabase,table,columns,{engine:document.getElementById('builder-engine').value,charset:document.getElementById('builder-charset').value,collation:document.getElementById('builder-collation').value,comment:document.getElementById('builder-comment').value});
+    if(!result.success){toast('Could not create table: '+result.error,'error');return;}
+    closeModal('modal-create-table');toast(`Table ${table} created`,'success');await loadDatabases();await openTable(builderDatabase,table);
+  }catch(error){toast('Could not create table: '+error.message,'error');}
+  finally{button.disabled=false;button.textContent='Create table';}
+}
+
+function safeText(value){return String(value??'—').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+let DB_SETTINGS_COLLATIONS={};
+function populateSettingsCollations(selectId,charsetId){
+  const charset=document.getElementById(charsetId).value,select=document.getElementById(selectId);
+  const available=DB_SETTINGS_COLLATIONS[charset]||[];
+  const current=select.value;
+  const preferred=charset==='utf8mb4'?['utf8mb4_0900_ai_ci','utf8mb4_unicode_ci','utf8mb4_general_ci']:charset==='utf8'?['utf8_unicode_ci','utf8_general_ci']:charset==='latin1'?['latin1_swedish_ci','latin1_general_ci']:['ascii_general_ci','ascii_bin'];
+  const options=[...new Set([current,...preferred,...available.filter(c=>c.endsWith('_ci')).slice(0,12)])].filter(c=>available.includes(c));
+  select.innerHTML=options.map(c=>`<option value="${safeText(c)}">${safeText(c)}</option>`).join('');
+  if(options.includes(current))select.value=current;
+}
+function updateSettingsCollations(){populateSettingsCollations('settings-collation','settings-charset');}
+function updateDatabaseCollations(){populateSettingsCollations('settings-db-collation','settings-db-charset');}
+async function loadSelectedDatabaseDefaults(){
+  const database=document.getElementById('settings-database').value;if(!database)return;
+  const info=await api.mysql.dbInfo(database);if(!info.success)return;
+  document.getElementById('settings-db-charset').value=info.charset||'utf8mb4';updateDatabaseCollations();
+  const coll=document.getElementById('settings-db-collation');if([...coll.options].some(o=>o.value===info.collation))coll.value=info.collation;
+}
+function showSettingsResult(id,message,success){const el=document.getElementById(id);el.textContent=message;el.className='settings-inline-result '+(success?'success':'error');}
+async function openDatabaseSettings(){
+  if(!DB.connected){toast('Connect to MySQL to view database settings','error');return;}
+  document.getElementById('db-server-settings-grid').innerHTML='<div class="settings-loading">Loading server details…</div>';
+  document.getElementById('db-password-current').value='';document.getElementById('db-password-new').value='';document.getElementById('db-password-confirm').value='';
+  document.getElementById('db-password-result').textContent='';openModal('modal-database-settings');
+  const result=await api.mysql.serverSettings();
+  const grid=document.getElementById('db-server-settings-grid');
+  if(!result.success){grid.innerHTML=`<div class="settings-loading">${safeText(result.error)}</div>`;return;}
+  const s=result.settings;DB_SETTINGS_COLLATIONS=s.supportedCollations||{};
+  const items=[['Server version',s.version],['Host',s.hostname],['Port',s.port],['Account',s.account],['Server engine',s.engine],['Server character set',s.charset],['Server collation',s.collation],['Max connections',s.maxConnections],['Max packet',`${Math.round(Number(s.maxAllowedPacket)/1024/1024*10)/10} MB`],['Connection time zone',s.timeZone],['Connection SQL mode',s.sqlMode]];
+  grid.innerHTML=items.map(([label,value])=>`<div class="server-setting-card"><div class="server-setting-label">${safeText(label)}</div><div class="server-setting-value ${label.includes('SQL mode')?'sql-mode':''}" title="${safeText(value)}">${safeText(value)}</div></div>`).join('');
+  document.getElementById('settings-engine').value=s.sessionEngine||s.engine||'InnoDB';
+  document.getElementById('settings-time-zone').value=s.timeZone||'SYSTEM';
+  document.getElementById('settings-charset').value=s.connectionCharset||'utf8mb4';updateSettingsCollations();
+  if([...document.getElementById('settings-collation').options].some(o=>o.value===s.connectionCollation))document.getElementById('settings-collation').value=s.connectionCollation;
+  document.getElementById('settings-sql-mode').value=s.sqlMode||'';
+  document.getElementById('settings-max-connections').value=s.maxConnections;
+  document.getElementById('settings-max-packet').value=(Number(s.maxAllowedPacket)/1024/1024).toFixed(3).replace(/0+$/,'').replace(/\.$/,'');
+  const dbSelect=document.getElementById('settings-database');
+  dbSelect.innerHTML=(DB.allDatabases||[]).map(db=>`<option value="${safeText(db.name)}">${safeText(db.name)}</option>`).join('');
+  if(DB.activeDB&&[...dbSelect.options].some(o=>o.value===DB.activeDB))dbSelect.value=DB.activeDB;
+  if(dbSelect.value)await loadSelectedDatabaseDefaults();
+}
+async function saveSessionSettings(){
+  const button=document.getElementById('settings-session-save');button.disabled=true;
+  const result=await api.mysql.applySessionSettings({engine:document.getElementById('settings-engine').value,timeZone:document.getElementById('settings-time-zone').value,charset:document.getElementById('settings-charset').value,collation:document.getElementById('settings-collation').value,sqlMode:document.getElementById('settings-sql-mode').value});
+  button.disabled=false;
+  if(!result.success){showSettingsResult('settings-session-result',result.error,false);return;}
+  showSettingsResult('settings-session-result','Connection defaults updated.',true);toast('Connection settings applied','success');await openDatabaseSettings();
+}
+async function saveDatabaseDefaults(){
+  const database=document.getElementById('settings-database').value;if(!database){showSettingsResult('settings-db-result','Create or select a database first.',false);return;}
+  const button=document.getElementById('settings-db-save');button.disabled=true;
+  const result=await api.mysql.setDatabaseDefaults(database,document.getElementById('settings-db-charset').value,document.getElementById('settings-db-collation').value);button.disabled=false;
+  if(!result.success){showSettingsResult('settings-db-result',result.error,false);return;}
+  showSettingsResult('settings-db-result',`Defaults updated for ${database}.`,true);toast('Database defaults updated','success');await loadDatabases();await loadSelectedDatabaseDefaults();
+}
+async function saveServerLimits(){
+  const button=document.getElementById('settings-limits-save');button.disabled=true;
+  const mb=Number(document.getElementById('settings-max-packet').value);
+  const result=await api.mysql.setServerLimits(Number(document.getElementById('settings-max-connections').value),Math.round(mb*1024*1024));button.disabled=false;
+  if(!result.success){showSettingsResult('settings-limits-result',result.error,false);return;}
+  showSettingsResult('settings-limits-result','Runtime limits updated.',true);toast('Server limits updated','success');await openDatabaseSettings();
+}
+async function submitOwnPasswordChange(){
+  const current=document.getElementById('db-password-current').value,newPass=document.getElementById('db-password-new').value,confirmPass=document.getElementById('db-password-confirm').value;
+  const resultEl=document.getElementById('db-password-result'),button=document.getElementById('db-password-save');
+  resultEl.className='password-result';resultEl.textContent='';
+  if(!newPass||newPass.length>128){resultEl.classList.add('error');resultEl.textContent='Enter a new password of up to 128 characters.';return;}
+  if(newPass!==confirmPass){resultEl.classList.add('error');resultEl.textContent='The new passwords do not match.';return;}
+  if(newPass===current){resultEl.classList.add('error');resultEl.textContent='Choose a different password.';return;}
+  button.disabled=true;button.textContent='Updating…';
+  try{
+    const result=await api.mysql.changeOwnPassword(current,newPass);
+    if(!result.success){resultEl.classList.add('error');resultEl.textContent=result.error;return;}
+    const session=DBSessions.find(s=>s.id===activeSessionId);if(session){session.password=newPass;saveSessionsToStorage();}
+    document.getElementById('db-password-current').value='';document.getElementById('db-password-new').value='';document.getElementById('db-password-confirm').value='';
+    if(result.reconnected){resultEl.classList.add('success');resultEl.textContent=`Password updated for ${result.account}. The connection is active with the new password.`;toast('Database password updated','success');}
+    else{resultEl.classList.add('error');resultEl.textContent=`${result.error} Save the new password in your connection session before reconnecting.`;toast('Password changed; reconnect needs attention','error');}
+  }catch(error){resultEl.classList.add('error');resultEl.textContent=error.message;}
+  finally{button.disabled=false;button.textContent='Update password';}
 }
 
 // ══════════════════════════════════════════════════════════
@@ -5769,15 +6000,14 @@ function renderPHPInfoDashboard(data, allExtensions = []) {
   // Binary Card
   html += '  <div class="php-stat-card accent-blue">';
   html += '    <div class="php-stat-label">Executable Binary</div>';
-  html += `    <div class="php-stat-value" style="font-size:14px;font-family:var(--font-mono)" title="${escAttr(binary)}">${escHtml(binary)}</div>`;
+  html += `    <div class="php-stat-value php-path-value" style="font-family:var(--font-mono)" title="${escAttr(binary)}">${escHtml(binary)}</div>`;
   html += '    <div class="php-stat-sub"><a href="#" onclick="switchPanel(\'settings\');return false;" style="color:var(--blue);text-decoration:none">Change in Settings →</a></div>';
   html += '  </div>';
 
   // INI Card
   html += '  <div class="php-stat-card accent-purple">';
   html += '    <div class="php-stat-label">Loaded Configuration</div>';
-  const iniDisplay = iniPath.length > 28 ? '…' + iniPath.slice(-28) : iniPath;
-  html += `    <div class="php-stat-value" style="font-size:13px;font-family:var(--font-mono)" title="${escAttr(iniPath)}">${escHtml(iniDisplay)}</div>`;
+  html += `    <div class="php-stat-value php-path-value" style="font-family:var(--font-mono)" title="${escAttr(iniPath)}">${escHtml(iniPath)}</div>`;
   html += `    <div class="php-stat-sub"><a href="#" onclick="openPhpIniFile();return false;" style="color:var(--purple);text-decoration:none">Open php.ini ↗</a></div>`;
   html += '  </div>';
 
@@ -6105,6 +6335,7 @@ function renderCheckResults(files){
 // ══════════════════════════════════════════════════════════
 function applyTheme(themeName){
   if(!themeName) themeName = 'dark';
+  if(themeName === 'discord') themeName = 'dark';
   document.documentElement.setAttribute('data-theme', themeName);
   if(document.body) document.body.setAttribute('data-theme', themeName);
   const sel = document.getElementById('s-app-theme');
@@ -6117,6 +6348,40 @@ function applyTheme(themeName){
       window.electronAPI.theme.set(themeName);
     }
   } catch(e) {}
+}
+
+let updaterStatusUnsubscribe=null;
+async function initUpdaterUI(){
+  try{
+    const info=await api.updater.version();
+    document.getElementById('about-app-version').textContent=`v${info.version}`;
+    setAppUpdateStatus(info.portable?'Portable build · install Setup once to enable app updates.':'Current version · v'+info.version);
+    if(!updaterStatusUnsubscribe)updaterStatusUnsubscribe=api.updater.onStatus(handleUpdaterStatus);
+  }catch(error){setAppUpdateStatus('Could not read app version.');}
+}
+function setAppUpdateStatus(message){const el=document.getElementById('app-update-status');if(el)el.textContent=message;}
+function handleUpdaterStatus(event){
+  const check=document.getElementById('app-update-check'),download=document.getElementById('app-update-download'),install=document.getElementById('app-update-install');
+  if(!check)return;
+  if(event.status==='checking'){check.disabled=true;check.textContent='Checking…';setAppUpdateStatus('Checking for a newer version…');}
+  if(event.status==='available'){check.disabled=false;check.textContent='Check again';download.style.display='';install.style.display='none';setAppUpdateStatus(`Version ${event.version} is available. Download it, then restart to install.`);}
+  if(event.status==='not-available'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='none';document.getElementById('app-update-progress-wrap').style.display='none';setAppUpdateStatus(`You’re using the latest version (v${event.version}).`);}
+  if(event.status==='progress'){const wrap=document.getElementById('app-update-progress-wrap');wrap.style.display='flex';const percent=Math.max(0,Math.min(100,Number(event.percent)||0));document.getElementById('app-update-progress').style.width=percent+'%';document.getElementById('app-update-progress-label').textContent=Math.round(percent)+'%';setAppUpdateStatus('Downloading update…');download.disabled=true;}
+  if(event.status==='downloaded'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='';document.getElementById('app-update-progress').style.width='100%';document.getElementById('app-update-progress-label').textContent='100%';setAppUpdateStatus(`Version ${event.version} is ready. Restart the app to finish updating.`);}
+  if(event.status==='error'){check.disabled=false;check.textContent='Try again';download.disabled=false;download.textContent='Download update';setAppUpdateStatus('Update check failed: '+event.message);}
+}
+async function checkForAppUpdates(){
+  const button=document.getElementById('app-update-check');button.disabled=true;button.textContent='Checking…';setAppUpdateStatus('Connecting to the release server…');
+  const result=await api.updater.check();
+  if(!result.success){button.disabled=false;button.textContent='Try again';setAppUpdateStatus(result.error);}
+}
+async function downloadAppUpdate(){
+  const button=document.getElementById('app-update-download');button.disabled=true;button.textContent='Starting…';
+  const result=await api.updater.download();
+  if(!result.success){button.disabled=false;button.textContent='Download update';setAppUpdateStatus('Download failed: '+result.error);}
+}
+async function installAppUpdate(){
+  const result=await api.updater.install();if(!result.success)setAppUpdateStatus('Could not start the installer: '+result.error);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -6144,7 +6409,7 @@ async function scanPhpVersionsAction(){
   const container = document.getElementById('scanned-phps-container');
   if(!container) return;
   container.style.display = 'block';
-  container.innerHTML = '<div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:12px;height:12px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite"></span> Scanning system drives for PHP installations (Herd, Laragon, XAMPP, PHP dirs)...</div>';
+  container.innerHTML = '<div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:12px;height:12px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite"></span> Scanning for installed PHP versions...</div>';
   try {
     const res = await api.php.scanVersions();
     if(!res.success || !res.versions || res.versions.length === 0){
@@ -6180,7 +6445,7 @@ async function selectDetectedPhp(path){
 }
 
 // ══════════════════════════════════════════════════════════
-// STANDALONE PHP VERSION DOWNLOADER & HERD PROTECTION
+// STANDALONE PHP VERSION DOWNLOADER
 // ══════════════════════════════════════════════════════════
 async function loadPhpCatalog() {
   const container = document.getElementById('php-catalog-list');
@@ -6188,11 +6453,6 @@ async function loadPhpCatalog() {
   try {
     const res = await api.php.getCatalog();
     if (!res || !res.catalog) return;
-
-    const btnMigrate = document.getElementById('btn-migrate-herd');
-    if (btnMigrate && !res.herdAvailable) {
-      btnMigrate.style.display = 'none';
-    }
 
     container.innerHTML = res.catalog.map(item => `
       <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg1);padding:8px 12px;border-radius:4px;border:1px solid var(--border)">
@@ -6259,33 +6519,12 @@ async function downloadPhpVersionAction(major) {
   }
 }
 
-async function migrateHerdPhpAction() {
-  toast('Copying Herd PHP runtimes to standalone storage...', 'info');
-  try {
-    const res = await api.php.migrateHerd();
-    if (res.success) {
-      toast(`Successfully protected ${res.migrated?.length || 0} PHP versions! Safe to delete Herd.`, 'success');
-      if (res.migrated && res.migrated[0]) {
-        document.getElementById('s-php-binary').value = res.migrated[0].path;
-        await saveSettings();
-        await loadPHPInfo();
-      }
-      await loadPhpCatalog();
-    } else {
-      toast(`Migration notice: ${res.error || 'No versions migrated'}`, 'warn');
-    }
-  } catch (err) {
-    toast(`Error: ${err.message}`, 'error');
-  }
-}
-
 // ══════════════════════════════════════════════════════════
 // STANDALONE NGINX WEB SERVER DOWNLOADER & MANAGER
 // ══════════════════════════════════════════════════════════
 async function loadNginxInfo() {
   const pill = document.getElementById('nginx-status-pill');
   const verText = document.getElementById('nginx-version-text');
-  const btnMigrate = document.getElementById('btn-migrate-herd-nginx');
   const btnDl = document.getElementById('btn-dl-nginx');
   const btnReload = document.getElementById('btn-reload-nginx');
   const btnRestart = document.getElementById('btn-restart-nginx');
@@ -6303,7 +6542,6 @@ async function loadNginxInfo() {
       pill.innerText = `✓ Installed (Standalone)`;
       if (verText) verText.innerText = `${info.version || 'NGINX'} (Port 80/443 Reverse Proxy)`;
       if (btnDl) btnDl.style.display = 'none';
-      if (btnMigrate) btnMigrate.style.display = 'none';
       if (btnReload) btnReload.style.display = 'inline-block';
       if (btnRestart) btnRestart.style.display = 'inline-block';
     } else {
@@ -6315,9 +6553,6 @@ async function loadNginxInfo() {
       if (btnDl) {
         btnDl.style.display = 'inline-block';
         btnDl.innerText = '⬇️ Install Official NGINX (2MB)';
-      }
-      if (btnMigrate) {
-        btnMigrate.style.display = info.herdAvailable ? 'inline-block' : 'none';
       }
       if (btnReload) btnReload.style.display = 'none';
       if (btnRestart) btnRestart.style.display = 'none';
@@ -6364,21 +6599,6 @@ async function downloadNginxAction() {
   } finally {
     if (wrap) wrap.style.display = 'none';
     if (btn) { btn.disabled = false; btn.innerText = '⬇️ Install Official NGINX (2MB)'; }
-  }
-}
-
-async function migrateHerdNginxAction() {
-  toast("Copying Herd's NGINX to standalone storage...", 'info');
-  try {
-    const res = await api.nginx.migrateHerd();
-    if (res.success) {
-      toast('NGINX successfully protected in standalone storage! Safe to delete Herd.', 'success');
-      await loadNginxInfo();
-    } else {
-      toast(`Notice: ${res.error || 'Could not copy Herd NGINX'}`, 'warn');
-    }
-  } catch (err) {
-    toast(`Error: ${err.message}`, 'error');
   }
 }
 
@@ -6580,7 +6800,7 @@ function buildCommandPaletteItems(){
     { category: 'Actions', title: 'Clear Mail Catcher Inbox', desc: 'Remove all captured test emails', action: () => clearMailInbox() },
 
     // Themes
-    { category: 'Theme', title: 'Theme: Dark (Default)', desc: 'Switch interface to dark theme', action: () => applyTheme('dark') },
+    { category: 'Theme', title: 'Theme: Heavy Dark (Default)', desc: 'Switch interface to the near-black theme', action: () => applyTheme('dark') },
     { category: 'Theme', title: 'Theme: Dracula', desc: 'Switch interface to vibrant purple Dracula theme', action: () => applyTheme('dracula') },
     { category: 'Theme', title: 'Theme: Nord', desc: 'Switch interface to Arctic Blue Nord theme', action: () => applyTheme('nord') },
     { category: 'Theme', title: 'Theme: Monokai', desc: 'Switch interface to Monokai warm dark theme', action: () => applyTheme('monokai') },

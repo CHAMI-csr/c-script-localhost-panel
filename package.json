@@ -1,8 +1,12 @@
 {
   "name": "c-script-localhost-panel",
   "productName": "C-Script LocalHost Panel",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "C-Script LocalHost Panel — local PHP & MySQL development environment",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CHAMI-csr/c-script-localhost-panel.git"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -26,6 +30,12 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "CHAMI-csr",
+      "repo": "c-script-localhost-panel",
+      "releaseType": "release"
     },
     "extraResources": [
       {
@@ -60,6 +70,7 @@
     "electron-builder": "^24.13.3"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "mysql2": "^3.24.4"
   }
 }

@@ -1,6 +1,6 @@
 /**
  * NginxInstaller - Standalone NGINX Web Server Downloader & Manager
- * Enables full independence from Herd / Laragon / XAMPP.
+ * Installs and manages the application's own NGINX runtime.
  * Automatically downloads, extracts, and configures standalone NGINX
  * directly into %APPDATA%\antigravity-localhost\nginx.
  */
@@ -28,6 +28,7 @@ class NginxInstaller extends EventEmitter {
     this.tempDir = path.join(this.baseDir, 'temp');
 
     this._ensureDir(this.baseDir);
+    this.repairMissingSslReferences();
   }
 
   _ensureDir(dir) {
@@ -37,23 +38,46 @@ class NginxInstaller extends EventEmitter {
   }
 
   /**
+   * A virtual host with missing certificate files makes nginx -t fail and
+   * prevents the whole web server from starting. Keep its HTTP config, but
+   * remove the unusable HTTPS listener and certificate directives.
+   */
+  repairMissingSslReferences() {
+    let repaired = 0;
+    try {
+      if (!fs.existsSync(this.vhostsDir)) return repaired;
+      for (const entry of fs.readdirSync(this.vhostsDir, { withFileTypes: true })) {
+        if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.conf')) continue;
+        const confPath = path.join(this.vhostsDir, entry.name);
+        let content;
+        try { content = fs.readFileSync(confPath, 'utf8'); } catch (error) { continue; }
+        const lines = content.split(/\r?\n/);
+        const hasMissingCert = lines.some(line => {
+          const match = line.match(/^\s*ssl_certificate(?:_key)?\s+["']?([^"';]+)["']?\s*;/i);
+          if (!match || !path.isAbsolute(match[1].trim())) return false;
+          return !fs.existsSync(match[1].trim());
+        });
+        if (!hasMissingCert) continue;
+
+        const repairedContent = lines.filter(line =>
+          !/^\s*ssl_certificate(?:_key)?\s+/i.test(line) &&
+          !/^\s*listen\b.*\bssl\b/i.test(line)
+        ).join('\n');
+        fs.writeFileSync(confPath, repairedContent, 'utf8');
+        repaired++;
+        console.warn(`[NginxInstaller] Disabled SSL settings with missing certificate files in ${entry.name}; HTTP remains available.`);
+      }
+    } catch (error) {
+      console.warn('[NginxInstaller] Could not repair missing SSL certificate settings:', error.message);
+    }
+    return repaired;
+  }
+
+  /**
    * Check if standalone NGINX is installed
    */
   isInstalled() {
     return fs.existsSync(this.exePath);
-  }
-
-  /**
-   * Find Herd's NGINX if present on the machine
-   */
-  getHerdNginx() {
-    const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
-    const herdDir = path.join(programFiles, 'Herd', 'resources', 'app.asar.unpacked', 'resources', 'bin', 'nginx');
-    const herdExe = path.join(herdDir, 'nginx.exe');
-    if (fs.existsSync(herdExe)) {
-      return { dir: herdDir, exe: herdExe };
-    }
-    return null;
   }
 
   /**
@@ -88,7 +112,6 @@ class NginxInstaller extends EventEmitter {
   async getInfo() {
     const installed = this.isInstalled();
     const running = await this.isRunning();
-    const herd = this.getHerdNginx();
     const version = installed ? await this.getVersion() : null;
 
     return {
@@ -99,41 +122,9 @@ class NginxInstaller extends EventEmitter {
       baseDir: this.baseDir,
       confPath: this.confPath,
       vhostsDir: this.vhostsDir,
-      herdAvailable: !!herd,
-      herdPath: herd ? herd.exe : null,
       targetVersion: NGINX_VERSION,
       downloadUrl: NGINX_DOWNLOAD_URL
     };
-  }
-
-  /**
-   * Migrate NGINX from Herd to Standalone AppData
-   */
-  async migrateFromHerd() {
-    const herd = this.getHerdNginx();
-    if (!herd) {
-      return { success: false, error: 'Herd NGINX installation not found.' };
-    }
-
-    try {
-      this._ensureDir(this.baseDir);
-      fs.cpSync(herd.dir, this.baseDir, { recursive: true });
-      this._ensureDir(this.vhostsDir);
-      this._ensureDir(this.logsDir);
-      this._ensureDir(this.tempDir);
-      this.setupDefaultConf();
-
-      const version = await this.getVersion();
-      return {
-        success: true,
-        version,
-        exePath: this.exePath,
-        vhostsDir: this.vhostsDir,
-        migrated: true
-      };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
   }
 
   /**

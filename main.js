@@ -50,9 +50,11 @@ const MysqlInstaller = require('./src/mysqlInstaller');
 
 let portManager;
 let tunnelManager = new TunnelManager();
-let phpInstaller = new PhpInstaller();
-let nginxInstaller = new NginxInstaller();
-let mysqlInstaller = new MysqlInstaller();
+let phpInstaller = null;
+let nginxInstaller = null;
+let mysqlInstaller = null;
+let autoUpdater = null;
+let updaterCheckInFlight = false;
 
 // ─── Config Paths ───────────────────────────────────────────────────────────
 let CONFIG_DIR = path.join(os.homedir(), '.c-script');
@@ -61,17 +63,7 @@ let SITES_FILE = path.join(CONFIG_DIR, 'sites.json');
 
 function ensureConfigDir() {
   const preferred = path.join(os.homedir(), '.c-script');
-  const legacy = path.join(os.homedir(), '.local-herd');
-
-  if (!fs.existsSync(preferred) && fs.existsSync(legacy)) {
-    try {
-      fs.renameSync(legacy, preferred);
-    } catch (e) {
-      CONFIG_DIR = legacy;
-    }
-  } else {
-    CONFIG_DIR = preferred;
-  }
+  CONFIG_DIR = preferred;
 
   CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
   SITES_FILE = path.join(CONFIG_DIR, 'sites.json');
@@ -200,7 +192,7 @@ function createWindow() {
       symbolColor: '#9999B3',
       height: 36
     },
-    backgroundColor: '#0D0D14',
+    backgroundColor: '#000000',
     show: false,
     icon: path.join(__dirname, 'assets', 'icon.png').replace(/\\/g, '/')
   });
@@ -260,10 +252,19 @@ app.whenReady().then(async () => {
   // Auto-provision bundled stack (PHP 8.4, NGINX, MySQL) on fresh install
   try {
     const AutoProvisioner = require('./src/autoProvisioner');
-    await AutoProvisioner.provisionIfNeeded();
+    const provision = await AutoProvisioner.provisionIfNeeded();
+    if (!provision.success) {
+      console.warn('[AutoProvisioner] Some bundled runtimes could not be prepared:', provision.errors);
+    }
   } catch (provErr) {
     console.error('[AutoProvisioner] Startup provision error:', provErr);
   }
+
+  // Construct installers only after provisioning; their constructors create AppData
+  // directories that would otherwise make AutoProvisioner mistake empty folders for runtimes.
+  phpInstaller = new PhpInstaller();
+  nginxInstaller = new NginxInstaller();
+  mysqlInstaller = new MysqlInstaller();
 
   phpManager = new PhpManager();
   mysqlManager = new MySQLManager();
@@ -325,9 +326,6 @@ app.whenReady().then(async () => {
     nginxInstaller.on('install-status', (data) => {
       mainWindow?.webContents.send('nginx:install-status', data);
     });
-    if (!nginxInstaller.isInstalled() && nginxInstaller.getHerdNginx()) {
-      nginxInstaller.migrateFromHerd().catch(() => {});
-    }
   }
 
   if (mysqlInstaller) {
@@ -340,6 +338,7 @@ app.whenReady().then(async () => {
   }
 
   createWindow();
+  setupAppUpdater();
   createTray();
 
   app.on('activate', () => {
@@ -423,7 +422,7 @@ ipcMain.handle('sites:start', async (event, id) => {
   if (!phpCheck.available) {
     return {
       success: false,
-      error: 'PHP runtime not found. Make sure PHP is installed or configure the PHP path in Settings.'
+      error: phpCheck.error || 'PHP runtime not found. Make sure PHP is installed or configure the PHP path in Settings.'
     };
   }
 
@@ -615,6 +614,70 @@ ipcMain.handle('mysql:query', async (event, { database, query }) => {
 
 ipcMain.handle('mysql:create-db', async (event, { name, charset, collation }) => {
   return await mysqlManager.createDatabase(name, charset, collation);
+});
+
+function setupAppUpdater() {
+  try {
+    ({ autoUpdater } = require('electron-updater'));
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.allowPrerelease = false;
+    const report = (status, details = {}) => mainWindow?.webContents.send('updater:status', { status, ...details });
+    autoUpdater.on('checking-for-update', () => report('checking'));
+    autoUpdater.on('update-available', info => { updaterCheckInFlight = false; report('available', { version: info.version, releaseDate: info.releaseDate, releaseNotes: info.releaseNotes || '' }); });
+    autoUpdater.on('update-not-available', info => { updaterCheckInFlight = false; report('not-available', { version: info.version }); });
+    autoUpdater.on('download-progress', progress => report('progress', { percent: progress.percent, transferred: progress.transferred, total: progress.total }));
+    autoUpdater.on('update-downloaded', info => report('downloaded', { version: info.version }));
+    autoUpdater.on('error', error => { updaterCheckInFlight = false; report('error', { message: error.message || String(error) }); });
+  } catch (error) {
+    console.warn('[Updater] Could not initialize:', error.message);
+  }
+}
+
+ipcMain.handle('updater:version', () => ({ version: app.getVersion(), packaged: app.isPackaged, portable: !!process.env.PORTABLE_EXECUTABLE_DIR }));
+ipcMain.handle('updater:check', async () => {
+  if (!app.isPackaged) return { success: false, error: 'Update checks are available in the installed app.' };
+  if (process.env.PORTABLE_EXECUTABLE_DIR) return { success: false, error: 'The portable build cannot self-update. Install the Setup version once to enable in-app updates.' };
+  if (!autoUpdater) return { success: false, error: 'The updater could not be initialized.' };
+  if (updaterCheckInFlight) return { success: false, error: 'An update check is already running.' };
+  updaterCheckInFlight = true;
+  try { await autoUpdater.checkForUpdates(); return { success: true }; }
+  catch (error) { updaterCheckInFlight = false; return { success: false, error: error.message }; }
+});
+ipcMain.handle('updater:download', async () => {
+  if (!autoUpdater) return { success: false, error: 'The updater could not be initialized.' };
+  try { await autoUpdater.downloadUpdate(); return { success: true }; }
+  catch (error) { return { success: false, error: error.message }; }
+});
+ipcMain.handle('updater:install', () => {
+  if (!autoUpdater) return { success: false, error: 'The updater could not be initialized.' };
+  isQuitting = true;
+  autoUpdater.quitAndInstall(false, true);
+  return { success: true };
+});
+
+ipcMain.handle('mysql:create-table', async (event, { database, table, columns, options }) => {
+  return await mysqlManager.createTable(database, table, columns, options);
+});
+
+ipcMain.handle('mysql:server-settings', async () => {
+  return await mysqlManager.getServerSettings();
+});
+
+ipcMain.handle('mysql:apply-session-settings', async (event, settings) => {
+  return await mysqlManager.applySessionSettings(settings);
+});
+
+ipcMain.handle('mysql:set-database-defaults', async (event, { database, charset, collation }) => {
+  return await mysqlManager.setDatabaseDefaults(database, charset, collation);
+});
+
+ipcMain.handle('mysql:set-server-limits', async (event, { maxConnections, maxAllowedPacket }) => {
+  return await mysqlManager.setServerLimits(maxConnections, maxAllowedPacket);
+});
+
+ipcMain.handle('mysql:change-password', async (event, { currentPassword, newPassword }) => {
+  return await mysqlManager.changeOwnPassword(currentPassword, newPassword);
 });
 
 ipcMain.handle('mysql:drop-db', async (event, name) => {
@@ -1157,11 +1220,6 @@ async function scanInstalledPhps() {
     path.join(appData, 'antigravity-localhost', 'php'),
     path.join(appData, 'antigravity-localhost', 'php', 'php84'),
     path.join(appData, 'antigravity-localhost', 'php', 'php85'),
-    path.join(os.homedir(), '.config', 'herd', 'bin'),
-    path.join(os.homedir(), '.config', 'herd', 'bin', 'php84'),
-    path.join(os.homedir(), '.config', 'herd', 'bin', 'php85'),
-    path.join(os.homedir(), '.config', 'herd', 'bin', 'php83'),
-    path.join(os.homedir(), '.config', 'herd', 'bin', 'php82'),
     'C:\\php', 'C:\\tools\\php', 'C:\\xampp\\php', 'C:\\laragon\\bin\\php'
   ];
 
@@ -1191,8 +1249,7 @@ async function scanInstalledPhps() {
         const majorMinor = fullVer.split('.').slice(0, 2).join('.');
         const norm = bin.toLowerCase();
         const isStandalone = norm.includes('c-script-localhost') || norm.includes('antigravity-localhost');
-        const isHerd = norm.includes('herd');
-        const source = isStandalone ? 'Standalone (Herd-Safe)' : (isHerd ? 'Herd' : 'System');
+        const source = isStandalone ? 'Standalone' : 'System';
         list.push({ path: bin, version: `PHP ${fullVer}`, major: majorMinor, source, isStandalone });
       }
     } catch (e) {}
@@ -1220,15 +1277,6 @@ ipcMain.handle('php:download-version', async (event, version) => {
   return res;
 });
 
-ipcMain.handle('php:migrate-herd', async () => {
-  if (!phpInstaller) return { success: false, error: 'PhpInstaller not ready' };
-  const res = await phpInstaller.migrateFromHerd();
-  if (logManager) {
-    logManager.log('PHP', res.success ? `Migrated ${res.migrated?.length || 0} PHP versions from Herd to Standalone AppData` : `Herd migration failed: ${res.error}`, res.success ? 'success' : 'warn');
-  }
-  return res;
-});
-
 // ─── IPC: Standalone NGINX Installer & Manager ───────────────────────────────
 ipcMain.handle('nginx:info', async () => {
   return nginxInstaller ? nginxInstaller.getInfo() : { installed: false };
@@ -1239,15 +1287,6 @@ ipcMain.handle('nginx:download', async () => {
   const res = await nginxInstaller.downloadAndInstall();
   if (logManager) {
     logManager.log('NGINX', res.success ? `NGINX ${res.version} installed to ${res.exePath}` : `NGINX download failed: ${res.error}`, res.success ? 'success' : 'error');
-  }
-  return res;
-});
-
-ipcMain.handle('nginx:migrate', async () => {
-  if (!nginxInstaller) return { success: false, error: 'NginxInstaller not ready' };
-  const res = await nginxInstaller.migrateFromHerd();
-  if (logManager) {
-    logManager.log('NGINX', res.success ? `Migrated NGINX from Herd to Standalone AppData` : `Herd NGINX migration failed: ${res.error}`, res.success ? 'success' : 'warn');
   }
   return res;
 });
@@ -1414,7 +1453,7 @@ ipcMain.handle('theme:set', (event, theme) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     try {
       const colors = {
-        dark: { color: '#0B0B13', symbolColor: '#EEEEF6' },
+        dark: { color: '#000000', symbolColor: '#F2F3F5' },
         dracula: { color: '#1E1F29', symbolColor: '#F8F8F2' },
         nord: { color: '#242933', symbolColor: '#ECEFF4' },
         monokai: { color: '#1E1F1C', symbolColor: '#F8F8F2' },

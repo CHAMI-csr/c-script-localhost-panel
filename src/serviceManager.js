@@ -45,18 +45,20 @@ class ServiceManager {
    * Dynamically detect PHP environment info from the system
    */
   async _detectPhp(phpManager = null) {
-    const binary = phpManager?.phpBinary || 'php';
+    const binary = phpManager?.getEffectiveBinary?.() || phpManager?.phpBinary || 'php';
     let version = 'PHP';
     let fullVersion = '';
     let iniPath = '';
     let binPath = '';
     let cgiPath = '';
+    let available = false;
 
     // 1. Version
     try {
-      const { stdout } = await execPromise(`"${binary}" -v`);
+      const { stdout } = await execPromise(`"${binary}" -v`, { timeout: 8000, windowsHide: true });
       const vMatch = stdout.match(/PHP (\d+\.\d+[\.\d]*)/);
       if (vMatch) {
+        available = true;
         fullVersion = vMatch[1];
         const majorMinor = fullVersion.split('.').slice(0, 2).join('.');
         version = `PHP ${majorMinor}`;
@@ -65,7 +67,7 @@ class ServiceManager {
 
     // 2. php.ini path
     try {
-      const { stdout } = await execPromise(`"${binary}" -r "echo php_ini_loaded_file();"`);
+      const { stdout } = await execPromise(`"${binary}" -r "echo php_ini_loaded_file();"`, { timeout: 8000, windowsHide: true });
       iniPath = stdout.trim();
     } catch (e) {}
 
@@ -81,11 +83,6 @@ class ServiceManager {
     const candidateDirs = [];
     if (iniPath) candidateDirs.push(path.dirname(iniPath));
     if (binPath) candidateDirs.push(path.dirname(binPath));
-    if (process.env.USERPROFILE) {
-      candidateDirs.push(path.join(process.env.USERPROFILE, '.config', 'herd', 'bin', 'php84'));
-      candidateDirs.push(path.join(process.env.USERPROFILE, '.config', 'herd', 'bin'));
-    }
-
     for (const dir of candidateDirs) {
       const potentialCgi = path.join(dir, 'php-cgi.exe');
       if (fs.existsSync(potentialCgi)) {
@@ -94,7 +91,7 @@ class ServiceManager {
       }
     }
 
-    return { version, fullVersion, iniPath, binPath, cgiPath };
+    return { version, fullVersion, iniPath, binPath, cgiPath, available };
   }
 
   /**
@@ -161,7 +158,6 @@ class ServiceManager {
    * Dynamically detect NGINX / Apache Web Server
    */
   async _detectWebServer() {
-    const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
     const userProfile = process.env.USERPROFILE || '';
     let type = 'nginx';
     let name = 'NGINX';
@@ -180,39 +176,9 @@ class ServiceManager {
       configPath = path.join(prefixDir, 'conf', 'nginx.conf');
     }
 
-    if (!exePath) {
-      try {
-        const { stdout } = await execPromise('where.exe nginx');
-        const found = stdout.split(/\r?\n/)[0]?.trim();
-        if (found && fs.existsSync(found)) exePath = found;
-      } catch (e) {}
-    }
-
-    if (!exePath) {
-      const herdNginx = path.join(programFiles, 'Herd', 'resources', 'app.asar.unpacked', 'resources', 'bin', 'nginx', 'nginx.exe');
-      if (fs.existsSync(herdNginx)) exePath = herdNginx;
-    }
-
-    if (!exePath) {
-      const candidatePaths = [
-        path.join('C:\\nginx', 'nginx.exe'),
-        path.join(programFiles, 'nginx', 'nginx.exe')
-      ];
-      for (const p of candidatePaths) {
-        if (fs.existsSync(p)) {
-          exePath = p;
-          break;
-        }
-      }
-    }
-
     if (exePath && !configPath) {
-      const herdConf = userProfile ? path.join(userProfile, '.config', 'herd', 'config', 'nginx', 'nginx.conf') : '';
       const nextToExeConf = path.join(path.dirname(exePath), '..', 'conf', 'nginx.conf');
-      if (herdConf && fs.existsSync(herdConf)) {
-        configPath = herdConf;
-        prefixDir = path.dirname(herdConf);
-      } else if (fs.existsSync(nextToExeConf)) {
+      if (fs.existsSync(nextToExeConf)) {
         configPath = nextToExeConf;
         prefixDir = path.dirname(path.dirname(exePath));
       }
@@ -225,9 +191,10 @@ class ServiceManager {
    * Get all active services dynamically with zero hardcoded values
    */
   async getServices(siteManager = null, phpManager = null) {
-    const [procs, p80, p3306, phpInfo, mysqlInfo, webInfo] = await Promise.all([
+    const [procs, p80, p9000, p3306, phpInfo, mysqlInfo, webInfo] = await Promise.all([
       this._getProcessList(),
       this.checkPort(80),
+      this.checkPort(9000),
       this.checkPort(3306),
       this._detectPhp(phpManager),
       this._detectMySQL(),
@@ -240,20 +207,21 @@ class ServiceManager {
 
     // Check running sites in phpManager
     const runningSites = phpManager ? (phpManager.getRunning() || []) : [];
-    const isPhpActive = phpCgiProcs.length > 0 || runningSites.length > 0;
-    const isNginxActive = nginxProcs.length > 0 || p80;
+    const isPhpActive = phpCgiProcs.length > 0 || runningSites.length > 0 || p9000;
+    const isNginxActive = nginxProcs.length > 0 || (Boolean(webInfo.exePath && fs.existsSync(webInfo.exePath)) && p80);
     const isMySQLActive = mysqlProcs.length > 0 || p3306 || (mysqlInfo.state && mysqlInfo.state.toLowerCase() === 'running');
 
     const services = [];
 
     // 1. Web Server (NGINX / Apache)
-    if (webInfo.exePath || isNginxActive) {
+    {
       services.push({
         id: 'webserver',
         name: webInfo.name,
         type: 'webserver',
         displayName: `${webInfo.name} Web Server`,
         status: isNginxActive ? 'running' : 'stopped',
+        available: Boolean(webInfo.exePath && fs.existsSync(webInfo.exePath)),
         port: 80,
         portActive: p80,
         pids: nginxProcs.map(p => p.pid),
@@ -261,7 +229,9 @@ class ServiceManager {
         path: webInfo.exePath,
         configPath: webInfo.configPath,
         prefixDir: webInfo.prefixDir,
-        description: isNginxActive ? 'Active and handling HTTP traffic on port 80' : 'Web server is stopped'
+        description: isNginxActive
+          ? 'Active and handling HTTP traffic on port 80'
+          : (webInfo.exePath && fs.existsSync(webInfo.exePath) ? 'Web server is installed but stopped' : 'NGINX is not installed. Install the bundled web server to host sites.')
       });
     }
 
@@ -277,15 +247,16 @@ class ServiceManager {
       type: 'php',
       displayName: `${phpInfo.version} FastCGI / Runtime`,
       status: isPhpActive ? 'running' : 'stopped',
+      available: phpInfo.available,
       port: 9000,
-      portActive: isPhpActive,
+      portActive: p9000 || runningSites.length > 0,
       pids: phpPids,
       procCount: phpPids.length,
       path: phpInfo.binPath || phpInfo.cgiPath,
       configPath: phpInfo.iniPath,
       description: isPhpActive
         ? `Active (${runningSites.length > 0 ? runningSites.length + ' site(s) running' : 'Runtime active'})`
-        : 'PHP service is stopped. Start service to run sites.'
+        : (phpInfo.available ? 'PHP runtime is ready. Start a site to run PHP.' : 'PHP runtime is unavailable. Install PHP or choose php.exe in Settings.')
     });
 
     // 3. MySQL Database Server
@@ -295,6 +266,7 @@ class ServiceManager {
       type: 'database',
       displayName: mysqlInfo.displayName || 'MySQL Database Server',
       status: isMySQLActive ? 'running' : 'stopped',
+      available: Boolean(mysqlInfo.serviceName || (mysqlInfo.exePath && fs.existsSync(mysqlInfo.exePath))),
       port: 3306,
       portActive: p3306,
       serviceName: mysqlInfo.serviceName,
@@ -302,7 +274,9 @@ class ServiceManager {
       procCount: mysqlProcs.length,
       path: mysqlInfo.exePath,
       configPath: mysqlInfo.configPath,
-      description: isMySQLActive ? 'Relational database server listening on port 3306' : 'Database server is stopped'
+      description: isMySQLActive
+        ? 'Relational database server listening on port 3306'
+        : (mysqlInfo.serviceName || mysqlInfo.exePath ? 'Database server is installed but stopped' : 'MySQL / MariaDB is not installed. Install the bundled database runtime to use databases.')
     });
 
     return services;
@@ -328,12 +302,29 @@ class ServiceManager {
   async startService(id, siteManager = null, phpManager = null, mysqlManager = null) {
     try {
       if (id === 'php' || id.startsWith('php')) {
+        const runtime = phpManager ? await phpManager.getVersion() : null;
+        if (runtime && !runtime.available) {
+          const error = runtime.error || 'PHP executable not found. Install a supported PHP runtime or choose php.exe in Settings.';
+          return { success: false, error };
+        }
         const phpInfo = await this._detectPhp(phpManager);
         if (phpInfo.cgiPath && fs.existsSync(phpInfo.cgiPath)) {
-          spawn(phpInfo.cgiPath, ['-b', '127.0.0.1:9000'], { detached: true, stdio: 'ignore' }).unref();
-          return { success: true, message: `${phpInfo.version} FastCGI started on 127.0.0.1:9000` };
+          if (await this.checkPort(9000)) {
+            return { success: true, message: 'PHP FastCGI is already listening on 127.0.0.1:9000' };
+          }
+          const proc = spawn(phpInfo.cgiPath, ['-b', '127.0.0.1:9000'], { detached: true, stdio: 'ignore', windowsHide: true });
+          let spawnError = null;
+          proc.on('error', err => { spawnError = err; });
+          proc.unref();
+          for (let attempt = 0; attempt < 20; attempt++) {
+            if (spawnError) return { success: false, error: `PHP FastCGI failed to start: ${spawnError.message}` };
+            if (proc.exitCode != null) return { success: false, error: `PHP FastCGI exited with code ${proc.exitCode}. Check the PHP configuration and extensions.` };
+            if (await this.checkPort(9000)) return { success: true, message: `${phpInfo.version} FastCGI started on 127.0.0.1:9000` };
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          return { success: false, error: 'PHP FastCGI did not become ready on port 9000.' };
         }
-        return { success: true, message: `${phpInfo.version} ready for local sites` };
+        return { success: true, message: `${runtime?.version || phpInfo.version} runtime is available for local sites` };
       }
 
       if (id === 'webserver' || id === 'nginx') {
@@ -342,8 +333,30 @@ class ServiceManager {
           const args = [];
           if (webInfo.prefixDir) args.push('-p', webInfo.prefixDir);
           if (webInfo.configPath) args.push('-c', webInfo.configPath);
-          spawn(webInfo.exePath, args, { detached: true, stdio: 'ignore' }).unref();
-          return { success: true, message: `${webInfo.name} Web Server started` };
+          const nginxAlreadyRunning = (await this._getProcessList()).some(p => p.name.toLowerCase() === 'nginx.exe');
+          if (nginxAlreadyRunning) {
+            return { success: true, message: `${webInfo.name} Web Server is already running` };
+          }
+
+          const testArgs = args.map(arg => `"${String(arg).replace(/"/g, '\\"')}"`).join(' ');
+          try {
+            await execPromise(`"${webInfo.exePath}" ${testArgs} -t`, { timeout: 10000, windowsHide: true });
+          } catch (err) {
+            return { success: false, error: `NGINX configuration check failed: ${(err.stderr || err.message || '').trim()}` };
+          }
+
+          const proc = spawn(webInfo.exePath, args, { detached: true, stdio: 'ignore', windowsHide: true });
+          let spawnError = null;
+          proc.on('error', err => { spawnError = err; });
+          proc.unref();
+          for (let attempt = 0; attempt < 20; attempt++) {
+            if (spawnError) return { success: false, error: `NGINX failed to start: ${spawnError.message}` };
+            if (proc.exitCode != null) return { success: false, error: `NGINX exited with code ${proc.exitCode}. Check its configuration and port 80 availability.` };
+            const active = (await this._getProcessList()).some(p => p.name.toLowerCase() === 'nginx.exe');
+            if (active || await this.checkPort(80)) return { success: true, message: `${webInfo.name} Web Server started` };
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          return { success: false, error: 'NGINX did not become ready. Check the configuration and port 80 availability.' };
         }
         return { success: false, error: 'Web server executable not found on system' };
       }
@@ -351,6 +364,17 @@ class ServiceManager {
       if (id === 'mysql') {
         const mysqlInfo = await this._detectMySQL();
         const svcName = mysqlInfo.serviceName;
+
+        if (await this.checkPort(3306)) {
+          return { success: true, message: 'MySQL is already listening on port 3306' };
+        }
+
+        if (!svcName && (!mysqlInfo.exePath || !fs.existsSync(mysqlInfo.exePath))) {
+          return {
+            success: false,
+            error: 'MySQL or MariaDB is not installed. Install the bundled database runtime or configure its executable in Settings.'
+          };
+        }
 
         // Method 1: Try standard net start
         if (svcName) {
@@ -377,20 +401,28 @@ class ServiceManager {
         if (mysqlInfo.exePath && fs.existsSync(mysqlInfo.exePath)) {
           const spawnArgs = mysqlInfo.configPath ? [`--defaults-file=${mysqlInfo.configPath}`, '--console'] : [];
           const procCwd = path.dirname(path.dirname(mysqlInfo.exePath));
-          spawn(mysqlInfo.exePath, spawnArgs, { cwd: procCwd, detached: true, stdio: 'ignore' }).unref();
+          const proc = spawn(mysqlInfo.exePath, spawnArgs, { cwd: procCwd, detached: true, stdio: 'ignore', windowsHide: true });
+          let spawnError = null;
+          proc.on('error', err => { spawnError = err; });
+          proc.unref();
           await new Promise(r => setTimeout(r, 1500));
           if (await this.checkPort(3306)) {
             return { success: true, message: 'MySQL started' };
+          }
+          if (spawnError) {
+            return { success: false, error: `MySQL could not start: ${spawnError.message}` };
+          }
+          if (proc.exitCode != null) {
+            return { success: false, error: `MySQL exited with code ${proc.exitCode}. Check the database configuration and runtime requirements.` };
           }
         }
 
         const isRunning = await this.checkPort(3306);
         if (isRunning) return { success: true, message: 'MySQL is active' };
 
-        return {
-          success: false,
-          error: `Cannot start MySQL (${svcName || 'Service'}). Windows requires Administrator permission (UAC) to start the system service.`
-        };
+        return svcName
+          ? { success: false, error: `Could not start Windows service "${svcName}". Try running the app as Administrator and check the Windows service logs.` }
+          : { success: false, error: 'MySQL did not become ready on port 3306. Check my.ini, port availability, and database logs.' };
       }
 
       return { success: false, error: 'Unknown service: ' + id };

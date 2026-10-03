@@ -27,9 +27,6 @@ class TunnelManager extends EventEmitter {
     const legacyBin = path.join(appData, 'antigravity-localhost', 'bin', 'cloudflared.exe');
     if (fs.existsSync(legacyBin)) return legacyBin;
 
-    const herdBin = path.join(userProfile, '.config', 'herd', 'bin', 'cloudflared.exe');
-    if (fs.existsSync(herdBin)) return herdBin;
-
     const progFiles = 'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe';
     if (fs.existsSync(progFiles)) return progFiles;
 

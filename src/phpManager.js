@@ -6,6 +6,8 @@ const { EventEmitter } = require('events');
 const { spawn, exec, execFile } = require('child_process');
 const net = require('net');
 const fs = require('fs');
+const path = require('path');
+const { repairPhpConfigForBinary } = require('./phpErrorRepair');
 
 class PhpManager extends EventEmitter {
   constructor() {
@@ -54,19 +56,32 @@ class PhpManager extends EventEmitter {
   getEffectiveBinary() {
     const custom = String(this.phpBinary || '').trim();
     if (custom && custom !== 'php' && fs.existsSync(custom)) {
+      repairPhpConfigForBinary(custom);
       return custom;
     }
     const userProfile = process.env.USERPROFILE || '';
     const appData = process.env.APPDATA || (userProfile ? path.join(userProfile, 'AppData', 'Roaming') : '');
     const standalone84 = path.join(appData, 'c-script-localhost', 'php', 'php84', 'php.exe');
-    if (fs.existsSync(standalone84)) return standalone84;
+    if (fs.existsSync(standalone84)) {
+      repairPhpConfigForBinary(standalone84);
+      return standalone84;
+    }
     const legacy84 = path.join(appData, 'antigravity-localhost', 'php', 'php84', 'php.exe');
-    if (fs.existsSync(legacy84)) return legacy84;
+    if (fs.existsSync(legacy84)) {
+      repairPhpConfigForBinary(legacy84);
+      return legacy84;
+    }
 
     const standalone85 = path.join(appData, 'c-script-localhost', 'php', 'php85', 'php.exe');
-    if (fs.existsSync(standalone85)) return standalone85;
+    if (fs.existsSync(standalone85)) {
+      repairPhpConfigForBinary(standalone85);
+      return standalone85;
+    }
     const legacy85 = path.join(appData, 'antigravity-localhost', 'php', 'php85', 'php.exe');
-    if (fs.existsSync(legacy85)) return legacy85;
+    if (fs.existsSync(legacy85)) {
+      repairPhpConfigForBinary(legacy85);
+      return legacy85;
+    }
 
     return this.phpBinary || 'php';
   }
@@ -79,6 +94,7 @@ class PhpManager extends EventEmitter {
 
   _spawnPhp(args, cwd, binary) {
     const bin = binary || this.getEffectiveBinary();
+    repairPhpConfigForBinary(bin);
     const options = {
       cwd,
       windowsHide: true,
@@ -148,12 +164,16 @@ class PhpManager extends EventEmitter {
   /** Get installed PHP version */
   getVersion() {
     return new Promise((resolve) => {
+      const binary = this.getEffectiveBinary();
       this._execPhp(['--version'], (err, stdout, stderr) => {
         if (err) {
-          const error = err.code === 'ENOENT'
-            ? `PHP executable not found: ${this.phpBinary}. Choose php.exe in Settings.`
+          let error = err.code === 'ENOENT'
+            ? `PHP executable not found: ${binary}. Choose php.exe in Settings.`
             : (stderr || err.message || 'Unable to run PHP');
-          resolve({ success: false, available: false, version: null, binary: this.phpBinary, error: error.trim() });
+          if (/VCRUNTIME\d+|MSVCP\d+|side-by-side|0xc0000135/i.test(error)) {
+            error = 'PHP needs the Microsoft Visual C++ 2015–2022 Redistributable (x64). Install it, then restart the app.';
+          }
+          resolve({ success: false, available: false, version: null, binary, error: error.trim() });
           return;
         }
         const out = stdout || stderr;
@@ -162,7 +182,7 @@ class PhpManager extends EventEmitter {
           success: true,
           available: true,
           version: match ? match[1] : 'Unknown',
-          binary: this.phpBinary,
+          binary,
           fullOutput: out.trim()
         });
       });
@@ -172,7 +192,7 @@ class PhpManager extends EventEmitter {
   /** Get PHP extensions and config info */
   getInfo() {
     const run = args => new Promise(resolve => this._execPhp(args, (err, stdout, stderr) =>
-      resolve({ error: err, output: stdout || stderr || '' })
+      resolve({ error: err, output: stdout || '', stderr: stderr || '' })
     ));
     return Promise.all([
       run(['-m']),
@@ -182,11 +202,27 @@ class PhpManager extends EventEmitter {
       if (modules.error && ini.error && version.error) {
         return { success: false, error: modules.error.message || 'Unable to run PHP' };
       }
+      const outputLines = modules.output.split(/\r?\n/);
+      let inModuleSection = false;
+      const extensions = [];
+      for (const line of outputLines) {
+        const trimmed = line.trim();
+        if (/^\[(PHP|Zend) Modules\]$/i.test(trimmed)) {
+          inModuleSection = true;
+          continue;
+        }
+        if (inModuleSection && /^[a-z][a-z0-9 _.-]*$/i.test(trimmed)) extensions.push(trimmed);
+      }
+      const warnings = [...new Set([modules.stderr, ini.stderr, version.stderr]
+        .flatMap(output => output.split(/\r?\n/))
+        .map(line => line.trim())
+        .filter(line => /^(Warning|PHP Warning|PHP Startup Warning|Notice):/i.test(line)))];
       return {
         success: true,
-        extensions: modules.error ? [] : modules.output.trim().split(/\r?\n/).filter(line => line && !line.startsWith('[')),
+        extensions: modules.error ? [] : [...new Set(extensions)],
         iniPath: ini.error ? 'Not found' : (ini.output.trim() || 'None'),
-        version: version.error ? 'Unknown' : version.output.trim()
+        version: version.error ? 'Unknown' : version.output.trim(),
+        warnings
       };
     });
   }

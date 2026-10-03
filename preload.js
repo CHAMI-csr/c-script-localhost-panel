@@ -38,6 +38,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('mysql:delete-row', { database, table, primary }),
     query: (database, query) => ipcRenderer.invoke('mysql:query', { database, query }),
     createDb: (name, charset, collation) => ipcRenderer.invoke('mysql:create-db', { name, charset, collation }),
+    createTable: (database, table, columns, options) => ipcRenderer.invoke('mysql:create-table', { database, table, columns, options }),
+    serverSettings: () => ipcRenderer.invoke('mysql:server-settings'),
+    applySessionSettings: (settings) => ipcRenderer.invoke('mysql:apply-session-settings', settings),
+    setDatabaseDefaults: (database, charset, collation) => ipcRenderer.invoke('mysql:set-database-defaults', { database, charset, collation }),
+    setServerLimits: (maxConnections, maxAllowedPacket) => ipcRenderer.invoke('mysql:set-server-limits', { maxConnections, maxAllowedPacket }),
+    changeOwnPassword: (currentPassword, newPassword) => ipcRenderer.invoke('mysql:change-password', { currentPassword, newPassword }),
     dropDb: (name) => ipcRenderer.invoke('mysql:drop-db', name),
     tableStructure: (database, table) => ipcRenderer.invoke('mysql:table-structure', { database, table }),
     tableInfo: (database, table) => ipcRenderer.invoke('mysql:table-info', { database, table }),
@@ -87,7 +93,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     toggleExtension: (name, enable) => ipcRenderer.invoke('php:toggle-extension', { name, enable }),
     getCatalog: () => ipcRenderer.invoke('php:get-catalog'),
     downloadVersion: (version) => ipcRenderer.invoke('php:download-version', version),
-    migrateHerd: () => ipcRenderer.invoke('php:migrate-herd'),
     onInstallProgress: (callback) => {
       const dlHandler = (event, data) => callback('download', data);
       const stHandler = (event, data) => callback('status', data);
@@ -104,7 +109,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   nginx: {
     getInfo: () => ipcRenderer.invoke('nginx:info'),
     download: () => ipcRenderer.invoke('nginx:download'),
-    migrateHerd: () => ipcRenderer.invoke('nginx:migrate'),
     start: () => ipcRenderer.invoke('nginx:start'),
     stop: () => ipcRenderer.invoke('nginx:stop'),
     reload: () => ipcRenderer.invoke('nginx:reload'),
@@ -189,6 +193,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   config: {
     save: (config) => ipcRenderer.invoke('config:save', config),
     load: () => ipcRenderer.invoke('config:load')
+  },
+
+  // ── App updates ────────────────────────────────────────────────────────────
+  updater: {
+    version: () => ipcRenderer.invoke('updater:version'),
+    check: () => ipcRenderer.invoke('updater:check'),
+    download: () => ipcRenderer.invoke('updater:download'),
+    install: () => ipcRenderer.invoke('updater:install'),
+    onStatus: (callback) => {
+      const listener = (_event, data) => callback(data);
+      ipcRenderer.on('updater:status', listener);
+      return () => ipcRenderer.removeListener('updater:status', listener);
+    }
   },
 
   // ── Shell ──────────────────────────────────────────────────────────────────

@@ -23,20 +23,12 @@ class SslManager {
     const legacySsl = path.join(appData, 'antigravity-localhost', 'ssl');
     if (fs.existsSync(legacySsl)) return legacySsl;
 
-    const herdCerts = userProfile ? path.join(userProfile, '.config', 'herd', 'config', 'valet', 'Certificates') : '';
-    if (herdCerts && fs.existsSync(herdCerts)) {
-      return herdCerts;
-    }
     return standaloneSsl;
   }
 
   _detectOpenSSL() {
     const gitOpenSSL = 'C:\\Program Files\\Git\\usr\\bin\\openssl.exe';
     if (fs.existsSync(gitOpenSSL)) return gitOpenSSL;
-
-    const userProfile = process.env.USERPROFILE || '';
-    const herdOpenSSL = path.join(userProfile, '.config', 'herd', 'bin', 'php84', 'openssl.exe');
-    if (fs.existsSync(herdOpenSSL)) return herdOpenSSL;
 
     return 'openssl';
   }

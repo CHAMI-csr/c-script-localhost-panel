@@ -1,6 +1,5 @@
 /**
  * PhpInstaller - Standalone PHP Version Downloader & Environment Manager
- * Enables full independence from Herd / XAMPP / Laragon.
  * Automatically downloads, extracts, and configures standalone PHP runtimes
  * directly into %APPDATA%\antigravity-localhost\php.
  */
@@ -11,33 +10,41 @@ const os = require('os');
 const https = require('https');
 const { spawn, execFile } = require('child_process');
 const { EventEmitter } = require('events');
+const { repairPhpConfigForBinary } = require('./phpErrorRepair');
 
 const KNOWN_RELEASES = {
+  '8.5': {
+    label: 'PHP 8.5 (Latest Stable)',
+    url: 'https://downloads.php.net/~windows/releases/archives/php-8.5.11-nts-Win32-vs17-x64.zip',
+    fallbackUrl: 'https://windows.php.net/downloads/releases/archives/php-8.5.11-nts-Win32-vs17-x64.zip',
+    folder: 'php85',
+    major: '8.5'
+  },
   '8.4': {
-    label: 'PHP 8.4 (Latest Stable)',
-    url: 'https://windows.php.net/downloads/releases/php-8.4.26-nts-Win32-vs17-x64.zip',
+    label: 'PHP 8.4 (Stable)',
+    url: 'https://downloads.php.net/~windows/releases/archives/php-8.4.26-nts-Win32-vs17-x64.zip',
     fallbackUrl: 'https://windows.php.net/downloads/releases/archives/php-8.4.26-nts-Win32-vs17-x64.zip',
     folder: 'php84',
     major: '8.4'
   },
   '8.3': {
     label: 'PHP 8.3 (Stable)',
-    url: 'https://windows.php.net/downloads/releases/php-8.3.17-nts-Win32-vs17-x64.zip',
-    fallbackUrl: 'https://windows.php.net/downloads/releases/archives/php-8.3.17-nts-Win32-vs17-x64.zip',
+    url: 'https://downloads.php.net/~windows/releases/archives/php-8.3.35-nts-Win32-vs16-x64.zip',
+    fallbackUrl: 'https://windows.php.net/downloads/releases/archives/php-8.3.35-nts-Win32-vs16-x64.zip',
     folder: 'php83',
     major: '8.3'
   },
   '8.2': {
     label: 'PHP 8.2 (Legacy Support)',
-    url: 'https://windows.php.net/downloads/releases/php-8.2.28-nts-Win32-vs17-x64.zip',
-    fallbackUrl: 'https://windows.php.net/downloads/releases/archives/php-8.2.28-nts-Win32-vs17-x64.zip',
+    url: 'https://downloads.php.net/~windows/releases/archives/php-8.2.34-nts-Win32-vs16-x64.zip',
+    fallbackUrl: 'https://windows.php.net/downloads/releases/archives/php-8.2.34-nts-Win32-vs16-x64.zip',
     folder: 'php82',
     major: '8.2'
   },
   '8.1': {
     label: 'PHP 8.1 (Security Fixes)',
-    url: 'https://windows.php.net/downloads/releases/archives/php-8.1.31-nts-Win32-vs16-x64.zip',
-    fallbackUrl: 'https://windows.php.net/downloads/releases/archives/php-8.1.31-nts-Win32-vs16-x64.zip',
+    url: 'https://downloads.php.net/~windows/releases/archives/php-8.1.34-nts-Win32-vs16-x64.zip',
+    fallbackUrl: 'https://windows.php.net/downloads/releases/archives/php-8.1.34-nts-Win32-vs16-x64.zip',
     folder: 'php81',
     major: '8.1'
   }
@@ -66,75 +73,6 @@ class PhpInstaller extends EventEmitter {
   }
 
   /**
-   * Check if Herd currently has any PHP versions installed
-   */
-  getHerdPhps() {
-    const herdBin = path.join(this.userProfile, '.config', 'herd', 'bin');
-    const found = [];
-    if (!fs.existsSync(herdBin)) return found;
-
-    try {
-      const entries = fs.readdirSync(herdBin, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory() && entry.name.toLowerCase().startsWith('php')) {
-          const exe = path.join(herdBin, entry.name, 'php.exe');
-          if (fs.existsSync(exe)) {
-            found.push({
-              name: entry.name,
-              dir: path.join(herdBin, entry.name),
-              exe
-            });
-          }
-        }
-      }
-    } catch (e) {}
-    return found;
-  }
-
-  /**
-   * 1-Click Migration / Protection:
-   * Copies Herd's PHP installation into Antigravity's permanent standalone folder
-   * so that uninstalling Herd does NOT delete PHP!
-   */
-  async migrateFromHerd() {
-    const herdPhps = this.getHerdPhps();
-    if (herdPhps.length === 0) {
-      return { success: false, error: 'No Herd PHP installations found to migrate.' };
-    }
-
-    const migrated = [];
-    for (const h of herdPhps) {
-      const targetDir = path.join(this.baseDir, h.name);
-      try {
-        if (!fs.existsSync(targetDir)) {
-          fs.mkdirSync(targetDir, { recursive: true });
-          fs.cpSync(h.dir, targetDir, { recursive: true });
-          this._configurePhpIni(targetDir);
-          migrated.push({
-            name: h.name,
-            path: path.join(targetDir, 'php.exe')
-          });
-        } else {
-          // Already migrated
-          migrated.push({
-            name: h.name,
-            path: path.join(targetDir, 'php.exe'),
-            alreadyExisted: true
-          });
-        }
-      } catch (err) {
-        console.warn(`[PhpInstaller] Failed to migrate ${h.name}:`, err.message);
-      }
-    }
-
-    return {
-      success: migrated.length > 0,
-      migrated,
-      baseDir: this.baseDir
-    };
-  }
-
-  /**
    * List all standalone PHP versions currently installed in Antigravity storage
    */
   async listInstalled() {
@@ -147,7 +85,10 @@ class PhpInstaller extends EventEmitter {
         if (entry.isDirectory()) {
           const exe = path.join(this.baseDir, entry.name, 'php.exe');
           if (fs.existsSync(exe)) {
+            repairPhpConfigForBinary(exe);
             const ver = await this._getBinaryVersion(exe);
+            // Do not tell the UI a broken PHP folder is installed and ready to use.
+            if (!ver.version) continue;
             list.push({
               folder: entry.name,
               dir: path.join(this.baseDir, entry.name),
@@ -170,9 +111,6 @@ class PhpInstaller extends EventEmitter {
     const installed = await this.listInstalled();
     const installedFolders = new Set(installed.map(i => i.folder.toLowerCase()));
 
-    const herdPhps = this.getHerdPhps();
-    const herdAvailable = herdPhps.length > 0;
-
     const catalog = Object.entries(KNOWN_RELEASES).map(([major, meta]) => {
       const isInst = installedFolders.has(meta.folder.toLowerCase());
       const instData = isInst ? installed.find(i => i.folder.toLowerCase() === meta.folder.toLowerCase()) : null;
@@ -189,9 +127,7 @@ class PhpInstaller extends EventEmitter {
 
     return {
       catalog,
-      standaloneDir: this.baseDir,
-      herdAvailable,
-      herdPhps: herdPhps.map(h => ({ name: h.name, exe: h.exe }))
+      standaloneDir: this.baseDir
     };
   }
 
@@ -200,14 +136,19 @@ class PhpInstaller extends EventEmitter {
    */
   _getBinaryVersion(exePath) {
     return new Promise((resolve) => {
-      execFile(exePath, ['-v'], { timeout: 4000, windowsHide: true }, (err, stdout) => {
-        if (err || !stdout) {
-          return resolve({ version: null, fullVersion: null });
+      execFile(exePath, ['-v'], { timeout: 8000, windowsHide: true }, (err, stdout, stderr) => {
+        const output = [stdout, stderr].filter(Boolean).join('\n').trim();
+        const errorMessage = err?.code === 'ENOENT'
+          ? 'PHP could not start. A required Windows runtime DLL may be missing.'
+          : (err?.message || 'PHP did not return version information.');
+        if (err || !output) {
+          return resolve({ version: null, fullVersion: null, error: errorMessage });
         }
-        const match = stdout.match(/PHP (\d+\.\d+[\.\d]*)/);
+        const match = output.match(/PHP (\d+\.\d+[\.\d]*)/);
         resolve({
           version: match ? `PHP ${match[1]}` : null,
-          fullVersion: stdout.split(/\r?\n/)[0]
+          fullVersion: output.split(/\r?\n/)[0],
+          error: match ? null : errorMessage
         });
       });
     });
@@ -225,15 +166,13 @@ class PhpInstaller extends EventEmitter {
 
         const req = https.get(currentUrl, (res) => {
           if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-            let nextUrl = res.headers.location;
-            if (nextUrl.startsWith('/')) {
-              const u = new URL(currentUrl);
-              nextUrl = `${u.origin}${nextUrl}`;
-            }
+            const nextUrl = new URL(res.headers.location, currentUrl).toString();
+            res.resume();
             return makeRequest(nextUrl, redirectCount + 1);
           }
 
           if (res.statusCode !== 200) {
+            res.resume();
             return reject(new Error(`Failed to download PHP (HTTP ${res.statusCode})`));
           }
 
@@ -302,8 +241,8 @@ class PhpInstaller extends EventEmitter {
         const psCmd = `Expand-Archive -Path '${zipPath.replace(/'/g, "''")}' -DestinationPath '${targetDir.replace(/'/g, "''")}' -Force`;
         const psProc = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd], { windowsHide: true });
         psProc.on('exit', (psCode) => {
-          if (psCode === 0) resolve();
-          else reject(new Error(`PowerShell Expand-Archive failed with code ${psCode}`));
+            if (psCode === 0 && fs.existsSync(path.join(targetDir, 'php.exe'))) resolve();
+            else reject(new Error(`PowerShell Expand-Archive failed with code ${psCode}`));
         });
         psProc.on('error', reject);
       });
@@ -360,6 +299,23 @@ class PhpInstaller extends EventEmitter {
       content = content.replace(regex, `extension=${ext}`);
     }
 
+    // A migrated php.ini may contain the same enabled module more than once.
+    // Keep the first active declaration; PHP reports later ones as startup warnings.
+    const seenExtensions = new Set();
+    const lineEnding = content.includes('\r\n') ? '\r\n' : '\n';
+    content = content.split(/\r?\n/).map(line => {
+      const match = line.match(/^(\s*)(;?)\s*(extension|zend_extension)\s*=\s*(.*?)\s*$/i);
+      if (!match || match[2] === ';') return line;
+      const value = match[4].replace(/^["']|["']$/g, '').trim();
+      const name = path.basename(value).replace(/^php_/i, '').replace(/\.dll$/i, '').toLowerCase();
+      const key = `${match[3].toLowerCase()}:${name}`;
+      if (seenExtensions.has(key)) {
+        return `; Disabled duplicate PHP extension by C-Script LocalHost Panel: ${line.trim()}`;
+      }
+      seenExtensions.add(key);
+      return line;
+    }).join(lineEnding);
+
     // 3. Recommended PHP dev limits
     content = content.replace(/upload_max_filesize\s*=\s*[0-9]+[MG]/gi, 'upload_max_filesize = 128M');
     content = content.replace(/post_max_size\s*=\s*[0-9]+[MG]/gi, 'post_max_size = 128M');
@@ -380,7 +336,7 @@ class PhpInstaller extends EventEmitter {
   async downloadAndInstall(majorVer) {
     const meta = KNOWN_RELEASES[majorVer];
     if (!meta) {
-      return { success: false, error: `Unsupported PHP version: ${majorVer}. Supported: 8.4, 8.3, 8.2, 8.1` };
+      return { success: false, error: `Unsupported PHP version: ${majorVer}. Supported: ${Object.keys(KNOWN_RELEASES).join(', ')}` };
     }
 
     const targetDir = path.join(this.baseDir, meta.folder);
@@ -395,7 +351,11 @@ class PhpInstaller extends EventEmitter {
       } catch (dlErr) {
         if (meta.fallbackUrl && meta.fallbackUrl !== meta.url) {
           this.emit('install-status', { stage: 'downloading', message: `Retrying from archives mirror...` });
-          await this._downloadFile(meta.fallbackUrl, tempZip);
+          try {
+            await this._downloadFile(meta.fallbackUrl, tempZip);
+          } catch (fallbackErr) {
+            throw new Error(`${dlErr.message}; archive mirror failed: ${fallbackErr.message}`);
+          }
         } else {
           throw dlErr;
         }
@@ -405,15 +365,39 @@ class PhpInstaller extends EventEmitter {
       this.emit('install-status', { stage: 'extracting', message: `Extracting ${meta.label}...` });
       await this._extractZip(tempZip, targetDir);
 
+      // PHP's Windows binaries require the MSVC runtime. Bundle it locally so
+      // PHP works on machines that don't have the VC++ Redistributable installed.
+      const bundledDir = process.resourcesPath
+        ? path.join(process.resourcesPath, 'bundled', 'vc-runtime')
+        : path.join(__dirname, '..', 'resources', 'bundled', 'vc-runtime');
+      const vcRuntimeFiles = [
+        'vcruntime140.dll', 'vcruntime140_1.dll', 'vcruntime140_threads.dll',
+        'msvcp140.dll', 'msvcp140_1.dll', 'msvcp140_2.dll',
+        'msvcp140_atomic_wait.dll', 'msvcp140_codecvt_ids.dll'
+      ];
+      const missingRuntimeFiles = vcRuntimeFiles.filter(file => !fs.existsSync(path.join(bundledDir, file)));
+      if (missingRuntimeFiles.length) {
+        throw new Error(`PHP was downloaded, but its bundled Visual C++ runtime is missing: ${missingRuntimeFiles.join(', ')}`);
+      }
+      for (const file of vcRuntimeFiles) {
+        fs.copyFileSync(path.join(bundledDir, file), path.join(targetDir, file));
+      }
+
       // Clean up downloaded zip
       try { if (fs.existsSync(tempZip)) fs.unlinkSync(tempZip); } catch (e) {}
 
       // 3. Configure php.ini
       this.emit('install-status', { stage: 'configuring', message: `Configuring php.ini and extensions...` });
-      this._configurePhpIni(targetDir);
+      if (!this._configurePhpIni(targetDir)) {
+        throw new Error('PHP was downloaded, but php.ini could not be created or configured. Check write permissions in the PHP folder.');
+      }
 
       const phpExe = path.join(targetDir, 'php.exe');
+      repairPhpConfigForBinary(phpExe);
       const verCheck = await this._getBinaryVersion(phpExe);
+      if (!verCheck.version) {
+        throw new Error(`PHP was extracted but could not be verified: ${verCheck.error || 'php.exe did not report a version.'}`);
+      }
 
       this.emit('install-status', { stage: 'completed', message: `${meta.label} installed successfully!` });
 
@@ -422,7 +406,7 @@ class PhpInstaller extends EventEmitter {
         folder: meta.folder,
         targetDir,
         exePath: phpExe,
-        version: verCheck.version || meta.label
+        version: verCheck.version
       };
     } catch (err) {
       try { if (fs.existsSync(tempZip)) fs.unlinkSync(tempZip); } catch (e) {}
@@ -431,22 +415,12 @@ class PhpInstaller extends EventEmitter {
   }
 
   /**
-   * Ensure at least one standalone PHP is available in Antigravity storage
-   * If none exists, auto-migrates from Herd if available, or returns status
+   * Ensure at least one standalone PHP is available in app storage.
    */
   async ensureStandalonePhp() {
     const installed = await this.listInstalled();
     if (installed.length > 0) {
       return { available: true, path: installed[0].exe, count: installed.length };
-    }
-
-    // Check if Herd is available and migrate automatically
-    const herdPhps = this.getHerdPhps();
-    if (herdPhps.length > 0) {
-      const mig = await this.migrateFromHerd();
-      if (mig.success && mig.migrated.length > 0) {
-        return { available: true, path: mig.migrated[0].path, migrated: true, count: mig.migrated.length };
-      }
     }
 
     return { available: false, needDownload: true };

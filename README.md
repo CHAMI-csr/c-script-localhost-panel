@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Modern, High-Performance Local Development Environment for PHP, NGINX & MySQL on Windows</strong><br>
-  <em>A fast, lightweight, and 100% standalone alternative to Laravel Herd, XAMPP, and Laragon.</em>
+  <em>A fast, lightweight, all-in-one local development environment for Windows.</em>
 </p>
 
 <p align="center">
@@ -21,7 +21,7 @@
 
 ## 🌟 Overview
 
-**C-Script LocalHost Panel** is an all-in-one local web development suite designed specifically for Windows developers. It gives you the elegance and ease of Laravel Herd with the freedom of a completely autonomous, offline-capable stack.
+**C-Script LocalHost Panel** is an all-in-one local web development suite designed specifically for Windows developers, with a self-managed PHP, NGINX, and MySQL stack.
 
 No more configuring ports manually, no more wrestling with broken virtual hosts, and no more losing your PHP or MySQL runtimes when other software is uninstalled.
 

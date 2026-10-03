@@ -730,6 +730,171 @@ class MySQLManager {
   }
 
   /** Get server variables */
+  async getServerSettings() {
+    if (!this.connection) return { success: false, error: 'Not connected' };
+    try {
+      const [[settings]] = await this.connection.query(`SELECT
+        VERSION() AS version, @@hostname AS hostname, @@port AS port,
+        @@character_set_server AS charset, @@collation_server AS collation,
+        @@default_storage_engine AS engine, @@max_connections AS maxConnections,
+        @@max_allowed_packet AS maxAllowedPacket, @@session.time_zone AS timeZone,
+        @@session.sql_mode AS sqlMode, @@session.default_storage_engine AS sessionEngine,
+        @@session.character_set_connection AS connectionCharset,
+        @@session.collation_connection AS connectionCollation`);
+      const [[account]] = await this.connection.query('SELECT CURRENT_USER() AS account');
+      const supportedCollations = {};
+      for (const charset of ['utf8mb4','utf8','latin1','ascii']) {
+        const [rows] = await this.connection.query('SHOW COLLATION WHERE Charset = ?', [charset]);
+        supportedCollations[charset] = rows.map(row => row.Collation);
+      }
+      return { success: true, settings: { ...settings, account: account.account, supportedCollations } };
+    } catch (err) { return { success: false, error: this._fmtErr(err) }; }
+  }
+
+  /** Apply safe per-connection defaults. These values reset on reconnect. */
+  async applySessionSettings(settings = {}) {
+    if (!this.connection) return { success: false, error: 'Not connected' };
+    try {
+      const engines = ['InnoDB','MyISAM','MEMORY'];
+      const charsets = ['utf8mb4','utf8','latin1','ascii'];
+      const collations = { utf8mb4: ['utf8mb4_unicode_ci','utf8mb4_general_ci','utf8mb4_0900_ai_ci'], utf8: ['utf8_unicode_ci','utf8_general_ci'], latin1: ['latin1_swedish_ci','latin1_general_ci'], ascii: ['ascii_general_ci','ascii_bin'] };
+      if (settings.engine !== undefined) {
+        if (!engines.includes(settings.engine)) throw new Error('Unsupported default storage engine.');
+        await this.connection.query(`SET SESSION default_storage_engine = ${this.connection.escape(settings.engine)}`);
+      }
+      if (settings.timeZone !== undefined) {
+        if (typeof settings.timeZone !== 'string' || settings.timeZone.length > 64 || /[\0\r\n]/.test(settings.timeZone)) throw new Error('Invalid time zone value.');
+        await this.connection.query(`SET SESSION time_zone = ${this.connection.escape(settings.timeZone)}`);
+      }
+      if (settings.sqlMode !== undefined) {
+        if (typeof settings.sqlMode !== 'string' || settings.sqlMode.length > 1024 || !/^[A-Za-z0-9_, ]*$/.test(settings.sqlMode)) throw new Error('Invalid SQL mode list.');
+        await this.connection.query(`SET SESSION sql_mode = ${this.connection.escape(settings.sqlMode)}`);
+      }
+      if (settings.charset !== undefined || settings.collation !== undefined) {
+        const charset = settings.charset;
+        const collation = settings.collation;
+        if (!charsets.includes(charset) || !collations[charset]?.includes(collation)) throw new Error('Choose a supported character set and collation.');
+        const [available] = await this.connection.query('SHOW COLLATION WHERE Charset = ?', [charset]);
+        if (!available.some(item => item.Collation === collation)) throw new Error(`Collation ${collation} is not supported by this server.`);
+        // Keep the mysql2 client/result wire encoding intact while changing
+        // how the server parses and compares connection string literals.
+        await this.connection.query(`SET SESSION character_set_connection = ${charset}`);
+        await this.connection.query(`SET SESSION collation_connection = ${collation}`);
+      }
+      return { success: true };
+    } catch (err) { return { success: false, error: this._fmtErr(err) }; }
+  }
+
+  /** Change defaults for future objects in a database; existing tables are untouched. */
+  async setDatabaseDefaults(database, charset, collation) {
+    if (!this.connection) return { success: false, error: 'Not connected' };
+    try {
+      if (typeof database !== 'string' || !database || database.length > 64 || /[\0]/.test(database)) throw new Error('Invalid database name.');
+      const allowed = { utf8mb4: ['utf8mb4_unicode_ci','utf8mb4_general_ci','utf8mb4_0900_ai_ci'], utf8: ['utf8_unicode_ci','utf8_general_ci'], latin1: ['latin1_swedish_ci','latin1_general_ci'], ascii: ['ascii_general_ci','ascii_bin'] };
+      if (!allowed[charset]?.includes(collation)) throw new Error('Choose a supported character set and collation.');
+      const [available] = await this.connection.query('SHOW COLLATION WHERE Charset = ?', [charset]);
+      if (!available.some(item => item.Collation === collation)) throw new Error(`Collation ${collation} is not supported by this server.`);
+      await this.connection.query(`ALTER DATABASE ${quoteIdent(database)} CHARACTER SET ${charset} COLLATE ${collation}`);
+      return { success: true, database, charset, collation };
+    } catch (err) { return { success: false, error: this._fmtErr(err) }; }
+  }
+
+  /** Runtime-only global limits. They may require elevated server privileges and reset on restart. */
+  async setServerLimits(maxConnections, maxAllowedPacket) {
+    if (!this.connection) return { success: false, error: 'Not connected' };
+    try {
+      const connections = Number(maxConnections), packet = Number(maxAllowedPacket);
+      if (!Number.isInteger(connections) || connections < 1 || connections > 100000) throw new Error('Maximum connections must be between 1 and 100000.');
+      if (!Number.isInteger(packet) || packet < 1024 || packet > 1073741824) throw new Error('Maximum packet must be between 1 KB and 1 GB.');
+      await this.connection.query(`SET GLOBAL max_connections = ${connections}`);
+      await this.connection.query(`SET GLOBAL max_allowed_packet = ${packet}`);
+      return { success: true };
+    } catch (err) { return { success: false, error: this._fmtErr(err) }; }
+  }
+
+  /** Create a table from validated structured column definitions. */
+  async createTable(database, table, columns, options = {}) {
+    if (!this.connection) return { success: false, error: 'Not connected' };
+    try {
+      const validIdentifier = value => typeof value === 'string' && value.length > 0 && value.length <= 64 && !/[\0]/.test(value);
+      if (!validIdentifier(database) || !validIdentifier(table)) throw new Error('Database and table names must be 1–64 characters.');
+      if (!Array.isArray(columns) || columns.length < 1 || columns.length > 100) throw new Error('Add between 1 and 100 columns.');
+      const types = new Set(['INT','INTEGER','BIGINT','SMALLINT','TINYINT','MEDIUMINT','VARCHAR','CHAR','TEXT','MEDIUMTEXT','LONGTEXT','DATE','DATETIME','TIMESTAMP','TIME','DECIMAL','FLOAT','DOUBLE','BOOLEAN','JSON','BLOB','LONGBLOB']);
+      const names = new Set();
+      const primary = [];
+      const definitions = columns.map((column, index) => {
+        if (!validIdentifier(column.name)) throw new Error(`Column ${index + 1}: enter a name up to 64 characters.`);
+        if (names.has(column.name.toLowerCase())) throw new Error(`Duplicate column name: ${column.name}`);
+        names.add(column.name.toLowerCase());
+        const type = String(column.type || '').toUpperCase();
+        if (!types.has(type)) throw new Error(`Unsupported data type for ${column.name}.`);
+        let sqlType = type;
+        if (['VARCHAR','CHAR'].includes(type)) {
+          const length = Number(column.length || 255);
+          if (!Number.isInteger(length) || length < 1 || length > 16383) throw new Error(`Invalid length for ${column.name}.`);
+          sqlType += `(${length})`;
+        } else if (type === 'DECIMAL') {
+          const precision = Number(column.precision || 10), scale = Number(column.scale || 2);
+          if (!Number.isInteger(precision) || !Number.isInteger(scale) || precision < 1 || precision > 65 || scale < 0 || scale > Math.min(30, precision)) throw new Error(`Invalid decimal precision for ${column.name}.`);
+          sqlType += `(${precision},${scale})`;
+        }
+        const isPrimary = !!column.primary;
+        if (isPrimary) primary.push(column.name);
+        const auto = !!column.autoIncrement;
+        if (auto && !['INT','INTEGER','BIGINT','SMALLINT','TINYINT','MEDIUMINT'].includes(type)) throw new Error(`AUTO_INCREMENT requires an integer column (${column.name}).`);
+        if (auto && !isPrimary && !column.unique) throw new Error(`AUTO_INCREMENT column ${column.name} must be indexed.`);
+        if (auto && column.nullable) throw new Error(`AUTO_INCREMENT column ${column.name} cannot be nullable.`);
+        let sql = `${quoteIdent(column.name)} ${sqlType}${column.unsigned && ['INT','INTEGER','BIGINT','SMALLINT','TINYINT','MEDIUMINT','DECIMAL'].includes(type) ? ' UNSIGNED' : ''}`;
+        sql += column.nullable && !isPrimary ? ' NULL' : ' NOT NULL';
+        if (auto) sql += ' AUTO_INCREMENT';
+        if (column.defaultMode === 'current_timestamp' && ['TIMESTAMP','DATETIME'].includes(type)) sql += ' DEFAULT CURRENT_TIMESTAMP';
+        else if (column.defaultMode === 'value' && column.defaultValue !== undefined && column.defaultValue !== '') sql += ` DEFAULT ${this.connection.escape(column.defaultValue)}`;
+        if (column.unique && !isPrimary) sql += ', UNIQUE KEY ' + quoteIdent(`uq_${column.name.slice(0, 52)}_${index + 1}`) + ` (${quoteIdent(column.name)})`;
+        return sql;
+      });
+      if (primary.length) definitions.push(`PRIMARY KEY (${primary.map(quoteIdent).join(', ')})`);
+      const engine = ['InnoDB','MyISAM','MEMORY'].includes(options.engine) ? options.engine : 'InnoDB';
+      const charset = ['utf8mb4','utf8','latin1','ascii'].includes(options.charset) ? options.charset : 'utf8mb4';
+      const collations = { utf8mb4: ['utf8mb4_unicode_ci','utf8mb4_general_ci'], utf8: ['utf8_unicode_ci','utf8_general_ci'], latin1: ['latin1_swedish_ci','latin1_general_ci'], ascii: ['ascii_general_ci','ascii_bin'] };
+      const collation = collations[charset].includes(options.collation) ? options.collation : collations[charset][0];
+      const comment = String(options.comment || '').slice(0, 2048);
+      const sql = `CREATE TABLE ${quoteIdent(database)}.${quoteIdent(table)} (${definitions.join(', ')}) ENGINE=${engine} DEFAULT CHARACTER SET ${charset} COLLATE ${collation}${comment ? ` COMMENT=${this.connection.escape(comment)}` : ''}`;
+      await this.connection.query(sql);
+      return { success: true, database, table };
+    } catch (err) { return { success: false, error: this._fmtErr(err) }; }
+  }
+
+  /** Change the password for the authenticated MySQL account. */
+  async changeOwnPassword(currentPassword, newPassword) {
+    if (!this.connection || !this.config) return { success: false, error: 'Not connected' };
+    let verifiedConnection;
+    try {
+      if (typeof newPassword !== 'string' || !newPassword || newPassword.length > 128) throw new Error('Enter a new password between 1 and 128 characters.');
+      if (typeof currentPassword !== 'string') throw new Error('Enter your current password.');
+      const mysql2 = this._loadMysql2();
+      verifiedConnection = await mysql2.createConnection({ ...this.config, password: currentPassword, connectTimeout: 10000, multipleStatements: false });
+      const [[row]] = await verifiedConnection.query('SELECT CURRENT_USER() AS account');
+      await verifiedConnection.end(); verifiedConnection = null;
+      await this.connection.query(`ALTER USER CURRENT_USER() IDENTIFIED BY ${this.connection.escape(newPassword)}`);
+      const nextConfig = { ...this.config, password: newPassword };
+      try {
+        const replacement = await mysql2.createConnection({ ...nextConfig, connectTimeout: 10000, multipleStatements: true });
+        await replacement.query('SELECT 1');
+        const oldConnection = this.connection;
+        this.connection = replacement;
+        this.config = nextConfig;
+        try { await oldConnection.end(); } catch (_) {}
+        return { success: true, account: row.account, reconnected: true };
+      } catch (reconnectError) {
+        this.config = nextConfig;
+        return { success: true, account: row.account, reconnected: false, error: `Password changed, but reconnect failed: ${reconnectError.message}` };
+      }
+    } catch (err) {
+      if (verifiedConnection) try { await verifiedConnection.end(); } catch (_) {}
+      return { success: false, error: this._fmtErr(err) };
+    }
+  }
+
   async getServerVars() {
     if (!this.connection) return { success: false, error: 'Not connected' };
     try {

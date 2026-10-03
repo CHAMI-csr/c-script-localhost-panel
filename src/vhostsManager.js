@@ -201,9 +201,8 @@ try {
   getNginxInfo() {
     const userProfile = process.env.USERPROFILE || '';
     const appData = process.env.APPDATA || (userProfile ? path.join(userProfile, 'AppData', 'Roaming') : '');
-    const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
 
-    // 1. Standalone C-Script NGINX (Herd-Independent)
+    // 1. Application-managed NGINX
     const cScriptDir = path.join(appData, 'c-script-localhost', 'nginx');
     const legacyDir = path.join(appData, 'antigravity-localhost', 'nginx');
     const standaloneDir = fs.existsSync(path.join(cScriptDir, 'nginx.exe')) ? cScriptDir : (fs.existsSync(path.join(legacyDir, 'nginx.exe')) ? legacyDir : cScriptDir);
@@ -219,31 +218,6 @@ try {
         exePath: standaloneExe,
         confPath: standaloneConf,
         prefixDir: standaloneDir
-      };
-    }
-
-    // 2. Herd NGINX
-    const herdNginxDir = userProfile ? path.join(userProfile, '.config', 'herd', 'config', 'valet', 'Nginx') : '';
-    const herdNginxExe = path.join(programFiles, 'Herd', 'resources', 'app.asar.unpacked', 'resources', 'bin', 'nginx', 'nginx.exe');
-    const herdNginxConf = userProfile ? path.join(userProfile, '.config', 'herd', 'config', 'nginx', 'nginx.conf') : '';
-    const herdNginxPrefix = userProfile ? path.join(userProfile, '.config', 'herd', 'config', 'nginx') : '';
-
-    if (herdNginxDir && fs.existsSync(herdNginxDir)) {
-      return {
-        vhostsDir: herdNginxDir,
-        exePath: fs.existsSync(herdNginxExe) ? herdNginxExe : 'nginx',
-        confPath: herdNginxConf,
-        prefixDir: herdNginxPrefix
-      };
-    }
-
-    const standardVhosts = 'C:\\nginx\\conf\\vhosts';
-    if (fs.existsSync(standardVhosts)) {
-      return {
-        vhostsDir: standardVhosts,
-        exePath: 'C:\\nginx\\nginx.exe',
-        confPath: 'C:\\nginx\\conf\\nginx.conf',
-        prefixDir: 'C:\\nginx'
       };
     }
 

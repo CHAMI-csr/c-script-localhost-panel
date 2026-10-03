@@ -33,7 +33,42 @@ function repairIniFile(iniPath) {
   const eol = original.includes('\r\n') ? '\r\n' : '\n';
   const seenExtensions = new Set();
   const repairs = [];
-  const updated = original.split(/\r?\n/).map(line => {
+  const runtimeDir = path.dirname(iniPath);
+  const extensionDir = path.join(runtimeDir, 'ext');
+  let hasRuntimeExtensions = false;
+  try { hasRuntimeExtensions = fs.statSync(extensionDir).isDirectory(); } catch (error) {}
+  const extensionDirValue = extensionDir.replace(/\\/g, '/');
+  let extensionDirSeen = false;
+  let extensionDirFixed = false;
+  let lines = original.split(/\r?\n/).map(line => {
+    const extensionDirectory = line.match(/^(\s*)(;?)\s*extension_dir\s*=\s*(.*?)\s*$/i);
+    if (!extensionDirectory || extensionDirectory[2] === ';') return line;
+
+    extensionDirSeen = true;
+    const configuredDir = getDirectiveValue(extensionDirectory[3]);
+    const normalizedConfiguredDir = normalizeWindowsPath(configuredDir);
+    const configuredDirExists = path.win32.isAbsolute(configuredDir) && fs.existsSync(normalizedConfiguredDir);
+    if (!hasRuntimeExtensions || configuredDirExists && path.win32.resolve(normalizedConfiguredDir).toLowerCase() === path.win32.resolve(extensionDir).toLowerCase()) {
+      return line;
+    }
+
+    // Windows PHP builds may resolve a relative `ext` against their compiled
+    // C:\\php prefix instead of the AppData runtime directory. Point it at the
+    // extensions shipped beside this php.ini so installed app runtimes work.
+    if (!extensionDirFixed) {
+      extensionDirFixed = true;
+      repairs.push(`Corrected extension_dir in ${path.basename(iniPath)}`);
+      return `${extensionDirectory[1]}extension_dir = "${extensionDirValue}"`;
+    }
+    return `; Disabled duplicate extension_dir by C-Script LocalHost Panel: ${line.trim()}`;
+  });
+
+  if (!extensionDirSeen && hasRuntimeExtensions) {
+    lines.unshift(`extension_dir = "${extensionDirValue}"`);
+    repairs.push(`Added extension_dir in ${path.basename(iniPath)}`);
+  }
+
+  const updated = lines.map(line => {
     const prepend = line.match(/^(\s*)(;?)\s*(auto_prepend_file|auto_append_file)\s*=\s*(.*?)\s*$/i);
     if (prepend && prepend[2] !== ';') {
       const configuredPath = getDirectiveValue(prepend[4]);

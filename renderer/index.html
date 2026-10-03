@@ -1820,7 +1820,7 @@ DESCRIBE tablename;"></textarea>
         <div class="app-update-card">
           <div class="app-update-icon">↻</div>
           <div class="app-update-copy"><div class="app-update-title">App updates</div><div id="app-update-status" class="app-update-status">Check GitHub for the latest version.</div><div id="app-update-progress-wrap" class="app-update-progress-wrap" style="display:none"><div class="app-update-progress-track"><div id="app-update-progress" class="app-update-progress"></div></div><span id="app-update-progress-label">0%</span></div></div>
-          <div class="app-update-actions"><button class="btn btn-sm" id="app-update-check" onclick="checkForAppUpdates()">Check for updates</button><button class="btn btn-sm btn-primary" id="app-update-download" onclick="downloadAppUpdate()" style="display:none">Download update</button><button class="btn btn-sm btn-primary" id="app-update-install" onclick="installAppUpdate()" style="display:none">Restart to update</button></div>
+          <div class="app-update-actions"><button class="btn btn-sm" id="app-update-releases" onclick="api.shell.openExternal('https://github.com/CHAMI-csr/c-script-localhost-panel/releases')" style="display:none">View releases</button><button class="btn btn-sm" id="app-update-check" onclick="checkForAppUpdates()">Check for updates</button><button class="btn btn-sm btn-primary" id="app-update-download" onclick="downloadAppUpdate()" style="display:none">Download update</button><button class="btn btn-sm btn-primary" id="app-update-install" onclick="installAppUpdate()" style="display:none">Restart to update</button></div>
         </div>
 
         <!-- Developer Profile Card -->
@@ -6371,6 +6371,10 @@ async function initUpdaterUI(){
   }catch(error){setAppUpdateStatus('Could not read app version.');}
 }
 function setAppUpdateStatus(message){const el=document.getElementById('app-update-status');if(el)el.textContent=message;}
+function explainUpdaterError(message){
+  if(/no published versions on github/i.test(String(message)))return 'No update release has been published yet. An update-enabled Setup release must be published before this app can update.';
+  return 'Update check failed: '+message;
+}
 function showUpdatePopup(state,message,version=''){
   if(state==='available'||state==='ready')updateProgressPopupDismissed=false;
   updatePopupState=state;
@@ -6391,15 +6395,15 @@ function handleUpdaterStatus(event){
   if(!check)return;
   if(event.status==='checking'){check.disabled=true;check.textContent='Checking…';setAppUpdateStatus('Checking for a newer version…');}
   if(event.status==='available'){check.disabled=false;check.textContent='Check again';download.style.display='';install.style.display='none';setAppUpdateStatus(`Version ${event.version} is available. Download it, then restart to install.`);showUpdatePopup('available','',event.version);}
-  if(event.status==='not-available'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='none';document.getElementById('app-update-progress-wrap').style.display='none';setAppUpdateStatus(`You’re using the latest version (v${event.version}).`);}
+  if(event.status==='not-available'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='none';document.getElementById('app-update-releases').style.display='none';document.getElementById('app-update-progress-wrap').style.display='none';setAppUpdateStatus(`You’re using the latest version (v${event.version}).`);}
   if(event.status==='progress'){const wrap=document.getElementById('app-update-progress-wrap');wrap.style.display='flex';const percent=Math.max(0,Math.min(100,Number(event.percent)||0));document.getElementById('app-update-progress').style.width=percent+'%';document.getElementById('app-update-progress-label').textContent=Math.round(percent)+'%';document.getElementById('update-popup-progress').style.width=percent+'%';document.getElementById('update-popup-progress-label').textContent=Math.round(percent)+'%';setAppUpdateStatus('Downloading update…');download.disabled=true;if(updatePopupState!=='progress'&&!updateProgressPopupDismissed)showUpdatePopup('progress','The update is downloading. You can hide this window and keep using the app.');}
   if(event.status==='downloaded'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='';document.getElementById('app-update-progress').style.width='100%';document.getElementById('app-update-progress-label').textContent='100%';setAppUpdateStatus(`Version ${event.version} is ready. Restart the app to finish updating.`);closeModal('modal-app-update');showUpdatePopup('ready','',event.version);}
-  if(event.status==='error'){check.disabled=false;check.textContent='Try again';download.disabled=false;download.textContent='Download update';setAppUpdateStatus('Update check failed: '+event.message);if(updatePopupState==='progress')showUpdatePopup('error',event.message);}
+  if(event.status==='error'){check.disabled=false;check.textContent='Try again';download.disabled=false;download.textContent='Download update';const noRelease=/no published versions on github/i.test(String(event.message));document.getElementById('app-update-releases').style.display=noRelease?'':'none';setAppUpdateStatus(explainUpdaterError(event.message));if(updatePopupState==='progress')showUpdatePopup('error',event.message);}
 }
 async function checkForAppUpdates(){
   const button=document.getElementById('app-update-check');button.disabled=true;button.textContent='Checking…';setAppUpdateStatus('Connecting to the release server…');
   const result=await api.updater.check();
-  if(!result.success){button.disabled=false;button.textContent='Try again';setAppUpdateStatus(result.error);}
+  if(!result.success){button.disabled=false;button.textContent='Try again';const noRelease=/no published versions on github/i.test(String(result.error));document.getElementById('app-update-releases').style.display=noRelease?'':'none';setAppUpdateStatus(explainUpdaterError(result.error));}
 }
 async function downloadAppUpdate(){
   const button=document.getElementById('app-update-download');button.disabled=true;button.textContent='Starting…';

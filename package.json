@@ -64,8 +64,8 @@
     "development",
     "c-script"
   ],
-  "author": "",
-  "license": "MIT",
+  "author": "C.S. Ranasinha (Chamika Sandeepa)",
+  "license": "SEE LICENSE IN LICENSE",
   "devDependencies": {
     "electron": "^44.4.5",
     "electron-builder": "^24.13.3"

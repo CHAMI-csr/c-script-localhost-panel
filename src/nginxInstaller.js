@@ -26,6 +26,7 @@ class NginxInstaller extends EventEmitter {
     this.vhostsDir = path.join(this.baseDir, 'conf', 'vhosts');
     this.logsDir = path.join(this.baseDir, 'logs');
     this.tempDir = path.join(this.baseDir, 'temp');
+    this.ownedProcess = null;
 
     this._ensureDir(this.baseDir);
     this.removeLegacyBranding();
@@ -273,6 +274,8 @@ http {
         detached: true,
         stdio: 'ignore'
       });
+      this.ownedProcess = proc;
+      proc.once('exit', () => { if (this.ownedProcess === proc) this.ownedProcess = null; });
       proc.unref();
 
       setTimeout(async () => {
@@ -294,13 +297,32 @@ http {
     });
   }
 
-  /**
-   * Stop all NGINX processes
-   */
+  /** Stop only the NGINX instance using this app's prefix and configuration. */
   async stop() {
-    return new Promise((resolve) => {
-      exec('taskkill /F /IM nginx.exe', () => {
-        resolve({ success: true });
+    if (!this.isInstalled()) return { success: true, alreadyStopped: true };
+    return new Promise(resolve => {
+      execFile(this.exePath, ['-p', this.baseDir, '-c', this.confPath, '-s', 'quit'], { windowsHide: true }, error => {
+        const proc = this.ownedProcess;
+        if (error && proc?.exitCode === null) return resolve({ success: false, error: error.message });
+        if (!proc || proc.exitCode !== null) return resolve({ success: true, alreadyStopped: !!error });
+        let done = false;
+        const finish = (success) => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          if (success) return resolve({ success: true });
+          if (process.platform === 'win32' && proc.pid) {
+            const killer = spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+            killer.once('close', () => resolve(proc.exitCode !== null
+              ? { success: true }
+              : { success: false, error: 'NGINX did not exit after the stop request.' }));
+            killer.once('error', killError => resolve({ success: false, error: killError.message }));
+            return;
+          }
+          resolve({ success: false, error: 'NGINX did not exit after the graceful stop request.' });
+        };
+        const timer = setTimeout(() => finish(false), 5000);
+        proc.once('exit', () => finish(true));
       });
     });
   }

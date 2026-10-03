@@ -4,7 +4,7 @@
  * Completely dynamic - NO hardcoded usernames or fixed paths.
  */
 
-const { exec, spawn } = require('child_process');
+const { exec, execFile, spawn } = require('child_process');
 const util = require('util');
 const net = require('net');
 const fs = require('fs');
@@ -15,6 +15,9 @@ class ServiceManager {
   constructor() {
     this._cachedInfo = null;
     this._lastScanTime = 0;
+    this._ownedProcesses = new Map();
+    this._ownedWindowsServices = new Set();
+    this._ownedProcessInfo = new Map();
   }
 
   async checkPort(port, host = '127.0.0.1') {
@@ -313,6 +316,8 @@ class ServiceManager {
             return { success: true, message: 'PHP FastCGI is already listening on 127.0.0.1:9000' };
           }
           const proc = spawn(phpInfo.cgiPath, ['-b', '127.0.0.1:9000'], { detached: true, stdio: 'ignore', windowsHide: true });
+          this._ownedProcesses.set('php', proc);
+          proc.once('exit', () => { if (this._ownedProcesses.get('php') === proc) this._ownedProcesses.delete('php'); });
           let spawnError = null;
           proc.on('error', err => { spawnError = err; });
           proc.unref();
@@ -346,6 +351,9 @@ class ServiceManager {
           }
 
           const proc = spawn(webInfo.exePath, args, { detached: true, stdio: 'ignore', windowsHide: true });
+          this._ownedProcesses.set('webserver', proc);
+          this._ownedProcessInfo.set('webserver', { exePath: webInfo.exePath, prefixDir: webInfo.prefixDir, configPath: webInfo.configPath });
+          proc.once('exit', () => { if (this._ownedProcesses.get('webserver') === proc) this._ownedProcesses.delete('webserver'); });
           let spawnError = null;
           proc.on('error', err => { spawnError = err; });
           proc.unref();
@@ -382,6 +390,7 @@ class ServiceManager {
             await execPromise(`net start "${svcName}"`);
             await new Promise(r => setTimeout(r, 600));
             if (await this.checkPort(3306)) {
+              this._ownedWindowsServices.add(svcName);
               return { success: true, message: `${svcName} service started` };
             }
           } catch (e) {}
@@ -392,6 +401,7 @@ class ServiceManager {
             await execPromise(`powershell -NoProfile -Command "${pCmd}"`, { timeout: 6000 });
             await new Promise(r => setTimeout(r, 600));
             if (await this.checkPort(3306)) {
+              this._ownedWindowsServices.add(svcName);
               return { success: true, message: `${svcName} service started via administrator elevation` };
             }
           } catch (e) {}
@@ -402,6 +412,9 @@ class ServiceManager {
           const spawnArgs = mysqlInfo.configPath ? [`--defaults-file=${mysqlInfo.configPath}`, '--console'] : [];
           const procCwd = path.dirname(path.dirname(mysqlInfo.exePath));
           const proc = spawn(mysqlInfo.exePath, spawnArgs, { cwd: procCwd, detached: true, stdio: 'ignore', windowsHide: true });
+          this._ownedProcesses.set('mysql', proc);
+          this._ownedProcessInfo.set('mysql', { exePath: mysqlInfo.exePath, configPath: mysqlInfo.configPath });
+          proc.once('exit', () => { if (this._ownedProcesses.get('mysql') === proc) this._ownedProcesses.delete('mysql'); });
           let spawnError = null;
           proc.on('error', err => { spawnError = err; });
           proc.unref();
@@ -649,6 +662,50 @@ class ServiceManager {
     await this.stopService('mysql', siteManager, phpManager, mysqlManager);
 
     return { success: true, message: 'All services and running sites stopped' };
+  }
+
+  /** Stop only service processes that this app instance started. */
+  async stopOwnedServices() {
+    const errors = [];
+    for (const [id, proc] of this._ownedProcesses) {
+      this._ownedProcesses.delete(id);
+      if (!proc || proc.exitCode !== null || !proc.pid) continue;
+      const info = this._ownedProcessInfo.get(id) || {};
+      this._ownedProcessInfo.delete(id);
+      if (id === 'webserver' && info.exePath) {
+        const args = [];
+        if (info.prefixDir) args.push('-p', info.prefixDir);
+        if (info.configPath) args.push('-c', info.configPath);
+        args.push('-s', 'quit');
+        await new Promise(resolve => execFile(info.exePath, args, { windowsHide: true, timeout: 5000 }, () => resolve()));
+        if (proc.exitCode !== null) continue;
+      }
+      if (id === 'mysql' && info.exePath) {
+        const admin = path.join(path.dirname(info.exePath), 'mysqladmin.exe');
+        if (fs.existsSync(admin)) {
+          await new Promise(resolve => execFile(admin, [...(info.configPath ? [`--defaults-file=${info.configPath}`] : []), 'shutdown'], { windowsHide: true, timeout: 5000 }, () => resolve()));
+          const graceful = await new Promise(resolve => {
+            if (proc.exitCode !== null) return resolve(true);
+            const timer = setTimeout(() => resolve(false), 2000);
+            proc.once('exit', () => { clearTimeout(timer); resolve(true); });
+          });
+          if (graceful) continue;
+        }
+      }
+      try {
+        await new Promise((resolve, reject) => {
+          const killer = spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+          killer.once('error', reject);
+          killer.once('close', code => code === 0 || proc.exitCode !== null ? resolve() : reject(new Error(`Could not stop app-owned ${id} process.`)));
+        });
+      } catch (error) { errors.push(error.message); }
+    }
+    for (const name of this._ownedWindowsServices) {
+      try { await execPromise(`net stop "${name}"`, { timeout: 10000, windowsHide: true }); }
+      catch (error) { errors.push(`Could not stop app-started Windows service ${name}: ${error.message}`); }
+    }
+    this._ownedWindowsServices.clear();
+    return { success: errors.length === 0, errors };
   }
 }
 

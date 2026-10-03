@@ -112,6 +112,41 @@ let phpManager = null;
 let mysqlManager = null;
 let siteManager = null;
 let serviceManager = null;
+let shutdownPromise = null;
+let shutdownComplete = false;
+
+async function stopAppRuntime() {
+  if (shutdownPromise) return shutdownPromise;
+  shutdownPromise = (async () => {
+    const failures = [];
+    const attempt = async (label, action) => {
+      try {
+        const result = await action();
+        if (result?.success === false) failures.push(`${label}: ${result.error || result.errors?.join('; ') || 'could not stop'}`);
+      } catch (error) { failures.push(`${label}: ${error.message}`); }
+    };
+    await attempt('Public tunnels', () => tunnelManager?.stopAll());
+    await attempt('PHP site servers', () => phpManager?.stopAllAndWait());
+    await attempt('NGINX', async () => {
+      if (nginxInstaller?.ownedProcess && nginxInstaller.ownedProcess.exitCode === null) return nginxInstaller.stop();
+      return { success: true };
+    });
+    await attempt('MySQL connection', () => mysqlManager?.disconnect());
+    await attempt('MySQL runtime', async () => {
+      if (mysqlInstaller?.ownedProcess || mysqlInstaller?.ownedWindowsService) return mysqlInstaller.stop();
+      return { success: true };
+    });
+    await attempt('Managed services', () => serviceManager?.stopOwnedServices());
+    await attempt('Mail catcher', () => mailCatcher?.stop());
+    if (failures.length) console.warn('[Shutdown] Some app-owned services reported errors:', failures);
+    return { success: failures.length === 0, failures };
+  })();
+  return shutdownPromise;
+}
+
+async function stopAllSiteSharing() {
+  if (tunnelManager) await tunnelManager.stopAll();
+}
 
 function createTray() {
   if (tray) return;
@@ -142,6 +177,7 @@ function createTray() {
       {
         label: 'Stop All Services',
         click: async () => {
+          await stopAllSiteSharing();
           if (serviceManager) await serviceManager.stopAllServices(siteManager, phpManager, mysqlManager);
         }
       },
@@ -235,8 +271,14 @@ app.on('second-instance', () => {
   }
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
+  if (shutdownComplete) return;
+  event.preventDefault();
   isQuitting = true;
+  stopAppRuntime().finally(() => {
+    shutdownComplete = true;
+    app.quit();
+  });
 });
 
 // ─── App Lifecycle ────────────────────────────────────────────────────────────
@@ -294,8 +336,13 @@ app.whenReady().then(async () => {
     logManager.log('PHP', data.message || JSON.stringify(data), data.type === 'error' ? 'error' : 'info');
   });
 
+  tunnelManager.on('tunnel-stopped', ({ siteId }) => {
+    mainWindow?.webContents.send('tunnel:stopped', { siteId });
+  });
+
   // Forward site-stopped events to renderer
-  phpManager.on('site-stopped', (data) => {
+  phpManager.on('site-stopped', async (data) => {
+    if (data.siteId) await tunnelManager.stopTunnel(data.siteId);
     mainWindow?.webContents.send('site:stopped', data);
     logManager.log('Sites', `Site ${data.siteId || ''} stopped`, 'warn');
   });
@@ -353,9 +400,6 @@ app.on('window-all-closed', () => {
   const minimizeToTray = cfg?.app?.minimizeToTray ?? cfg?.minimizeToTray ?? true;
 
   if (!minimizeToTray || isQuitting) {
-    phpManager?.stopAll();
-    mysqlManager?.disconnect();
-    mailCatcher?.stop().catch(() => {});
     if (process.platform !== 'darwin') app.quit();
   }
 });
@@ -402,7 +446,8 @@ ipcMain.handle('sites:add', async (event, siteData) => {
   return result;
 });
 
-ipcMain.handle('sites:remove', (event, id) => {
+ipcMain.handle('sites:remove', async (event, id) => {
+  await tunnelManager?.stopTunnel(id);
   phpManager.stop(id);
   return siteManager.removeSite(id);
 });
@@ -446,7 +491,8 @@ ipcMain.handle('sites:start', async (event, id) => {
   return result;
 });
 
-ipcMain.handle('sites:stop', (event, id) => {
+ipcMain.handle('sites:stop', async (event, id) => {
+  await tunnelManager?.stopTunnel(id);
   const stopped = phpManager.stop(id);
   siteManager.updateSite(id, { status: 'stopped' });
   if (vhostsManager) {
@@ -548,10 +594,12 @@ ipcMain.handle('services:start', async (event, id, options) => {
 });
 
 ipcMain.handle('services:stop', async (event, id, options) => {
+  if (id === 'php' || String(id).startsWith('php')) await stopAllSiteSharing();
   return await serviceManager.stopService(id, siteManager, phpManager, mysqlManager, options);
 });
 
 ipcMain.handle('services:restart', async (event, id, options) => {
+  if (id === 'php' || String(id).startsWith('php')) await stopAllSiteSharing();
   return await serviceManager.restartService(id, siteManager, phpManager, mysqlManager, options);
 });
 
@@ -560,6 +608,7 @@ ipcMain.handle('services:start-all', async () => {
 });
 
 ipcMain.handle('services:stop-all', async () => {
+  await stopAllSiteSharing();
   return await serviceManager.stopAllServices(siteManager, phpManager, mysqlManager);
 });
 
@@ -673,9 +722,11 @@ ipcMain.handle('updater:download', async () => {
   try { await autoUpdater.downloadUpdate(); return { success: true }; }
   catch (error) { return { success: false, error: error.message }; }
 });
-ipcMain.handle('updater:install', () => {
+ipcMain.handle('updater:install', async () => {
   if (!autoUpdater) return { success: false, error: 'The updater could not be initialized.' };
   isQuitting = true;
+  await stopAppRuntime();
+  shutdownComplete = true;
   autoUpdater.quitAndInstall(false, true);
   return { success: true };
 });
@@ -996,6 +1047,7 @@ ipcMain.handle('php:toggle-extension', async (event, { name, enable }) => {
       // Restart running PHP sites to apply new extension configuration
       const runningSites = siteManager.getSites().filter(s => phpManager.isRunning(s.id));
       for (const s of runningSites) {
+        await tunnelManager.stopTunnel(s.id);
         phpManager.stop(s.id);
         await phpManager.start(s);
       }
@@ -1446,9 +1498,9 @@ ipcMain.handle('tunnel:start', async (event, { siteId, port, options }) => {
   return res;
 });
 
-ipcMain.handle('tunnel:stop', (event, siteId) => {
+ipcMain.handle('tunnel:stop', async (event, siteId) => {
   if (!tunnelManager) return { success: false };
-  const stopped = tunnelManager.stopTunnel(siteId);
+  const stopped = await tunnelManager.stopTunnel(siteId);
   if (logManager) {
     logManager.log('Tunnel', `Tunnel closed for site ${siteId}`, 'info');
   }

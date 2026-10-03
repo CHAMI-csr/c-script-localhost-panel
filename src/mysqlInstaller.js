@@ -26,6 +26,8 @@ class MysqlInstaller extends EventEmitter {
     this.mariadbExe = path.join(this.binDir, 'mariadbd.exe');
     this.dataDir = path.join(this.baseDir, 'data');
     this.confPath = path.join(this.baseDir, 'my.ini');
+    this.ownedProcess = null;
+    this.ownedWindowsService = null;
 
     this._ensureDir(this.baseDir);
   }
@@ -298,6 +300,7 @@ default-character-set=utf8mb4
         exec(`net start "${winService.name}"`, { windowsHide: true }, (err) => resolve(!err));
       });
       if (netStarted || await this.checkPort(3306)) {
+        if (netStarted) this.ownedWindowsService = winService.name;
         return { success: true, mode: 'system_service' };
       }
 
@@ -308,6 +311,7 @@ default-character-set=utf8mb4
           exec(`powershell -NoProfile -Command "${pCmd}"`, { windowsHide: true, timeout: 6000 }, () => resolve());
         });
         if (await this.checkPort(3306)) {
+          this.ownedWindowsService = winService.name;
           return { success: true, mode: 'system_service' };
         }
       } catch (e) {}
@@ -325,6 +329,8 @@ default-character-set=utf8mb4
         detached: true,
         stdio: 'ignore'
       });
+      this.ownedProcess = proc;
+      proc.once('exit', () => { if (this.ownedProcess === proc) this.ownedProcess = null; });
       proc.unref();
 
       setTimeout(async () => {
@@ -338,6 +344,35 @@ default-character-set=utf8mb4
    * Stop MySQL service or standalone process
    */
   async stop() {
+    if (this.ownedWindowsService) {
+      const name = this.ownedWindowsService;
+      const result = await new Promise((resolve) => {
+        exec(`net stop "${name}"`, { windowsHide: true, timeout: 10000 }, (err) => resolve({ success: !err, error: err?.message }));
+      });
+      if (result.success) this.ownedWindowsService = null;
+      return result;
+    }
+    if (this.ownedProcess?.pid && this.ownedProcess.exitCode === null) {
+      const proc = this.ownedProcess;
+      const exeDir = path.dirname(this.getEffectiveExe() || this.exePath);
+      const mysqlAdmin = path.join(exeDir, 'mysqladmin.exe');
+      if (fs.existsSync(mysqlAdmin)) {
+        await new Promise(resolve => execFile(mysqlAdmin, [`--defaults-file=${this.confPath}`, 'shutdown'], { windowsHide: true, timeout: 5000 }, () => resolve()));
+        const stoppedGracefully = await new Promise(resolve => {
+          if (proc.exitCode !== null) return resolve(true);
+          const timer = setTimeout(() => resolve(false), 2500);
+          proc.once('exit', () => { clearTimeout(timer); resolve(true); });
+        });
+        if (stoppedGracefully) { this.ownedProcess = null; return { success: true }; }
+      }
+      const result = await new Promise(resolve => {
+        const killer = spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+        killer.once('error', error => resolve({ success: false, error: error.message }));
+        killer.once('close', code => resolve({ success: code === 0 || proc.exitCode !== null }));
+      });
+      if (result.success) this.ownedProcess = null;
+      return result;
+    }
     const winService = await this.getWindowsService();
     if (winService && winService.name && winService.isRunning) {
       return new Promise((resolve) => {

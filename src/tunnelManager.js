@@ -13,6 +13,7 @@ class TunnelManager extends EventEmitter {
   constructor() {
     super();
     this.tunnels = {}; // siteId -> { process, url, port, provider }
+    this.stoppingTunnels = new Map();
   }
 
   /**
@@ -78,7 +79,9 @@ class TunnelManager extends EventEmitter {
    * @param {object} options { provider: 'auto' | 'ssh' | 'cloudflare' }
    */
   async startTunnel(siteId, port, options = {}) {
+    if (this.stoppingTunnels.has(siteId)) await this.stoppingTunnels.get(siteId);
     if (this.tunnels[siteId]) {
+      if (!this.tunnels[siteId].url) return { success: false, error: 'A tunnel is already starting for this site.' };
       return {
         success: true,
         url: this.tunnels[siteId].url,
@@ -139,6 +142,13 @@ class TunnelManager extends EventEmitter {
         windowsHide: true,
         stdio: ['ignore', 'pipe', 'pipe']
       });
+      this.tunnels[siteId] = {
+        process: proc,
+        url: null,
+        port,
+        provider: 'Connecting to localhost.run',
+        engine: 'ssh'
+      };
 
       const onData = (data) => {
         const text = data.toString();
@@ -148,13 +158,7 @@ class TunnelManager extends EventEmitter {
           clearTimeout(timeout);
           resolved = true;
           const url = match[0];
-          this.tunnels[siteId] = {
-            process: proc,
-            url,
-            port,
-            provider: 'SSH Tunnel (localhost.run)',
-            engine: 'ssh'
-          };
+          this.tunnels[siteId] = { ...this.tunnels[siteId], url, provider: 'SSH Tunnel (localhost.run)' };
           this.emit('tunnel-started', { siteId, url, provider: 'ssh' });
           resolve({ success: true, url, siteId, provider: 'SSH Tunnel (localhost.run)' });
         }
@@ -165,6 +169,7 @@ class TunnelManager extends EventEmitter {
 
       proc.on('error', (err) => {
         clearTimeout(timeout);
+        if (this.tunnels[siteId]?.process === proc) delete this.tunnels[siteId];
         if (!resolved) {
           resolved = true;
           resolve({ success: false, error: 'SSH Tunnel error: ' + err.message });
@@ -173,7 +178,7 @@ class TunnelManager extends EventEmitter {
 
       proc.on('exit', (code) => {
         clearTimeout(timeout);
-        delete this.tunnels[siteId];
+        if (this.tunnels[siteId]?.process === proc) delete this.tunnels[siteId];
         this.emit('tunnel-stopped', { siteId });
         if (!resolved) {
           resolved = true;
@@ -210,7 +215,7 @@ class TunnelManager extends EventEmitter {
           const errMsg = detectedUrl
             ? 'Cloudflare edge connection blocked by ISP (Port 7844). Switching to SSH...'
             : 'Timed out waiting for Cloudflare Tunnel to initialize (15s).';
-          resolve({ success: false, error: errMsg });
+          this.stopTunnel(siteId).finally(() => resolve({ success: false, error: errMsg }));
         }
       }, 15000);
 
@@ -218,6 +223,13 @@ class TunnelManager extends EventEmitter {
         windowsHide: true,
         stdio: ['ignore', 'pipe', 'pipe']
       });
+      this.tunnels[siteId] = {
+        process: proc,
+        url: null,
+        port,
+        provider: 'Connecting to Cloudflare Tunnel',
+        engine: 'cloudflare'
+      };
 
       const onData = (data) => {
         const text = data.toString();
@@ -236,13 +248,7 @@ class TunnelManager extends EventEmitter {
           clearTimeout(timeout);
           resolved = true;
           const url = detectedUrl || match[0];
-          this.tunnels[siteId] = {
-            process: proc,
-            url,
-            port,
-            provider: 'Cloudflare Tunnel',
-            engine: 'cloudflare'
-          };
+          this.tunnels[siteId] = { ...this.tunnels[siteId], url, provider: 'Cloudflare Tunnel' };
           this.emit('tunnel-started', { siteId, url, provider: 'cloudflare' });
           resolve({ success: true, url, siteId, provider: 'Cloudflare Tunnel' });
         }
@@ -252,11 +258,11 @@ class TunnelManager extends EventEmitter {
           if (!resolved) {
             clearTimeout(timeout);
             resolved = true;
-            this.stopTunnel(siteId);
-            resolve({
+            const result = {
               success: false,
               error: 'Cloudflare edge connection blocked by ISP or firewall (port 7844 UDP/QUIC blocked).'
-            });
+            };
+            this.stopTunnel(siteId).finally(() => resolve(result));
           }
         }
       };
@@ -266,6 +272,7 @@ class TunnelManager extends EventEmitter {
 
       proc.on('error', (err) => {
         clearTimeout(timeout);
+        if (this.tunnels[siteId]?.process === proc) delete this.tunnels[siteId];
         if (!resolved) {
           resolved = true;
           resolve({ success: false, error: err.message });
@@ -274,7 +281,7 @@ class TunnelManager extends EventEmitter {
 
       proc.on('exit', () => {
         clearTimeout(timeout);
-        delete this.tunnels[siteId];
+        if (this.tunnels[siteId]?.process === proc) delete this.tunnels[siteId];
         this.emit('tunnel-stopped', { siteId });
         if (!resolved) {
           resolved = true;
@@ -288,27 +295,54 @@ class TunnelManager extends EventEmitter {
    * Stop a tunnel for a site
    */
   stopTunnel(siteId) {
+    if (this.stoppingTunnels.has(siteId)) return this.stoppingTunnels.get(siteId);
     const entry = this.tunnels[siteId];
-    if (!entry) return false;
+    if (!entry) return Promise.resolve(false);
 
-    try {
-      if (process.platform === 'win32' && entry.process && entry.process.pid) {
-        spawn('taskkill', ['/pid', String(entry.process.pid), '/T', '/F'], { windowsHide: true });
-      } else if (entry.process) {
-        entry.process.kill('SIGTERM');
-      }
-    } catch (e) {}
-
+    const proc = entry.process;
     delete this.tunnels[siteId];
     this.emit('tunnel-stopped', { siteId });
-    return true;
+    if (!proc || proc.exitCode !== null) return Promise.resolve(true);
+
+    const stopping = new Promise(resolve => {
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timeout);
+        resolve(true);
+      };
+      const timeout = setTimeout(finish, 5000);
+      proc.once('exit', finish);
+      try {
+        if (process.platform === 'win32' && proc.pid) {
+          const killer = spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+          killer.once('error', finish);
+          killer.once('close', () => {
+            if (proc.exitCode !== null) finish();
+          });
+        } else {
+          proc.kill('SIGTERM');
+        }
+      } catch (error) {
+        finish();
+      }
+    });
+    this.stoppingTunnels.set(siteId, stopping);
+    stopping.finally(() => {
+      if (this.stoppingTunnels.get(siteId) === stopping) this.stoppingTunnels.delete(siteId);
+    });
+    return stopping;
   }
 
   /**
    * Stop all running tunnels
    */
-  stopAll() {
-    Object.keys(this.tunnels).forEach(id => this.stopTunnel(id));
+  async stopAll() {
+    await Promise.all([
+      ...Object.keys(this.tunnels).map(id => this.stopTunnel(id)),
+      ...this.stoppingTunnels.values()
+    ]);
   }
 
   /**
@@ -317,7 +351,7 @@ class TunnelManager extends EventEmitter {
   getStatus(siteId) {
     if (this.tunnels[siteId]) {
       return {
-        active: true,
+        active: Boolean(this.tunnels[siteId].url),
         url: this.tunnels[siteId].url,
         port: this.tunnels[siteId].port,
         provider: this.tunnels[siteId].provider || 'Public Tunnel'

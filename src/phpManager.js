@@ -351,6 +351,26 @@ class PhpManager extends EventEmitter {
     Object.keys(this.servers).forEach(id => this.stop(id));
   }
 
+  async stopAllAndWait(timeoutMs = 5000) {
+    const entries = Object.entries(this.servers);
+    for (const [id] of entries) delete this.servers[id];
+    await Promise.all(entries.map(([, server]) => new Promise(resolve => {
+      const proc = server?.process;
+      if (!proc || proc.exitCode !== null) return resolve();
+      let done = false;
+      const finish = () => { if (done) return; done = true; clearTimeout(timer); resolve(); };
+      const timer = setTimeout(finish, timeoutMs);
+      proc.once('exit', finish);
+      if (process.platform === 'win32' && proc.pid) {
+        const killer = spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+        killer.once('error', finish);
+        killer.once('close', () => { if (proc.exitCode !== null) finish(); });
+      } else {
+        try { proc.kill('SIGTERM'); } catch (error) { finish(); }
+      }
+    })));
+  }
+
   /** Check if a site server is running */
   isRunning(id) {
     return !!this.servers[id];

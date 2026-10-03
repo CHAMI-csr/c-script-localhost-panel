@@ -99,7 +99,7 @@ C:\Users\<Your-Username>\AppData\Roaming\c-script-localhost\
 
 ### Option 1: Download Pre-built Executable (Recommended)
 1. Go to the [Releases](https://github.com/CHAMI-csr) section on GitHub.
-2. Download **`C-Script LocalHost Panel Setup 1.0.0.exe`** (Standard Installer) or **`C-Script LocalHost Panel 1.0.0.exe`** (Portable).
+2. Download **`C-Script LocalHost Panel Setup 1.1.0.exe`** (Standard Installer) or **`C-Script LocalHost Panel 1.1.0.exe`** (Portable).
 3. Run the installer — PHP, NGINX, and MySQL will be initialized automatically in seconds.
 
 ### Option 2: Build From Source
@@ -133,8 +133,8 @@ npm run dist
 ```
 
 The compiled binaries will be output to the `dist/` directory:
-* `dist/C-Script LocalHost Panel Setup 1.0.0.exe` (NSIS Installer)
-* `dist/C-Script LocalHost Panel 1.0.0.exe` (Portable Single Executable)
+* `dist/C-Script LocalHost Panel Setup 1.1.0.exe` (NSIS Installer)
+* `dist/C-Script LocalHost Panel 1.1.0.exe` (Portable Single Executable)
 
 ---
 

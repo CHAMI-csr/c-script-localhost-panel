@@ -795,6 +795,7 @@ body[data-theme="dark"] .btn-primary:hover{background:#4752C4}
 body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-height:1.45;letter-spacing:.05px}
 .panel-header{min-height:56px;padding:0 22px;border-bottom-color:var(--border)}
 .app-update-card{display:flex;align-items:center;gap:14px;padding:15px 17px;margin-bottom:20px;background:var(--bg2);border:1px solid var(--border2);border-radius:9px}.app-update-icon{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 38px;border-radius:8px;background:rgba(114,170,255,.12);color:var(--accent);font-size:22px}.app-update-copy{flex:1;min-width:0}.app-update-title{font-size:13px;font-weight:700;color:var(--text1)}.app-update-status{font-size:11px;color:var(--text3);margin-top:3px;overflow-wrap:anywhere}.app-update-actions{display:flex;gap:7px;align-items:center}.app-update-progress-wrap{display:flex;align-items:center;gap:8px;margin-top:8px}.app-update-progress-track{height:5px;max-width:240px;flex:1;background:var(--bg4);border-radius:6px;overflow:hidden}.app-update-progress{height:100%;width:0;background:var(--accent);transition:width .2s}.app-update-progress-wrap span{font-size:10px;color:var(--text2);min-width:34px}
+.update-notice-modal{width:440px;max-width:calc(100vw - 28px)}.update-notice-body{display:flex;align-items:center;gap:14px;min-height:104px;flex-wrap:wrap}.update-notice-mark{display:flex;align-items:center;justify-content:center;width:44px;height:44px;flex:0 0 44px;background:rgba(88,101,242,.14);color:var(--accent);border-radius:11px;font-size:24px}.update-notice-message{font-size:13px;color:var(--text2);line-height:1.55}.update-notice-overlay{z-index:10020}.update-popup-progress{flex:1;min-width:100%;margin:12px 0 0}
 .btn{border-radius:6px;font-weight:600;letter-spacing:.05px;box-shadow:none;transition:background .15s,border-color .15s,color .15s}
 .btn:hover{transform:none;box-shadow:none}
 .input{border-radius:6px;background:var(--bg0);border-color:var(--border2);transition:border-color .15s,box-shadow .15s}
@@ -1805,7 +1806,7 @@ DESCRIBE tablename;"></textarea>
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
               <h1 style="font-size:22px;font-weight:700;color:var(--text1);margin:0">C-Script LocalHost Panel</h1>
-              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3)">v1.0.1</span>
+              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3)">v1.1.0</span>
             </div>
             <p style="margin:0 0 10px 0;font-size:13px;color:var(--text3);line-height:1.4">Modern, High-Performance Local Development Environment for PHP, NGINX &amp; MySQL.</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1919,6 +1920,14 @@ DESCRIBE tablename;"></textarea>
 <!-- Toast Container -->
 <div class="toast-container" id="toast-container"></div>
 <div class="er-tooltip" id="er-tooltip"></div>
+
+<div class="modal-overlay update-notice-overlay" id="modal-app-update" onclick="if(event.target===this)dismissUpdatePopup()" role="dialog" aria-modal="true" aria-labelledby="update-popup-title">
+  <div class="modal update-notice-modal">
+    <div class="modal-header"><div><div class="modal-title-main" id="update-popup-title">App update</div><div class="modal-subtitle">C-Script LocalHost Panel</div></div><button class="btn-icon" onclick="dismissUpdatePopup()" aria-label="Close">✕</button></div>
+    <div class="modal-body update-notice-body"><div class="update-notice-mark">↻</div><div class="update-notice-message" id="update-popup-message"></div><div class="app-update-progress-wrap update-popup-progress" id="update-popup-progress-wrap" style="display:none"><div class="app-update-progress-track"><div id="update-popup-progress" class="app-update-progress"></div></div><span id="update-popup-progress-label">0%</span></div></div>
+    <div class="modal-footer"><button class="btn" id="update-popup-later" onclick="dismissUpdatePopup()">Later</button><button class="btn btn-primary" id="update-popup-action" onclick="runUpdatePopupAction()">Download update</button></div>
+  </div>
+</div>
 
 <!-- Create DB Modal -->
 <div class="modal-overlay" id="modal-create-db">
@@ -6351,6 +6360,8 @@ function applyTheme(themeName){
 }
 
 let updaterStatusUnsubscribe=null;
+let updatePopupState='idle';
+let updateProgressPopupDismissed=false;
 async function initUpdaterUI(){
   try{
     const info=await api.updater.version();
@@ -6360,15 +6371,30 @@ async function initUpdaterUI(){
   }catch(error){setAppUpdateStatus('Could not read app version.');}
 }
 function setAppUpdateStatus(message){const el=document.getElementById('app-update-status');if(el)el.textContent=message;}
+function showUpdatePopup(state,message,version=''){
+  if(state==='available'||state==='ready')updateProgressPopupDismissed=false;
+  updatePopupState=state;
+  const title=document.getElementById('update-popup-title'),body=document.getElementById('update-popup-message'),later=document.getElementById('update-popup-later'),action=document.getElementById('update-popup-action'),progress=document.getElementById('update-popup-progress-wrap');
+  progress.style.display=state==='progress'?'flex':'none';
+  later.style.display=state==='progress'||state==='error'?'none':'';
+  action.style.display='';
+  if(state==='available'){title.textContent='Update available';body.textContent=`Version ${version} is ready to download. Download it now and restart when convenient.`;action.textContent='Download update';}
+  if(state==='progress'){title.textContent='Downloading update';body.textContent=message||'The update is downloading in the background.';action.textContent='Hide';}
+  if(state==='ready'){title.textContent='Update ready';body.textContent=`Version ${version} has downloaded. Restart the app to finish installing it.`;action.textContent='Restart and install';}
+  if(state==='error'){title.textContent='Update download failed';body.textContent=message||'The update could not be downloaded.';action.textContent='Close';}
+  openModal('modal-app-update');
+}
+function dismissUpdatePopup(){if(updatePopupState==='progress')updateProgressPopupDismissed=true;updatePopupState='idle';closeModal('modal-app-update');}
+function runUpdatePopupAction(){if(updatePopupState==='available')downloadAppUpdate();else if(updatePopupState==='ready')installAppUpdate();else dismissUpdatePopup();}
 function handleUpdaterStatus(event){
   const check=document.getElementById('app-update-check'),download=document.getElementById('app-update-download'),install=document.getElementById('app-update-install');
   if(!check)return;
   if(event.status==='checking'){check.disabled=true;check.textContent='Checking…';setAppUpdateStatus('Checking for a newer version…');}
-  if(event.status==='available'){check.disabled=false;check.textContent='Check again';download.style.display='';install.style.display='none';setAppUpdateStatus(`Version ${event.version} is available. Download it, then restart to install.`);}
+  if(event.status==='available'){check.disabled=false;check.textContent='Check again';download.style.display='';install.style.display='none';setAppUpdateStatus(`Version ${event.version} is available. Download it, then restart to install.`);showUpdatePopup('available','',event.version);}
   if(event.status==='not-available'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='none';document.getElementById('app-update-progress-wrap').style.display='none';setAppUpdateStatus(`You’re using the latest version (v${event.version}).`);}
-  if(event.status==='progress'){const wrap=document.getElementById('app-update-progress-wrap');wrap.style.display='flex';const percent=Math.max(0,Math.min(100,Number(event.percent)||0));document.getElementById('app-update-progress').style.width=percent+'%';document.getElementById('app-update-progress-label').textContent=Math.round(percent)+'%';setAppUpdateStatus('Downloading update…');download.disabled=true;}
-  if(event.status==='downloaded'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='';document.getElementById('app-update-progress').style.width='100%';document.getElementById('app-update-progress-label').textContent='100%';setAppUpdateStatus(`Version ${event.version} is ready. Restart the app to finish updating.`);}
-  if(event.status==='error'){check.disabled=false;check.textContent='Try again';download.disabled=false;download.textContent='Download update';setAppUpdateStatus('Update check failed: '+event.message);}
+  if(event.status==='progress'){const wrap=document.getElementById('app-update-progress-wrap');wrap.style.display='flex';const percent=Math.max(0,Math.min(100,Number(event.percent)||0));document.getElementById('app-update-progress').style.width=percent+'%';document.getElementById('app-update-progress-label').textContent=Math.round(percent)+'%';document.getElementById('update-popup-progress').style.width=percent+'%';document.getElementById('update-popup-progress-label').textContent=Math.round(percent)+'%';setAppUpdateStatus('Downloading update…');download.disabled=true;if(updatePopupState!=='progress'&&!updateProgressPopupDismissed)showUpdatePopup('progress','The update is downloading. You can hide this window and keep using the app.');}
+  if(event.status==='downloaded'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='';document.getElementById('app-update-progress').style.width='100%';document.getElementById('app-update-progress-label').textContent='100%';setAppUpdateStatus(`Version ${event.version} is ready. Restart the app to finish updating.`);closeModal('modal-app-update');showUpdatePopup('ready','',event.version);}
+  if(event.status==='error'){check.disabled=false;check.textContent='Try again';download.disabled=false;download.textContent='Download update';setAppUpdateStatus('Update check failed: '+event.message);if(updatePopupState==='progress')showUpdatePopup('error',event.message);}
 }
 async function checkForAppUpdates(){
   const button=document.getElementById('app-update-check');button.disabled=true;button.textContent='Checking…';setAppUpdateStatus('Connecting to the release server…');
@@ -6377,8 +6403,9 @@ async function checkForAppUpdates(){
 }
 async function downloadAppUpdate(){
   const button=document.getElementById('app-update-download');button.disabled=true;button.textContent='Starting…';
+  showUpdatePopup('progress','The update is downloading. You can hide this window and keep using the app.');
   const result=await api.updater.download();
-  if(!result.success){button.disabled=false;button.textContent='Download update';setAppUpdateStatus('Download failed: '+result.error);}
+  if(!result.success){button.disabled=false;button.textContent='Download update';setAppUpdateStatus('Download failed: '+result.error);showUpdatePopup('error',result.error);}
 }
 async function installAppUpdate(){
   const result=await api.updater.install();if(!result.success)setAppUpdateStatus('Could not start the installer: '+result.error);

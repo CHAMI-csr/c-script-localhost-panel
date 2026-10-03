@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build and publish Windows installers
-        # Push a tag matching package.json (for example v1.0.1) to publish the release.
+        # Push a tag matching package.json (for example v1.1.0) to publish the release.
         run: npm run dist -- --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -624,13 +624,40 @@ function setupAppUpdater() {
     autoUpdater.allowPrerelease = false;
     const report = (status, details = {}) => mainWindow?.webContents.send('updater:status', { status, ...details });
     autoUpdater.on('checking-for-update', () => report('checking'));
-    autoUpdater.on('update-available', info => { updaterCheckInFlight = false; report('available', { version: info.version, releaseDate: info.releaseDate, releaseNotes: info.releaseNotes || '' }); });
+    autoUpdater.on('update-available', info => {
+      updaterCheckInFlight = false;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+      }
+      report('available', { version: info.version, releaseDate: info.releaseDate, releaseNotes: info.releaseNotes || '' });
+    });
     autoUpdater.on('update-not-available', info => { updaterCheckInFlight = false; report('not-available', { version: info.version }); });
     autoUpdater.on('download-progress', progress => report('progress', { percent: progress.percent, transferred: progress.transferred, total: progress.total }));
     autoUpdater.on('update-downloaded', info => report('downloaded', { version: info.version }));
     autoUpdater.on('error', error => { updaterCheckInFlight = false; report('error', { message: error.message || String(error) }); });
+    if (app.isPackaged && !process.env.PORTABLE_EXECUTABLE_DIR) {
+      const firstCheck = setTimeout(() => requestAppUpdateCheck(), 12000);
+      firstCheck.unref?.();
+      const dailyCheck = setInterval(() => requestAppUpdateCheck(), 24 * 60 * 60 * 1000);
+      dailyCheck.unref?.();
+    }
   } catch (error) {
     console.warn('[Updater] Could not initialize:', error.message);
+  }
+}
+
+async function requestAppUpdateCheck() {
+  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR || !autoUpdater) return { success: false, error: 'Updater unavailable' };
+  if (updaterCheckInFlight) return { success: false, error: 'An update check is already running.' };
+  updaterCheckInFlight = true;
+  try {
+    await autoUpdater.checkForUpdates();
+    return { success: true };
+  } catch (error) {
+    updaterCheckInFlight = false;
+    return { success: false, error: error.message };
   }
 }
 
@@ -639,10 +666,7 @@ ipcMain.handle('updater:check', async () => {
   if (!app.isPackaged) return { success: false, error: 'Update checks are available in the installed app.' };
   if (process.env.PORTABLE_EXECUTABLE_DIR) return { success: false, error: 'The portable build cannot self-update. Install the Setup version once to enable in-app updates.' };
   if (!autoUpdater) return { success: false, error: 'The updater could not be initialized.' };
-  if (updaterCheckInFlight) return { success: false, error: 'An update check is already running.' };
-  updaterCheckInFlight = true;
-  try { await autoUpdater.checkForUpdates(); return { success: true }; }
-  catch (error) { updaterCheckInFlight = false; return { success: false, error: error.message }; }
+  return requestAppUpdateCheck();
 });
 ipcMain.handle('updater:download', async () => {
   if (!autoUpdater) return { success: false, error: 'The updater could not be initialized.' };

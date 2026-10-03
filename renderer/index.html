@@ -496,7 +496,7 @@ webview{flex:1;width:100%;border:none}
 
 /* ── Themes ── */
 /* ═══════════════════════════════════════════════════
-   THEMES (Heavy Dark, Dracula, Nord, Monokai, Light)
+   THEMES (Dark, Dracula, Nord, Monokai, Light)
 ═══════════════════════════════════════════════════ */
 body[data-theme="dracula"]{
   --bg0:#191A21;--bg1:#21222C;--bg2:#282A36;--bg3:#343746;--bg4:#44475A;
@@ -1589,7 +1589,7 @@ DESCRIBE tablename;"></textarea>
             <div class="form-group" style="flex:1">
               <label class="form-label">Interface Theme</label>
               <select class="input select" id="s-app-theme" onchange="applyTheme(this.value)">
-                <option value="dark">Heavy Dark (Default)</option>
+                <option value="dark">Dark (Default)</option>
                 <option value="dracula">Dracula (Vibrant Purple)</option>
                 <option value="nord">Nord (Arctic Blue)</option>
                 <option value="monokai">Monokai (Warm Dark)</option>
@@ -6800,7 +6800,7 @@ function buildCommandPaletteItems(){
     { category: 'Actions', title: 'Clear Mail Catcher Inbox', desc: 'Remove all captured test emails', action: () => clearMailInbox() },
 
     // Themes
-    { category: 'Theme', title: 'Theme: Heavy Dark (Default)', desc: 'Switch interface to the near-black theme', action: () => applyTheme('dark') },
+    { category: 'Theme', title: 'Theme: Dark (Default)', desc: 'Switch interface to the near-black theme', action: () => applyTheme('dark') },
     { category: 'Theme', title: 'Theme: Dracula', desc: 'Switch interface to vibrant purple Dracula theme', action: () => applyTheme('dracula') },
     { category: 'Theme', title: 'Theme: Nord', desc: 'Switch interface to Arctic Blue Nord theme', action: () => applyTheme('nord') },
     { category: 'Theme', title: 'Theme: Monokai', desc: 'Switch interface to Monokai warm dark theme', action: () => applyTheme('monokai') },

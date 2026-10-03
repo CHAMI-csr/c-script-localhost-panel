@@ -1,7 +1,7 @@
 /**
  * PhpInstaller - Standalone PHP Version Downloader & Environment Manager
  * Automatically downloads, extracts, and configures standalone PHP runtimes
- * directly into %APPDATA%\antigravity-localhost\php.
+ * directly into the application's AppData PHP runtime directory.
  */
 
 const fs = require('fs');
@@ -66,14 +66,14 @@ class PhpInstaller extends EventEmitter {
   }
 
   /**
-   * Get the standalone directory where Antigravity stores PHP runtimes
+   * Get the standalone directory where the app stores PHP runtimes
    */
   getPhpDirectory() {
     return this.baseDir;
   }
 
   /**
-   * List all standalone PHP versions currently installed in Antigravity storage
+   * List all standalone PHP versions currently installed in app storage
    */
   async listInstalled() {
     const list = [];

@@ -57,7 +57,7 @@ class MailCatcher extends EventEmitter {
           html: ''
         };
 
-        socket.write('220 Antigravity Localhost MailCatcher Ready\r\n');
+        socket.write('220 C-Script LocalHost Panel MailCatcher Ready\r\n');
 
         let dataBuffer = '';
 

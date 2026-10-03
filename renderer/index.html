@@ -6,9 +6,19 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http://localhost:* http://127.0.0.1:* http://*.test:* http://*.localhost:* http://*.dev:*; img-src 'self' data: blob: http: https:;">
 <title>C-Script LocalHost Panel</title>
 <script>
+  function getSavedThemePreference(){
+    var saved = localStorage.getItem('cscript_theme');
+    if(saved) return saved;
+    var legacy = localStorage.getItem('antigravity_theme');
+    if(legacy){
+      localStorage.setItem('cscript_theme', legacy);
+      localStorage.removeItem('antigravity_theme');
+    }
+    return legacy || 'dark';
+  }
   (function(){
     try {
-      var saved = localStorage.getItem('antigravity_theme') || 'dark';
+      var saved = getSavedThemePreference();
       document.documentElement.setAttribute('data-theme', saved);
     } catch(e){}
   })();
@@ -830,7 +840,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
   <div class="titlebar-logo" onclick="switchPanel('about')" style="cursor:pointer" title="About C-Script LocalHost Panel">
     <img src="../assets/icon.png" alt="C-Script" style="width:22px;height:22px;border-radius:6px;">
     <span>C-Script LocalHost Panel</span>
-    <span class="titlebar-badge" id="titlebar-app-version">v1.1.1</span>
+    <span class="titlebar-badge" id="titlebar-app-version">v1.1.2</span>
   </div>
   <div class="titlebar-center">
     <button class="titlebar-cmd-btn" onclick="openCommandPalette()" title="Press Ctrl+K to search">
@@ -2890,7 +2900,7 @@ async function loadConfig() {
       if(r.configDir) document.getElementById('config-dir-display').textContent = r.configDir;
 
       // Extended settings
-      const themeVal = c.theme || c.app?.theme || localStorage.getItem('antigravity_theme') || 'dark';
+      const themeVal = c.theme || c.app?.theme || getSavedThemePreference();
       applyTheme(themeVal);
       const tldVal = c.tld || c.app?.tld || 'test';
       if(document.getElementById('s-app-tld')) document.getElementById('s-app-tld').value = tldVal;
@@ -2913,13 +2923,13 @@ async function loadConfig() {
       initSessions();
       renderSessionList();
       populateSessionForm(getActiveSession());
-      applyTheme(localStorage.getItem('antigravity_theme') || 'dark');
+      applyTheme(getSavedThemePreference());
     }
   } catch(e){
     initSessions();
     renderSessionList();
     populateSessionForm(getActiveSession());
-    applyTheme(localStorage.getItem('antigravity_theme') || 'dark');
+    applyTheme(getSavedThemePreference());
   }
 }
 
@@ -6387,7 +6397,8 @@ function applyTheme(themeName){
   if(document.body) document.body.setAttribute('data-theme', themeName);
   const sel = document.getElementById('s-app-theme');
   if(sel && sel.value !== themeName) sel.value = themeName;
-  localStorage.setItem('antigravity_theme', themeName);
+  localStorage.setItem('cscript_theme', themeName);
+  localStorage.removeItem('antigravity_theme');
   try {
     if(api?.theme?.set) {
       api.theme.set(themeName);

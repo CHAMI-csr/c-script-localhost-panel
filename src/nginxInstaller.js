@@ -2,7 +2,7 @@
  * NginxInstaller - Standalone NGINX Web Server Downloader & Manager
  * Installs and manages the application's own NGINX runtime.
  * Automatically downloads, extracts, and configures standalone NGINX
- * directly into %APPDATA%\antigravity-localhost\nginx.
+ * directly into the application's AppData runtime directory.
  */
 
 const fs = require('fs');
@@ -28,12 +28,30 @@ class NginxInstaller extends EventEmitter {
     this.tempDir = path.join(this.baseDir, 'temp');
 
     this._ensureDir(this.baseDir);
+    this.removeLegacyBranding();
     this.repairMissingSslReferences();
   }
 
   _ensureDir(dir) {
     if (!fs.existsSync(dir)) {
       try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {}
+    }
+  }
+
+  /** Update the old generated fallback page label without replacing user config. */
+  removeLegacyBranding() {
+    try {
+      if (!fs.existsSync(this.confPath)) return false;
+      const original = fs.readFileSync(this.confPath, 'utf8');
+      const updated = original
+        .replace(/Antigravity LocalHost Panel/gi, 'C-Script LocalHost Panel')
+        .replace(/Antigravity Dev Suite/gi, 'C-Script LocalHost Panel');
+      if (updated === original) return false;
+      fs.writeFileSync(this.confPath, updated, 'utf8');
+      return true;
+    } catch (error) {
+      console.warn('[NginxInstaller] Could not update the old generated app label:', error.message);
+      return false;
     }
   }
 
@@ -196,7 +214,7 @@ class NginxInstaller extends EventEmitter {
     this._ensureDir(this.logsDir);
     this._ensureDir(this.tempDir);
 
-    const confContent = `# Antigravity LocalHost Panel - Standalone NGINX Configuration
+    const confContent = `# C-Script LocalHost Panel - Standalone NGINX Configuration
 worker_processes 1;
 
 events {
@@ -221,7 +239,7 @@ http {
 
         location / {
             default_type text/html;
-            return 200 '<!DOCTYPE html><html><head><title>C-Script LocalHost Panel</title><style>body{background:#0d0d14;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}</style></head><body><div style="text-align:center"><h2>Antigravity LocalHost Panel</h2><p style="color:#888">Standalone NGINX is running on Port 80.</p></div></body></html>';
+            return 200 '<!DOCTYPE html><html><head><title>C-Script LocalHost Panel</title><style>body{background:#0d0d14;color:#eee;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}</style></head><body><div style="text-align:center"><h2>C-Script LocalHost Panel</h2><p style="color:#888">Standalone NGINX is running on Port 80.</p></div></body></html>';
         }
     }
 }

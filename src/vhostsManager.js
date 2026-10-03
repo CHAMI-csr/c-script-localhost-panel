@@ -13,8 +13,10 @@ const HOSTS_PATH = process.platform === 'win32'
   ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'drivers', 'etc', 'hosts')
   : '/etc/hosts';
 
-const MARKER_START = '# === Antigravity Dev Suite (Auto-Managed) ===';
-const MARKER_END = '# === End Antigravity Dev Suite ===';
+const MARKER_START = '# === C-Script LocalHost Panel (Auto-Managed) ===';
+const MARKER_END = '# === End C-Script LocalHost Panel ===';
+const LEGACY_MARKER_START = '# === Antigravity Dev Suite (Auto-Managed) ===';
+const LEGACY_MARKER_END = '# === End Antigravity Dev Suite ===';
 
 class VhostsManager {
   constructor(defaultTld = 'test') {
@@ -59,18 +61,31 @@ class VhostsManager {
     return '';
   }
 
+  _findManagedBlock(content) {
+    for (const [startMarker, endMarker] of [
+      [MARKER_START, MARKER_END],
+      [LEGACY_MARKER_START, LEGACY_MARKER_END]
+    ]) {
+      const startIndex = content.indexOf(startMarker);
+      const endIndex = content.indexOf(endMarker);
+      if (startIndex !== -1 && endIndex > startIndex) {
+        return { startMarker, endMarker, startIndex, endIndex };
+      }
+    }
+    return null;
+  }
+
   /**
-   * List all domains currently managed by Antigravity in the hosts file
+   * List all domains currently managed by this app in the hosts file
    */
   listManagedDomains() {
     const content = this.readHosts();
     if (!content) return [];
 
-    const startIndex = content.indexOf(MARKER_START);
-    const endIndex = content.indexOf(MARKER_END);
-    if (startIndex === -1 || endIndex === -1) return [];
+    const managedBlock = this._findManagedBlock(content);
+    if (!managedBlock) return [];
 
-    const block = content.substring(startIndex + MARKER_START.length, endIndex);
+    const block = content.substring(managedBlock.startIndex + managedBlock.startMarker.length, managedBlock.endIndex);
     const domains = [];
     const lines = block.split(/\r?\n/);
     for (const line of lines) {
@@ -113,13 +128,12 @@ class VhostsManager {
     const newBlockText = newBlockLines.join('\r\n');
 
     let updatedContent = '';
-    const startIndex = current.indexOf(MARKER_START);
-    const endIndex = current.indexOf(MARKER_END);
+    const managedBlock = this._findManagedBlock(current);
 
-    if (startIndex !== -1 && endIndex !== -1) {
+    if (managedBlock) {
       // Replace existing block
-      const before = current.substring(0, startIndex).trimEnd();
-      const after = current.substring(endIndex + MARKER_END.length).trimStart();
+      const before = current.substring(0, managedBlock.startIndex).trimEnd();
+      const after = current.substring(managedBlock.endIndex + managedBlock.endMarker.length).trimStart();
       updatedContent = (before ? before + '\r\n\r\n' : '') + newBlockText + (after ? '\r\n\r\n' + after : '\r\n');
     } else {
       // Append block

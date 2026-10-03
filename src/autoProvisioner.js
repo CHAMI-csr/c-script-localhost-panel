@@ -1,6 +1,6 @@
 /**
  * AutoProvisioner - Automatically provisions pre-bundled PHP, NGINX, and MySQL
- * from the app installation directory into %APPDATA%\antigravity-localhost on first run.
+ * from the app installation directory into the app's AppData runtime directory on first run.
  */
 
 const fs = require('fs');

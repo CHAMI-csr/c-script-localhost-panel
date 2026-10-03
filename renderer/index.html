@@ -468,10 +468,18 @@ webview{flex:1;width:100%;border:none}
 .dash-service-row{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);transition:background .12s}
 .dash-service-row:last-child{border-bottom:none}
 .dash-service-row:hover{background:rgba(255,255,255,0.02)}
+.dash-service-row.is-busy{background:rgba(124,106,247,.055)}
 .dash-service-left{display:flex;align-items:center;gap:14px;min-width:0}
 .dash-service-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;transition:all .2s}
 .dash-service-dot.online{background:var(--green);box-shadow:0 0 10px rgba(63,207,142,0.75)}
 .dash-service-dot.offline{background:var(--red);box-shadow:0 0 4px rgba(242,95,92,0.4)}
+.dash-service-dot.busy-start{background:var(--green);box-shadow:0 0 12px var(--green);animation:service-status-pulse .9s ease-in-out infinite}
+.dash-service-dot.busy-stop{background:var(--red);box-shadow:0 0 12px var(--red);animation:service-status-pulse .9s ease-in-out infinite}
+.service-action-spinner{width:13px;height:13px;display:inline-block;flex:0 0 13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:service-action-spin .7s linear infinite;vertical-align:-2px}
+.btn.is-loading{display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:wait;opacity:.88}
+@keyframes service-action-spin{to{transform:rotate(360deg)}}
+@keyframes service-status-pulse{50%{opacity:.38;transform:scale(.76)}}
+@media(prefers-reduced-motion:reduce){.service-action-spinner,.dash-service-dot.busy-start,.dash-service-dot.busy-stop{animation-duration:2.5s}}
 .dash-service-name{font-size:14px;font-weight:600;color:var(--text1);display:flex;align-items:center;gap:8px}
 .dash-badge{font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.4px}
 .dash-badge-web{background:rgba(88,183,255,0.15);color:var(--blue)}
@@ -822,7 +830,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
   <div class="titlebar-logo" onclick="switchPanel('about')" style="cursor:pointer" title="About C-Script LocalHost Panel">
     <img src="../assets/icon.png" alt="C-Script" style="width:22px;height:22px;border-radius:6px;">
     <span>C-Script LocalHost Panel</span>
-    <span class="titlebar-badge">v1.0</span>
+    <span class="titlebar-badge" id="titlebar-app-version">v1.1.1</span>
   </div>
   <div class="titlebar-center">
     <button class="titlebar-cmd-btn" onclick="openCommandPalette()" title="Press Ctrl+K to search">
@@ -3145,9 +3153,19 @@ function renderDashboardServices(services) {
 
 async function controlService(id, action) {
   const btn = document.querySelector(`[data-svc-action="${action}"][data-svc-id="${id}"]`);
+  const row = btn?.closest('.dash-service-row');
   if (btn) {
     btn.disabled = true;
-    btn.textContent = '...';
+    btn.classList.add('is-loading');
+    btn.setAttribute('aria-busy', 'true');
+    const label = action === 'start' ? 'Starting' : action === 'stop' ? 'Stopping' : 'Restarting';
+    btn.innerHTML = `<span class="service-action-spinner" aria-hidden="true"></span><span>${label}…</span>`;
+  }
+  if (row) {
+    row.classList.add('is-busy');
+    row.querySelectorAll('.dash-service-right button').forEach(control => { control.disabled = true; });
+    const dot = row.querySelector('.dash-service-dot');
+    dot?.classList.add(action === 'start' ? 'busy-start' : 'busy-stop');
   }
   
   try {
@@ -3304,7 +3322,14 @@ async function forceKillMySqlAction() {
 
 async function bulkStopServices() {
   const btn = document.getElementById('dash-bulk-stop-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Stopping...'; }
+  const startBtn = document.getElementById('dash-bulk-start-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('is-loading');
+    btn.setAttribute('aria-busy', 'true');
+    btn.innerHTML = '<span class="service-action-spinner" aria-hidden="true"></span><span>Stopping services…</span>';
+  }
+  if (startBtn) startBtn.disabled = true;
   toast('Stopping all services...', 'info');
   try {
     await api.services.stopAll();
@@ -3314,8 +3339,11 @@ async function bulkStopServices() {
   } finally {
     if (btn) {
       btn.disabled = false;
+      btn.classList.remove('is-loading');
+      btn.removeAttribute('aria-busy');
       btn.innerHTML = `<svg viewBox="0 0 24 24" class="tab-icon-svg"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg> Stop all services`;
     }
+    if (startBtn) startBtn.disabled = false;
     await loadDashboardServices(false);
     await checkPHPStatus();
     await checkMySQLStatus();
@@ -3325,7 +3353,14 @@ async function bulkStopServices() {
 
 async function bulkStartServices() {
   const btn = document.getElementById('dash-bulk-start-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Starting...'; }
+  const stopBtn = document.getElementById('dash-bulk-stop-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('is-loading');
+    btn.setAttribute('aria-busy', 'true');
+    btn.innerHTML = '<span class="service-action-spinner" aria-hidden="true"></span><span>Starting services…</span>';
+  }
+  if (stopBtn) stopBtn.disabled = true;
   toast('Starting all services...', 'info');
   try {
     await api.services.startAll();
@@ -3335,8 +3370,11 @@ async function bulkStartServices() {
   } finally {
     if (btn) {
       btn.disabled = false;
+      btn.classList.remove('is-loading');
+      btn.removeAttribute('aria-busy');
       btn.innerHTML = `<svg viewBox="0 0 24 24" class="tab-icon-svg"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Start all services`;
     }
+    if (stopBtn) stopBtn.disabled = false;
     await loadDashboardServices(false);
     await checkPHPStatus();
     await checkMySQLStatus();
@@ -6365,6 +6403,8 @@ let updateProgressPopupDismissed=false;
 async function initUpdaterUI(){
   try{
     const info=await api.updater.version();
+    const titlebarVersion=document.getElementById('titlebar-app-version');
+    if(titlebarVersion)titlebarVersion.textContent=`v${info.version}`;
     document.getElementById('about-app-version').textContent=`v${info.version}`;
     setAppUpdateStatus(info.portable?'Portable build · install Setup once to enable app updates.':'Current version · v'+info.version);
     if(!updaterStatusUnsubscribe)updaterStatusUnsubscribe=api.updater.onStatus(handleUpdaterStatus);

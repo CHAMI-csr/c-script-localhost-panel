@@ -463,7 +463,7 @@ ipcMain.handle('sites:start', async (event, id) => {
   } catch (e) { /* use default */ }
 
   // Check if PHP is installed and executable
-  const phpCheck = await phpManager.getVersion();
+  const phpCheck = await phpManager.getVersion(phpManager.getBinaryForSite(site));
   if (!phpCheck.available) {
     return {
       success: false,
@@ -1382,6 +1382,26 @@ ipcMain.handle('nginx:reload', async () => {
 // ─── IPC: Standalone MySQL / MariaDB Installer & Manager ─────────────────────
 ipcMain.handle('mysql-installer:info', async () => {
   return mysqlInstaller ? mysqlInstaller.getInfo() : { status: 'none' };
+});
+
+ipcMain.handle('mysql-installer:open-config', async () => {
+  if (!mysqlInstaller) return { success: false, error: 'MySQL installer is not ready.' };
+  let configPath = mysqlInstaller.confPath;
+  try {
+    const winService = await mysqlInstaller.getWindowsService();
+    const servicePath = winService?.pathName || '';
+    const match = servicePath.match(/--defaults-file(?:=|\s+)(?:"([^"]+)"|'([^']+)'|([^\s"]+))/i);
+    const serviceConfigPath = match?.[1] || match?.[2] || match?.[3];
+    if (serviceConfigPath && fs.existsSync(serviceConfigPath)) configPath = serviceConfigPath;
+  } catch (error) {}
+
+  if (!fs.existsSync(configPath) && !mysqlInstaller.setupDefaultConf()) {
+    return { success: false, error: `MySQL configuration file was not found: ${configPath}` };
+  }
+  const openError = await shell.openPath(configPath);
+  return openError
+    ? { success: false, path: configPath, error: openError }
+    : { success: true, path: configPath };
 });
 
 ipcMain.handle('mysql-installer:download', async () => {

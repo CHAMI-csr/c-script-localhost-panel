@@ -877,17 +877,37 @@ class MySQLManager {
       await verifiedConnection.end(); verifiedConnection = null;
       await this.connection.query(`ALTER USER CURRENT_USER() IDENTIFIED BY ${this.connection.escape(newPassword)}`);
       const nextConfig = { ...this.config, password: newPassword };
+      this.config = nextConfig;
       try {
-        const replacement = await mysql2.createConnection({ ...nextConfig, connectTimeout: 10000, multipleStatements: true });
-        await replacement.query('SELECT 1');
-        const oldConnection = this.connection;
-        this.connection = replacement;
-        this.config = nextConfig;
-        try { await oldConnection.end(); } catch (_) {}
+        await this.connection.changeUser({
+          user: nextConfig.user || 'root',
+          password: newPassword,
+          database: nextConfig.database
+        });
+        await this.connection.query('SELECT 1');
+        this.connected = true;
         return { success: true, account: row.account, reconnected: true };
-      } catch (reconnectError) {
-        this.config = nextConfig;
-        return { success: true, account: row.account, reconnected: false, error: `Password changed, but reconnect failed: ${reconnectError.message}` };
+      } catch (reauthError) {
+        try {
+          const replacement = await mysql2.createConnection({ ...nextConfig, connectTimeout: 10000, multipleStatements: true });
+          await replacement.query('SELECT 1');
+          const oldConnection = this.connection;
+          this.connection = replacement;
+          this.connected = true;
+          try { await oldConnection.end(); } catch (_) {}
+          return { success: true, account: row.account, reconnected: true };
+        } catch (reconnectError) {
+          const oldConnection = this.connection;
+          this.connection = null;
+          this.connected = false;
+          try { await oldConnection?.end(); } catch (_) {}
+          return {
+            success: true,
+            account: row.account,
+            reconnected: false,
+            error: `Password changed and saved to this connection session, but reconnect failed: ${reconnectError.message || reauthError.message}`
+          };
+        }
       }
     } catch (err) {
       if (verifiedConnection) try { await verifiedConnection.end(); } catch (_) {}

@@ -61,29 +61,31 @@ class PhpManager extends EventEmitter {
     }
     const userProfile = process.env.USERPROFILE || '';
     const appData = process.env.APPDATA || (userProfile ? path.join(userProfile, 'AppData', 'Roaming') : '');
-    const standalone84 = path.join(appData, 'c-script-localhost', 'php', 'php84', 'php.exe');
-    if (fs.existsSync(standalone84)) {
-      repairPhpConfigForBinary(standalone84);
-      return standalone84;
-    }
-    const legacy84 = path.join(appData, 'antigravity-localhost', 'php', 'php84', 'php.exe');
-    if (fs.existsSync(legacy84)) {
-      repairPhpConfigForBinary(legacy84);
-      return legacy84;
-    }
-
-    const standalone85 = path.join(appData, 'c-script-localhost', 'php', 'php85', 'php.exe');
-    if (fs.existsSync(standalone85)) {
-      repairPhpConfigForBinary(standalone85);
-      return standalone85;
-    }
-    const legacy85 = path.join(appData, 'antigravity-localhost', 'php', 'php85', 'php.exe');
-    if (fs.existsSync(legacy85)) {
-      repairPhpConfigForBinary(legacy85);
-      return legacy85;
+    const versions = ['php84', 'php85', 'php83', 'php82', 'php81'];
+    const roots = [
+      path.join(appData, 'c-script-localhost', 'php'),
+      path.join(appData, 'antigravity-localhost', 'php')
+    ];
+    for (const version of versions) {
+      for (const root of roots) {
+        const binary = path.join(root, version, 'php.exe');
+        if (!fs.existsSync(binary)) continue;
+        repairPhpConfigForBinary(binary);
+        return binary;
+      }
     }
 
-    return this.phpBinary || 'php';
+    // A stale configured executable must not block the system PATH fallback.
+    return 'php';
+  }
+
+  getBinaryForSite(site) {
+    const requested = String(site?.phpBinary || site?.php || '').trim();
+    if (requested && requested.toLowerCase() !== 'php' && fs.existsSync(requested)) {
+      repairPhpConfigForBinary(requested);
+      return requested;
+    }
+    return this.getEffectiveBinary();
   }
 
   _needsShell(binary) {
@@ -109,8 +111,8 @@ class PhpManager extends EventEmitter {
     return spawn(bin, args, options);
   }
 
-  _execPhp(args, callback) {
-    const bin = this.getEffectiveBinary();
+  _execPhp(args, callback, binaryOverride = null) {
+    const bin = binaryOverride || this.getEffectiveBinary();
     const options = { windowsHide: true, timeout: 10000 };
     if (this._needsShell(bin)) {
       const command = [this._quoteCmdArg(bin), ...args.map(arg => this._quoteCmdArg(arg))].join(' ');
@@ -162,9 +164,9 @@ class PhpManager extends EventEmitter {
   }
 
   /** Get installed PHP version */
-  getVersion() {
+  getVersion(binaryOverride = null) {
     return new Promise((resolve) => {
-      const binary = this.getEffectiveBinary();
+      const binary = binaryOverride || this.getEffectiveBinary();
       this._execPhp(['--version'], (err, stdout, stderr) => {
         if (err) {
           let error = err.code === 'ENOENT'
@@ -185,7 +187,7 @@ class PhpManager extends EventEmitter {
           binary,
           fullOutput: out.trim()
         });
-      });
+      }, binary);
     });
   }
 
@@ -257,7 +259,7 @@ class PhpManager extends EventEmitter {
     if (site.entryFile && fs.existsSync(site.entryFile)) {
       args.push(site.entryFile);
     }
-    const bin = site.phpBinary || site.php || this.phpBinary || 'php';
+    const bin = this.getBinaryForSite(site);
     const phpProcess = this._spawnPhp(args, site.root, bin);
 
     let stderrBuf = '';

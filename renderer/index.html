@@ -2009,7 +2009,7 @@ DESCRIBE tablename;"></textarea>
   <div class="modal db-settings-modal">
     <div class="modal-header"><div><div class="modal-title-main">Database settings</div><div class="modal-subtitle">Server configuration, defaults and account security</div></div><button class="btn-icon" onclick="closeModal('modal-database-settings')">✕</button></div>
     <div class="modal-body">
-      <section class="db-settings-section"><div class="db-settings-section-title">Connected server</div><div id="db-server-settings-grid" class="db-server-settings-grid"><div class="settings-loading">Loading server details…</div></div><button class="btn btn-sm" style="margin-top:12px" onclick="openSessionModal();closeModal('modal-database-settings')">Edit connection</button></section>
+      <section class="db-settings-section"><div class="db-settings-section-title">Connected server</div><div id="db-server-settings-grid" class="db-server-settings-grid"><div class="settings-loading">Loading server details…</div></div><button class="btn btn-sm" style="margin-top:12px" onclick="openMysqlConfigFile()">Edit my.ini</button></section>
       <section class="db-settings-section"><div class="db-settings-section-title">Connection defaults</div><p class="settings-help">These options apply to this connection. They return to the server defaults when you reconnect.</p>
         <div class="form-row"><div class="form-group"><label class="form-label">Default engine</label><select class="input select" id="settings-engine"><option>InnoDB</option><option>MyISAM</option><option>MEMORY</option></select></div><div class="form-group"><label class="form-label">Time zone</label><input class="input" id="settings-time-zone" placeholder="SYSTEM or +00:00"></div></div>
         <div class="form-row"><div class="form-group"><label class="form-label">Connection character set</label><select class="input select" id="settings-charset" onchange="updateSettingsCollations()"><option value="utf8mb4">utf8mb4</option><option value="utf8">utf8</option><option value="latin1">latin1</option><option value="ascii">ascii</option></select></div><div class="form-group"><label class="form-label">Connection collation</label><select class="input select" id="settings-collation"></select></div></div>
@@ -5484,6 +5484,11 @@ async function loadSelectedDatabaseDefaults(){
   const coll=document.getElementById('settings-db-collation');if([...coll.options].some(o=>o.value===info.collation))coll.value=info.collation;
 }
 function showSettingsResult(id,message,success){const el=document.getElementById(id);el.textContent=message;el.className='settings-inline-result '+(success?'success':'error');}
+async function openMysqlConfigFile(){
+  const result=await api.mysqlInstaller.openConfig();
+  if(!result?.success){toast('Could not open my.ini: '+(result?.error||'Unknown error'),'error');return;}
+  toast('Opened MySQL configuration: '+result.path,'success');
+}
 async function openDatabaseSettings(){
   if(!DB.connected){toast('Connect to MySQL to view database settings','error');return;}
   document.getElementById('db-server-settings-grid').innerHTML='<div class="settings-loading">Loading server details…</div>';
@@ -5542,7 +5547,7 @@ async function submitOwnPasswordChange(){
     const session=DBSessions.find(s=>s.id===activeSessionId);if(session){session.password=newPass;saveSessionsToStorage();}
     document.getElementById('db-password-current').value='';document.getElementById('db-password-new').value='';document.getElementById('db-password-confirm').value='';
     if(result.reconnected){resultEl.classList.add('success');resultEl.textContent=`Password updated for ${result.account}. The connection is active with the new password.`;toast('Database password updated','success');}
-    else{resultEl.classList.add('error');resultEl.textContent=`${result.error} Save the new password in your connection session before reconnecting.`;toast('Password changed; reconnect needs attention','error');}
+    else{resultEl.classList.add('error');resultEl.textContent=result.error||'Password changed, but reconnect the saved session to continue.';toast('Password changed; reconnect needs attention','error');}
   }catch(error){resultEl.classList.add('error');resultEl.textContent=error.message;}
   finally{button.disabled=false;button.textContent='Update password';}
 }
@@ -5600,18 +5605,23 @@ let _scannedPhpVersions = [];
 async function populatePhpVersionSelects() {
   try {
     if (_scannedPhpVersions.length === 0) {
-      _scannedPhpVersions = await api.php.scanVersions() || [];
+      const result = await api.php.scanVersions();
+      _scannedPhpVersions = Array.isArray(result) ? result : (result?.versions || []);
     }
+    const defaultPhp = await api.php.version();
+    const defaultLabel = defaultPhp?.available
+      ? `Default — PHP ${defaultPhp.version} (App Settings)`
+      : 'Default (App Settings)';
     const selects = [document.getElementById('site-php'), document.getElementById('edit-site-php')];
     selects.forEach(sel => {
       if (!sel) return;
       const cur = sel.value;
-      let opts = '<option value="">Default (From App Settings)</option>';
+      let opts = `<option value="">${escHtml(defaultLabel)}</option>`;
       _scannedPhpVersions.forEach(pv => {
         opts += `<option value="${escAttr(pv.path)}">${escHtml(pv.version)} (${escHtml(pv.path)})</option>`;
       });
       sel.innerHTML = opts;
-      if (cur) sel.value = cur;
+      sel.value = cur && _scannedPhpVersions.some(pv => pv.path === cur) ? cur : '';
     });
   } catch (e) {}
 }
@@ -5837,8 +5847,10 @@ function checkSiteFolder(siteIdOrPath){
   openModal('modal-php-checker');
 }
 
-function openAddSiteModal(){
-  populatePhpVersionSelects();
+async function openAddSiteModal(){
+  await populatePhpVersionSelects();
+  const phpSelect = document.getElementById('site-php');
+  if (phpSelect) phpSelect.value = '';
   openModal('modal-add-site');
   setTimeout(()=>document.getElementById('site-name').focus(),100);
 }
@@ -5852,9 +5864,10 @@ async function browseSiteFolder(){
 let _sitesMap = {};
 let _editingSiteId = null;
 
-function editSiteEntryFile(siteId){
+async function editSiteEntryFile(siteId){
   const site=_sitesMap[siteId];
   if(!site) return;
+  await populatePhpVersionSelects();
   _editingSiteId=siteId;
   document.getElementById('edit-site-entry-file').value=site.entryFile||'';
   document.getElementById('edit-site-port').value=site.port||0;

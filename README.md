@@ -133,8 +133,8 @@ npm run dist
 ```
 
 The compiled binaries will be output to the `dist/` directory:
-* `dist/C-Script LocalHost Panel Setup 1.1.3.exe` (NSIS Installer)
-* `dist/C-Script LocalHost Panel 1.1.3.exe` (Portable Single Executable)
+* `dist/C-Script LocalHost Panel Setup 1.1.4.exe` (NSIS Installer)
+* `dist/C-Script LocalHost Panel 1.1.4.exe` (Portable Single Executable)
 
 ---
 

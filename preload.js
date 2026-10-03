@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── MySQL / MariaDB Installer ──────────────────────────────────────────────
   mysqlInstaller: {
     getInfo: () => ipcRenderer.invoke('mysql-installer:info'),
+    openConfig: () => ipcRenderer.invoke('mysql-installer:open-config'),
     download: () => ipcRenderer.invoke('mysql-installer:download'),
     start: () => ipcRenderer.invoke('mysql-installer:start'),
     stop: () => ipcRenderer.invoke('mysql-installer:stop'),

@@ -191,6 +191,33 @@ class ServiceManager {
   }
 
   /**
+   * Ensure NGINX configuration has adequate hash bucket size for domain routing
+   */
+  _ensureNginxConfOptimized(confPath) {
+    if (!confPath || !fs.existsSync(confPath)) return false;
+    try {
+      let content = fs.readFileSync(confPath, 'utf8');
+      let changed = false;
+      if (!content.includes('server_names_hash_bucket_size')) {
+        content = content.replace(/http\s*\{/i, 'http {\n    server_names_hash_bucket_size 128;\n    server_names_hash_max_size 2048;');
+        changed = true;
+      } else {
+        const match = content.match(/server_names_hash_bucket_size\s+(\d+);/i);
+        if (match && parseInt(match[1]) < 128) {
+          content = content.replace(/server_names_hash_bucket_size\s+\d+;/i, 'server_names_hash_bucket_size 128;');
+          changed = true;
+        }
+      }
+      if (changed) {
+        fs.writeFileSync(confPath, content, 'utf8');
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+
+  /**
    * Get all active services dynamically with zero hardcoded values
    */
   async getServices(siteManager = null, phpManager = null) {
@@ -343,6 +370,12 @@ class ServiceManager {
             return { success: true, message: `${webInfo.name} Web Server is already running` };
           }
 
+          if (webInfo.prefixDir) {
+            try {
+              fs.mkdirSync(path.join(webInfo.prefixDir, 'logs'), { recursive: true });
+              fs.mkdirSync(path.join(webInfo.prefixDir, 'temp'), { recursive: true });
+            } catch (_) {}
+          }
           if (webInfo.configPath) {
             this._ensureNginxConfOptimized(webInfo.configPath);
           }
@@ -364,7 +397,7 @@ class ServiceManager {
             }
           }
 
-          const proc = spawn(webInfo.exePath, args, { detached: true, stdio: 'ignore', windowsHide: true });
+          const proc = spawn(webInfo.exePath, args, { cwd: webInfo.prefixDir || undefined, detached: true, stdio: 'ignore', windowsHide: true });
           this._ownedProcesses.set('webserver', proc);
           this._ownedProcessInfo.set('webserver', { exePath: webInfo.exePath, prefixDir: webInfo.prefixDir, configPath: webInfo.configPath });
           proc.once('exit', () => { if (this._ownedProcesses.get('webserver') === proc) this._ownedProcesses.delete('webserver'); });

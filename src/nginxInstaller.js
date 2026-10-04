@@ -269,6 +269,26 @@ http {
       return { success: true, alreadyRunning: true };
     }
 
+    this._ensureDir(this.logsDir);
+    this._ensureDir(this.tempDir);
+    try {
+      if (fs.existsSync(this.confPath)) {
+        let conf = fs.readFileSync(this.confPath, 'utf8');
+        let confChanged = false;
+        if (!conf.includes('server_names_hash_bucket_size')) {
+          conf = conf.replace(/http\s*\{/i, 'http {\n    server_names_hash_bucket_size 128;\n    server_names_hash_max_size 2048;');
+          confChanged = true;
+        } else {
+          const m = conf.match(/server_names_hash_bucket_size\s+(\d+);/i);
+          if (m && parseInt(m[1]) < 128) {
+            conf = conf.replace(/server_names_hash_bucket_size\s+\d+;/i, 'server_names_hash_bucket_size 128;');
+            confChanged = true;
+          }
+        }
+        if (confChanged) fs.writeFileSync(this.confPath, conf, 'utf8');
+      }
+    } catch (_) {}
+
     return new Promise((resolve) => {
       const proc = spawn(this.exePath, ['-p', this.baseDir, '-c', this.confPath], {
         cwd: this.baseDir,

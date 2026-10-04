@@ -249,6 +249,12 @@ try {
       if (!content.includes('server_names_hash_bucket_size')) {
         content = content.replace(/http\s*\{/i, 'http {\n    server_names_hash_bucket_size 128;\n    server_names_hash_max_size 2048;');
         changed = true;
+      } else {
+        const match = content.match(/server_names_hash_bucket_size\s+(\d+);/i);
+        if (match && parseInt(match[1]) < 128) {
+          content = content.replace(/server_names_hash_bucket_size\s+\d+;/i, 'server_names_hash_bucket_size 128;');
+          changed = true;
+        }
       }
       if (changed) {
         fs.writeFileSync(confPath, content, 'utf8');

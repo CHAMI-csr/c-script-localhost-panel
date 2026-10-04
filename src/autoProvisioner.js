@@ -122,6 +122,21 @@ class AutoProvisioner {
       'nginx.exe', path.join('conf', 'nginx.conf'), path.join('conf', 'mime.types')
     ], onStatus);
 
+    if (runtimes.nginx.installed) {
+      try {
+        fs.mkdirSync(path.join(targetNginx, 'logs'), { recursive: true });
+        fs.mkdirSync(path.join(targetNginx, 'temp'), { recursive: true });
+        const confPath = path.join(targetNginx, 'conf', 'nginx.conf');
+        if (fs.existsSync(confPath)) {
+          let conf = fs.readFileSync(confPath, 'utf8');
+          if (!conf.includes('server_names_hash_bucket_size')) {
+            conf = conf.replace(/http\s*\{/i, 'http {\n    server_names_hash_bucket_size 128;\n    server_names_hash_max_size 2048;');
+            fs.writeFileSync(confPath, conf, 'utf8');
+          }
+        }
+      } catch (_) {}
+    }
+
     // 3. Provision MySQL / MariaDB Server
     const bundledMysql = path.join(bundledDir, 'mysql');
     const targetMysql = path.join(appDataDir, 'mysql');

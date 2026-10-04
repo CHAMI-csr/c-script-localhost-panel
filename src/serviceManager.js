@@ -343,11 +343,25 @@ class ServiceManager {
             return { success: true, message: `${webInfo.name} Web Server is already running` };
           }
 
+          if (webInfo.configPath) {
+            this._ensureNginxConfOptimized(webInfo.configPath);
+          }
           const testArgs = args.map(arg => `"${String(arg).replace(/"/g, '\\"')}"`).join(' ');
           try {
             await execPromise(`"${webInfo.exePath}" ${testArgs} -t`, { timeout: 10000, windowsHide: true });
           } catch (err) {
-            return { success: false, error: `NGINX configuration check failed: ${(err.stderr || err.message || '').trim()}` };
+            // Self-heal: If hash bucket size error or similar, patch and retry once
+            const errMsg = (err.stderr || err.message || '').trim();
+            if (errMsg.includes('server_names_hash_bucket_size') && webInfo.configPath) {
+              this._ensureNginxConfOptimized(webInfo.configPath);
+              try {
+                await execPromise(`"${webInfo.exePath}" ${testArgs} -t`, { timeout: 10000, windowsHide: true });
+              } catch (retryErr) {
+                return { success: false, error: `NGINX configuration check failed: ${(retryErr.stderr || retryErr.message || '').trim()}` };
+              }
+            } else {
+              return { success: false, error: `NGINX configuration check failed: ${errMsg}` };
+            }
           }
 
           const proc = spawn(webInfo.exePath, args, { detached: true, stdio: 'ignore', windowsHide: true });

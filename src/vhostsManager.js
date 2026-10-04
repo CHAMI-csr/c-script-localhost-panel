@@ -241,10 +241,28 @@ try {
   /**
    * Sync reverse proxy configurations for running sites so they can be accessed on port 80 without specifying a port!
    */
+    _ensureNginxConfOptimized(confPath) {
+    if (!confPath || !fs.existsSync(confPath)) return false;
+    try {
+      let content = fs.readFileSync(confPath, 'utf8');
+      let changed = false;
+      if (!content.includes('server_names_hash_bucket_size')) {
+        content = content.replace(/http\s*\{/i, 'http {\n    server_names_hash_bucket_size 128;\n    server_names_hash_max_size 2048;');
+        changed = true;
+      }
+      if (changed) {
+        fs.writeFileSync(confPath, content, 'utf8');
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
   async syncReverseProxy(sites = []) {
     const nginxInfo = this.getNginxInfo();
 
     if (nginxInfo && fs.existsSync(nginxInfo.vhostsDir)) {
+      if (nginxInfo.confPath) this._ensureNginxConfOptimized(nginxInfo.confPath);
       if (this.sslManager) {
         try { await this.sslManager.ensureWildcardCert(); } catch (e) {}
       }

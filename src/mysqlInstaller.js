@@ -279,7 +279,7 @@ default-character-set=utf8mb4
 
     if (targetInstaller) {
       return new Promise((resolve) => {
-        execFile(targetInstaller, [`--datadir=${this.dataDir}`], { windowsHide: true }, () => resolve());
+        execFile(targetInstaller, [`--datadir=${this.dataDir}`, '--allow-remote-root-access'], { windowsHide: true }, () => resolve());
       });
     }
 

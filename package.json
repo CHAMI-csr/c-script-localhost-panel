@@ -1,7 +1,7 @@
 {
   "name": "c-script-localhost-panel",
   "productName": "C-Script LocalHost Panel",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "C-Script LocalHost Panel — local PHP & MySQL development environment",
   "repository": {
     "type": "git",

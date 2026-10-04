@@ -223,6 +223,8 @@ events {
 }
 
 http {
+    server_names_hash_bucket_size 128;
+    server_names_hash_max_size 2048;
     include mime.types;
     default_type application/octet-stream;
 

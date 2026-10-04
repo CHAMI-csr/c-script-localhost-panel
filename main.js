@@ -787,16 +787,38 @@ ipcMain.handle('mysql:server-vars', async () => {
   return await mysqlManager.getServerVars();
 });
 
-ipcMain.handle('mysql:import-sql', async () => {
+ipcMain.handle('mysql:import-sql', async (event, options) => {
+  let filePath = options?.filePath;
+  const targetDatabase = typeof options === 'string' ? options : (options?.database || null);
+
+  if (!filePath) {
+    const picked = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'],
+      filters: [{ name: 'SQL Files', extensions: ['sql', 'gz'] }, { name: 'All Files', extensions: ['*'] }],
+      title: 'Select SQL file to import'
+    });
+    if (picked.canceled || !picked.filePaths[0]) return { success: false, canceled: true };
+    filePath = picked.filePaths[0];
+  }
+
+  try {
+    const res = await mysqlManager.importFile(filePath, targetDatabase);
+    return { ...res, fileName: path.basename(filePath), filePath };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('mysql:load-sql-file', async () => {
   const picked = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
-    filters: [{ name: 'SQL Files', extensions: ['sql'] }, { name: 'All Files', extensions: ['*'] }],
-    title: 'Select SQL file to import'
+    filters: [{ name: 'SQL Files', extensions: ['sql', 'gz'] }, { name: 'All Files', extensions: ['*'] }],
+    title: 'Select SQL file to open in Query Editor'
   });
   if (picked.canceled || !picked.filePaths[0]) return { success: false, canceled: true };
   try {
-    const res = await mysqlManager.importFile(picked.filePaths[0]);
-    return { ...res, fileName: path.basename(picked.filePaths[0]) };
+    const res = mysqlManager.readSqlFileContent(picked.filePaths[0]);
+    return res;
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -805,7 +827,7 @@ ipcMain.handle('mysql:import-sql', async () => {
 ipcMain.handle('mysql:export-database', async (event, database) => {
   const picked = await dialog.showSaveDialog(mainWindow, {
     defaultPath: `${database}_backup.sql`,
-    filters: [{ name: 'SQL Backup', extensions: ['sql'] }],
+    filters: [{ name: 'SQL Backup', extensions: ['sql', 'gz'] }],
     title: 'Export database backup'
   });
   if (picked.canceled || !picked.filePath) return { success: false, canceled: true };

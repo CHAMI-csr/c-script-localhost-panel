@@ -7637,7 +7637,7 @@ async function sendErrorToDeveloper(specificErrorId = null){
       targetEntries = allEntries.slice(-5);
     }
 
-    const appVer = document.getElementById('titlebar-app-version')?.textContent || 'v1.1.6';
+    const appVer = document.getElementById('titlebar-app-version')?.textContent || 'v1.1.7';
     const osInfo = navigator.userAgent;
     const services = (currentDashboardServices && currentDashboardServices.length > 0)
       ? currentDashboardServices.map(s => `- ${s.name} (${s.type}): ${s.status} [Port: ${s.port || 'N/A'}]`).join('\n')

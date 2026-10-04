@@ -165,7 +165,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Logs ───────────────────────────────────────────────────────────────────
   logs: {
     list: (source) => ipcRenderer.invoke('logs:list', source),
-    clear: () => ipcRenderer.invoke('logs:clear')
+    clear: () => ipcRenderer.invoke('logs:clear'),
+    add: (entry) => ipcRenderer.invoke('logs:add', entry),
+    reportAppError: (data) => ipcRenderer.invoke('logs:report-app-error', data)
   },
 
   // ── Export / File Dialogs ──────────────────────────────────────────────────
@@ -188,7 +190,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     restart: (id, options) => ipcRenderer.invoke('services:restart', id, options),
     startAll: () => ipcRenderer.invoke('services:start-all'),
     stopAll: () => ipcRenderer.invoke('services:stop-all'),
-    grantPermission: (serviceName) => ipcRenderer.invoke('services:grant-permission', serviceName)
+    grantPermission: (serviceName) => ipcRenderer.invoke('services:grant-permission', serviceName),
+    healthCheck: () => ipcRenderer.invoke('services:health-check'),
+    reinstall: (id) => ipcRenderer.invoke('services:reinstall', id)
   },
 
   // ── Config ─────────────────────────────────────────────────────────────────

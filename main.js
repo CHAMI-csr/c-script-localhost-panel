@@ -388,6 +388,36 @@ app.whenReady().then(async () => {
   setupAppUpdater();
   createTray();
 
+  // Startup health check for PHP, NGINX, and MySQL services
+  setTimeout(async () => {
+    try {
+      if (serviceManager) {
+        const hc = await serviceManager.runHealthCheck(siteManager, phpManager, mysqlManager);
+        if (logManager) {
+          if (hc.errors && hc.errors.length > 0) {
+            for (const err of hc.errors) {
+              logManager.log('Application Error', `Service Health Check: ${err}`, 'error');
+            }
+          } else {
+            logManager.log('System', 'All services passed startup health check.', 'info');
+          }
+        }
+      }
+    } catch (e) {
+      if (logManager) logManager.log('Application Error', `Startup Health Check exception: ${e.message}`, 'error');
+    }
+  }, 2500);
+
+  // Global uncaught errors routed to server logs under Application Error
+  process.on('uncaughtException', (err) => {
+    console.error('[Main] Uncaught Exception:', err);
+    if (logManager) logManager.log('Application Error', `Uncaught Exception: ${err.message}\n${err.stack || ''}`, 'error');
+  });
+  process.on('unhandledRejection', (reason) => {
+    console.error('[Main] Unhandled Rejection:', reason);
+    if (logManager) logManager.log('Application Error', `Unhandled Rejection: ${reason?.message || reason}`, 'error');
+  });
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
     else if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
@@ -616,6 +646,34 @@ ipcMain.handle('services:grant-permission', async (event, serviceName) => {
   return await serviceManager.grantServicePermission(serviceName);
 });
 
+ipcMain.handle('services:health-check', async () => {
+  if (!serviceManager) return { healthy: false, errors: ['Service manager is not initialized'] };
+  const res = await serviceManager.runHealthCheck(siteManager, phpManager, mysqlManager);
+  if (logManager) {
+    if (res.errors && res.errors.length > 0) {
+      for (const err of res.errors) {
+        logManager.log('Application Error', `Service Health Check: ${err}`, 'error');
+      }
+    } else {
+      logManager.log('System', 'All services passed startup health check.', 'info');
+    }
+  }
+  return res;
+});
+
+ipcMain.handle('services:reinstall', async (event, id) => {
+  if (!serviceManager) return { success: false, error: 'Service manager is not ready' };
+  const res = await serviceManager.reinstallService(id, siteManager, phpManager, mysqlManager, nginxInstaller, mysqlInstaller, phpInstaller);
+  if (logManager) {
+    logManager.log(
+      res.success ? 'System' : 'Application Error',
+      `Service Reinstall (${id}): ${res.success ? res.message : res.error}`,
+      res.success ? 'success' : 'error'
+    );
+  }
+  return res;
+});
+
 // ─── IPC: MySQL ───────────────────────────────────────────────────────────────
 ipcMain.handle('mysql:connect', async (event, config) => {
   return await mysqlManager.connect(config);
@@ -686,24 +744,104 @@ function setupAppUpdater() {
     autoUpdater.on('download-progress', progress => report('progress', { percent: progress.percent, transferred: progress.transferred, total: progress.total }));
     autoUpdater.on('update-downloaded', info => report('downloaded', { version: info.version }));
     autoUpdater.on('error', error => { updaterCheckInFlight = false; report('error', { message: error.message || String(error) }); });
-    if (app.isPackaged && !process.env.PORTABLE_EXECUTABLE_DIR) {
-      const firstCheck = setTimeout(() => requestAppUpdateCheck(), 12000);
-      firstCheck.unref?.();
-      const dailyCheck = setInterval(() => requestAppUpdateCheck(), 24 * 60 * 60 * 1000);
-      dailyCheck.unref?.();
-    }
+    const firstCheck = setTimeout(() => requestAppUpdateCheck(), 2500);
+    firstCheck.unref?.();
+    const dailyCheck = setInterval(() => requestAppUpdateCheck(), 24 * 60 * 60 * 1000);
+    dailyCheck.unref?.();
   } catch (error) {
-    console.warn('[Updater] Could not initialize:', error.message);
+    console.warn('[Updater] Could not initialize electron-updater:', error.message);
   }
 }
 
+function isNewerVersion(remote, local) {
+  const clean = v => String(v || '').replace(/^v/i, '').trim().split('.').map(n => parseInt(n, 10) || 0);
+  const r = clean(remote);
+  const l = clean(local);
+  for (let i = 0; i < Math.max(r.length, l.length); i++) {
+    const rv = r[i] || 0;
+    const lv = l[i] || 0;
+    if (rv > lv) return true;
+    if (rv < lv) return false;
+  }
+  return false;
+}
+
+function checkGitHubReleaseDirect() {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.github.com',
+      path: '/repos/CHAMI-csr/c-script-localhost-panel/releases/latest',
+      headers: {
+        'User-Agent': 'c-script-localhost-panel',
+        'Accept': 'application/vnd.github.v3+json'
+      },
+      timeout: 8000
+    };
+    const req = https.get(options, (res) => {
+      let body = '';
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => {
+        try {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            const data = JSON.parse(body);
+            const tag = data.tag_name || data.name || '';
+            const version = tag.replace(/^v/i, '').trim();
+            const current = app.getVersion();
+            const hasUpdate = isNewerVersion(version, current);
+            resolve({
+              success: true,
+              hasUpdate,
+              version,
+              releaseNotes: data.body || '',
+              releaseUrl: data.html_url || 'https://github.com/CHAMI-csr/c-script-localhost-panel/releases'
+            });
+          } else {
+            resolve({ success: false, error: `GitHub API returned ${res.statusCode}` });
+          }
+        } catch (e) {
+          resolve({ success: false, error: e.message });
+        }
+      });
+    });
+    req.on('error', (err) => resolve({ success: false, error: err.message }));
+    req.on('timeout', () => { req.destroy(); resolve({ success: false, error: 'Request timeout' }); });
+  });
+}
+
 async function requestAppUpdateCheck() {
-  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR || !autoUpdater) return { success: false, error: 'Updater unavailable' };
   if (updaterCheckInFlight) return { success: false, error: 'An update check is already running.' };
   updaterCheckInFlight = true;
   try {
-    await autoUpdater.checkForUpdates();
-    return { success: true };
+    if (app.isPackaged && !process.env.PORTABLE_EXECUTABLE_DIR && autoUpdater) {
+      try {
+        await autoUpdater.checkForUpdates();
+        return { success: true };
+      } catch (err) {
+        console.warn('[Updater] electron-updater check failed, falling back to GitHub API:', err.message);
+      }
+    }
+    // Direct GitHub release check fallback
+    const gh = await checkGitHubReleaseDirect();
+    updaterCheckInFlight = false;
+    if (gh.success && gh.hasUpdate) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+      }
+      mainWindow?.webContents.send('updater:status', {
+        status: 'available',
+        version: gh.version,
+        releaseNotes: gh.releaseNotes,
+        releaseUrl: gh.releaseUrl
+      });
+      return { success: true, updateAvailable: true, version: gh.version };
+    } else if (gh.success && !gh.hasUpdate) {
+      mainWindow?.webContents.send('updater:status', {
+        status: 'not-available',
+        version: app.getVersion()
+      });
+      return { success: true, updateAvailable: false, version: app.getVersion() };
+    }
+    return gh;
   } catch (error) {
     updaterCheckInFlight = false;
     return { success: false, error: error.message };
@@ -712,9 +850,6 @@ async function requestAppUpdateCheck() {
 
 ipcMain.handle('updater:version', () => ({ version: app.getVersion(), packaged: app.isPackaged, portable: !!process.env.PORTABLE_EXECUTABLE_DIR }));
 ipcMain.handle('updater:check', async () => {
-  if (!app.isPackaged) return { success: false, error: 'Update checks are available in the installed app.' };
-  if (process.env.PORTABLE_EXECUTABLE_DIR) return { success: false, error: 'The portable build cannot self-update. Install the Setup version once to enable in-app updates.' };
-  if (!autoUpdater) return { success: false, error: 'The updater could not be initialized.' };
   return requestAppUpdateCheck();
 });
 ipcMain.handle('updater:download', async () => {
@@ -1348,7 +1483,7 @@ async function scanInstalledPhps() {
         const norm = bin.toLowerCase();
         const isStandalone = norm.includes('c-script-localhost') || norm.includes('antigravity-localhost');
         const source = isStandalone ? 'Standalone' : 'System';
-        list.push({ path: bin, version: `PHP ${fullVer}`, major: majorMinor, source, isStandalone });
+        list.push({ path: bin, version: `PHP ${fullVer}`, major: majorMinor, source, isStandalone, isAppManaged: isStandalone, isBundled: isStandalone });
       }
     } catch (e) {}
   }
@@ -1523,6 +1658,18 @@ ipcMain.handle('logs:list', (event, source) => {
 });
 ipcMain.handle('logs:clear', () => {
   return logManager ? logManager.clear() : { success: true };
+});
+
+ipcMain.handle('logs:add', (event, { source, message, level }) => {
+  return logManager ? logManager.log(source, message, level) : null;
+});
+
+ipcMain.handle('logs:report-app-error', (event, { title, message, stack, details }) => {
+  const fullMsg = [title, message, stack ? `Stack: ${stack}` : '', details ? `Details: ${JSON.stringify(details)}` : ''].filter(Boolean).join(' | ');
+  if (logManager) {
+    logManager.log('Application Error', fullMsg, 'error');
+  }
+  return { success: true };
 });
 
 // ─── IPC: Cloudflare Tunnel (Share to Web) ──────────────────────────────────

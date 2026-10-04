@@ -17,21 +17,21 @@ class AutoProvisioner {
     }
   }
 
-  static _provisionRuntime(label, sourceDir, targetDir, requiredFiles, onStatus) {
+  static _provisionRuntime(label, sourceDir, targetDir, requiredFiles, onStatus, force = false) {
     const missingSource = requiredFiles.filter(relativePath => !this._hasFile(path.join(sourceDir, relativePath)));
     if (missingSource.length) {
       return { installed: false, error: `Bundled ${label} files are missing: ${missingSource.join(', ')}` };
     }
     const missingTarget = () => requiredFiles.filter(relativePath => !this._hasFile(path.join(targetDir, relativePath)));
-    if (missingTarget().length === 0) {
+    if (!force && missingTarget().length === 0) {
       return { installed: true, copied: false, exePath: path.join(targetDir, requiredFiles[0]) };
     }
 
     if (onStatus) onStatus(`Restoring bundled ${label} runtime...`);
     try {
       fs.mkdirSync(targetDir, { recursive: true });
-      // Merge into an incomplete runtime without replacing existing user files.
-      fs.cpSync(sourceDir, targetDir, { recursive: true, force: false, errorOnExist: false });
+      // If forced, overwrite files to repair corrupted runtimes
+      fs.cpSync(sourceDir, targetDir, { recursive: true, force: !!force, errorOnExist: false });
       const stillMissing = missingTarget();
       if (stillMissing.length) {
         return { installed: false, error: `Could not provision ${label}; files are still missing: ${stillMissing.join(', ')}` };
@@ -71,7 +71,7 @@ class AutoProvisioner {
     return preferred;
   }
 
-  static async provisionIfNeeded(onStatus = null) {
+  static async provisionIfNeeded(onStatus = null, force = false) {
     const bundledDir = this.getBundledDir();
     if (!bundledDir) {
       return { success: false, reason: 'No bundled stack found' };
@@ -90,7 +90,7 @@ class AutoProvisioner {
     runtimes.php = this._provisionRuntime('PHP 8.4', bundledPhp, targetPhp, [
       'php.exe', 'php8.dll', 'php.ini', path.join('ext', 'php_curl.dll'),
       path.join('ext', 'php_mysqli.dll'), path.join('ext', 'php_pdo_mysql.dll')
-    ], onStatus);
+    ], onStatus, force);
     // PHP for Windows is built with MSVC. Keep the app-local runtime beside
     // php.exe so clean machines (including Windows Sandbox) don't depend on a
     // separately installed Visual C++ Redistributable.
@@ -108,7 +108,7 @@ class AutoProvisioner {
         fs.mkdirSync(targetPhp, { recursive: true });
         for (const file of vcRuntimeFiles) {
           const targetFile = path.join(targetPhp, file);
-          if (!this._hasFile(targetFile)) fs.copyFileSync(path.join(bundledVcRuntime, file), targetFile);
+          if (force || !this._hasFile(targetFile)) fs.copyFileSync(path.join(bundledVcRuntime, file), targetFile);
         }
       } catch (error) {
         runtimes.php = { installed: false, error: `Failed to provision PHP Visual C++ runtime: ${error.message}` };
@@ -120,7 +120,7 @@ class AutoProvisioner {
     const targetNginx = path.join(appDataDir, 'nginx');
     runtimes.nginx = this._provisionRuntime('NGINX', bundledNginx, targetNginx, [
       'nginx.exe', path.join('conf', 'nginx.conf'), path.join('conf', 'mime.types')
-    ], onStatus);
+    ], onStatus, force);
 
     if (runtimes.nginx.installed) {
       try {
@@ -143,7 +143,7 @@ class AutoProvisioner {
     runtimes.mysql = this._provisionRuntime('MySQL / MariaDB', bundledMysql, targetMysql, [
       path.join('bin', 'mysqld.exe'), path.join('bin', 'mariadbd.exe'),
       path.join('bin', 'mariadb-install-db.exe'), 'my.ini'
-    ], onStatus);
+    ], onStatus, force);
 
     if (runtimes.mysql.installed) {
       try {

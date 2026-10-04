@@ -1580,11 +1580,17 @@ DESCRIBE tablename;"></textarea>
         <div class="panel-actions">
           <select class="input select" id="logs-source-filter" onchange="loadServerLogs(this.value)" style="padding:3px 10px;font-size:12px">
             <option value="">All Sources</option>
+            <option value="Application Error">⚠️ Application Errors</option>
             <option value="PHP">PHP</option>
+            <option value="NGINX">NGINX</option>
+            <option value="MySQL">MySQL</option>
             <option value="Sites">Sites</option>
             <option value="VHosts">VHosts</option>
             <option value="MailCatcher">MailCatcher</option>
           </select>
+          <button class="btn btn-sm" id="btn-send-to-dev" onclick="sendErrorToDeveloper()" style="display:none;background:#e11d48;color:#fff;font-weight:600;font-size:11px;align-items:center;gap:6px;padding:4px 10px;border-radius:4px;border:none;cursor:pointer" title="Report application errors to developer on GitHub">
+            <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor;vertical-align:-2px"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>Send to Developer
+          </button>
           <button class="btn btn-sm btn-danger" onclick="clearServerLogs()">Clear Logs</button>
         </div>
       </div>
@@ -2034,7 +2040,7 @@ DESCRIBE tablename;"></textarea>
   <div class="modal update-notice-modal">
     <div class="modal-header"><div><div class="modal-title-main" id="update-popup-title">App update</div><div class="modal-subtitle">C-Script LocalHost Panel</div></div><button class="btn-icon" onclick="dismissUpdatePopup()" aria-label="Close">✕</button></div>
     <div class="modal-body update-notice-body"><div class="update-notice-mark">↻</div><div class="update-notice-message" id="update-popup-message"></div><div class="app-update-progress-wrap update-popup-progress" id="update-popup-progress-wrap" style="display:none"><div class="app-update-progress-track"><div id="update-popup-progress" class="app-update-progress"></div></div><span id="update-popup-progress-label">0%</span></div></div>
-    <div class="modal-footer"><button class="btn" id="update-popup-later" onclick="dismissUpdatePopup()">Later</button><button class="btn btn-primary" id="update-popup-action" onclick="runUpdatePopupAction()">Download update</button></div>
+    <div class="modal-footer"><button class="btn" id="update-popup-later" onclick="dismissUpdatePopup()">Do Later</button><button class="btn btn-primary" id="update-popup-action" onclick="runUpdatePopupAction()">Download update</button></div>
   </div>
 </div>
 
@@ -2953,6 +2959,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   loadMysqlInstallerInfo();
   await loadSites();
   await loadDashboardServices();
+  // Startup service health check
+  if (api?.services?.healthCheck) {
+    api.services.healthCheck().catch(() => {});
+  }
   // Keep service health current while the app is open, even on other panels.
   setInterval(() => refreshDashboardServiceHealth(), 5000);
   document.getElementById('sql-editor').addEventListener('keydown', e => {
@@ -3242,6 +3252,11 @@ function renderDashboardServices(services) {
             <svg class="tab-icon-svg" style="margin:0" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
           </button>
 
+          <!-- Reinstall / Repair Button -->
+          <button class="btn btn-sm" data-svc-action="reinstall" data-svc-id="${escHtml(svc.id)}" onclick="reinstallServiceAction('${escHtml(svc.id)}')" title="Reinstall or Repair service">
+            🔄
+          </button>
+
           ${svc.url ? `
             <button class="btn btn-sm btn-primary" onclick="openRealBrowser('${escHtml(svc.url)}')" title="Open site in browser">
               Open
@@ -3484,6 +3499,31 @@ async function bulkStartServices() {
   }
 }
 
+async function reinstallServiceAction(id) {
+  const svcName = (id === 'nginx' || id === 'webserver') ? 'NGINX Web Server' : ((id === 'mysql' || id === 'mariadb' || id === 'database') ? 'MariaDB / MySQL Server' : 'PHP Runtime');
+  if (!confirm(`Are you sure you want to reinstall and repair ${svcName}? This will restore the service installation while preserving your databases and project files.`)) {
+    return;
+  }
+  toast(`Reinstalling and repairing ${svcName}...`, 'info');
+  try {
+    const res = await api.services.reinstall(id);
+    if (res.success) {
+      toast(res.message || `${svcName} repaired successfully!`, 'success');
+    } else {
+      toast(`Failed to reinstall ${svcName}: ${res.error}`, 'error');
+    }
+  } catch (err) {
+    toast(`Reinstall error: ${err.message}`, 'error');
+  } finally {
+    await loadDashboardServices(false);
+    await checkPHPStatus();
+    await checkMySQLStatus();
+    await loadNginxInfo();
+    await loadMysqlInstallerInfo();
+    await loadPhpCatalog();
+  }
+}
+
 function showServiceInfo(id) {
   const svc = currentDashboardServices.find(s => s.id === id);
   if (!svc) return;
@@ -3534,6 +3574,7 @@ function showServiceInfo(id) {
       <button class="btn btn-sm btn-success" onclick="controlService('${escHtml(svc.id)}', 'start'); closeModal('modal-service-details');">Start Service</button>
     `}
     <button class="btn btn-sm btn-warn" onclick="controlService('${escHtml(svc.id)}', 'restart'); closeModal('modal-service-details');">Restart Service</button>
+    <button class="btn btn-sm btn-accent" onclick="reinstallServiceAction('${escHtml(svc.id)}'); closeModal('modal-service-details');" style="margin-left:auto">🔄 Reinstall / Repair</button>
   `;
 
   openModal('modal-service-details');
@@ -6800,11 +6841,13 @@ let updateProgressPopupDismissed=false;
 async function initUpdaterUI(){
   try{
     const info=await api.updater.version();
+    window.__isPortable = Boolean(info && info.portable);
     const titlebarVersion=document.getElementById('titlebar-app-version');
     if(titlebarVersion)titlebarVersion.textContent=`v${info.version}`;
     document.getElementById('about-app-version').textContent=`v${info.version}`;
     setAppUpdateStatus(info.portable?'Portable build · install Setup once to enable app updates.':'Current version · v'+info.version);
     if(!updaterStatusUnsubscribe)updaterStatusUnsubscribe=api.updater.onStatus(handleUpdaterStatus);
+    setTimeout(() => { if(api?.updater?.check) api.updater.check().catch(() => {}); }, 2500);
   }catch(error){setAppUpdateStatus('Could not read app version.');}
 }
 function setAppUpdateStatus(message){const el=document.getElementById('app-update-status');if(el)el.textContent=message;}
@@ -6819,15 +6862,29 @@ function showUpdatePopup(state,message,version=''){
   progress.style.display=state==='progress'?'flex':'none';
   later.style.display=state==='progress'||state==='error'?'none':'';
   action.style.display='';
-  if(state==='available'){title.textContent='Update available';body.textContent=`Version ${version} is ready to download. Download it now and restart when convenient.`;action.textContent='Download update';}
+  if(state==='available'){title.textContent='Update available';body.textContent=`Version ${version} is ready to download. Download it now and restart when convenient.`;later.textContent='Do Later';action.textContent='Download update';}
   if(state==='progress'){title.textContent='Downloading update';body.textContent=message||'The update is downloading in the background.';action.textContent='Hide';}
   if(state==='ready'){title.textContent='Update ready';body.textContent=`Version ${version} has downloaded. Restart the app to finish installing it.`;action.textContent='Restart and install';}
   if(state==='error'){title.textContent='Update download failed';body.textContent=message||'The update could not be downloaded.';action.textContent='Close';}
   openModal('modal-app-update');
 }
 function dismissUpdatePopup(){if(updatePopupState==='progress')updateProgressPopupDismissed=true;updatePopupState='idle';closeModal('modal-app-update');}
-function runUpdatePopupAction(){if(updatePopupState==='available')downloadAppUpdate();else if(updatePopupState==='ready')installAppUpdate();else dismissUpdatePopup();}
+let latestUpdateReleaseUrl = '';
+function runUpdatePopupAction(){
+  if(updatePopupState==='available') {
+    if(latestUpdateReleaseUrl && (!api.updater.download || window.__isPortable)) {
+      api.shell.openExternal(latestUpdateReleaseUrl);
+    } else {
+      downloadAppUpdate();
+    }
+  } else if(updatePopupState==='ready') {
+    installAppUpdate();
+  } else {
+    dismissUpdatePopup();
+  }
+}
 function handleUpdaterStatus(event){
+  if(event && event.releaseUrl) latestUpdateReleaseUrl = event.releaseUrl;
   const check=document.getElementById('app-update-check'),download=document.getElementById('app-update-download'),install=document.getElementById('app-update-install');
   if(!check)return;
   if(event.status==='checking'){check.disabled=true;check.textContent='Checking…';setAppUpdateStatus('Checking for a newer version…');}
@@ -6891,7 +6948,7 @@ async function scanPhpVersionsAction(){
           <div style="overflow:hidden">
             <span style="font-weight:600;font-size:12px;color:var(--accent)">${escHtml(v.version || 'PHP')}</span>
             <span style="font-size:10px;color:var(--text3);margin-left:6px">${escHtml(v.source || '')}</span>
-            <div style="font-family:var(--font-mono);font-size:11px;color:var(--text2);text-overflow:ellipsis;overflow:hidden;white-space:nowrap;max-width:400px">${escHtml(v.path)}</div>
+            ${(v.isStandalone || v.isBundled || v.isAppManaged || /c-script-localhost|antigravity-localhost/i.test(v.path || '')) ? '<span style="background:rgba(56,189,248,0.15);color:var(--accent);font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;border:1px solid rgba(56,189,248,0.3);margin-left:6px">App Managed</span>' : `<div style="font-family:var(--font-mono);font-size:11px;color:var(--text2);text-overflow:ellipsis;overflow:hidden;white-space:nowrap;max-width:400px">${escHtml(v.path)}</div>`}
           </div>
           <button class="btn btn-sm btn-primary" onclick="selectDetectedPhp('${escAttr(v.path)}')">Use This</button>
         </div>
@@ -6933,6 +6990,7 @@ async function loadPhpCatalog() {
         <div style="display:flex;gap:6px">
           ${item.installed ? `
             <button class="btn btn-sm btn-primary" onclick="selectDetectedPhp('${escAttr(item.exePath)}')">Use Default</button>
+            <button class="btn btn-sm" onclick="reinstallServiceAction('php')" title="Reinstall or Repair PHP runtime">🔄 Repair</button>
           ` : `
             <button class="btn btn-sm btn-accent" id="btn-dl-php-${item.major}" onclick="downloadPhpVersionAction('${item.major}')">⬇️ Install PHP ${item.major}</button>
           `}
@@ -7009,7 +7067,11 @@ async function loadNginxInfo() {
       pill.style.borderColor = 'rgba(63,207,142,0.3)';
       pill.innerText = `✓ Installed (Standalone)`;
       if (verText) verText.innerText = `${info.version || 'NGINX'} (Port 80/443 Reverse Proxy)`;
-      if (btnDl) btnDl.style.display = 'none';
+      if (btnDl) {
+        btnDl.style.display = 'inline-block';
+        btnDl.innerText = '🔄 Reinstall / Repair';
+        btnDl.onclick = () => reinstallServiceAction('nginx');
+      }
       if (btnReload) btnReload.style.display = 'inline-block';
       if (btnRestart) btnRestart.style.display = 'inline-block';
     } else {
@@ -7137,7 +7199,9 @@ async function loadMysqlInstallerInfo() {
 
     if (btnDl) {
       if (info.standaloneInstalled) {
-        btnDl.style.display = 'none';
+        btnDl.style.display = 'inline-block';
+        btnDl.innerText = '🔄 Reinstall / Repair';
+        btnDl.onclick = () => reinstallServiceAction('mysql');
       } else {
         btnDl.style.display = 'inline-block';
         btnDl.innerText = '⬇️ Install Standalone MariaDB (86MB)';
@@ -7504,6 +7568,11 @@ async function loadServerLogs(source = null){
   if(source !== null) _currentLogFilter = source;
   const filterSelect = document.getElementById('logs-source-filter');
   if(filterSelect && source !== null) filterSelect.value = source;
+  const btnDev = document.getElementById('btn-send-to-dev');
+  if(btnDev) {
+    const isAppErr = (_currentLogFilter || '').toLowerCase().includes('application error') || (_currentLogFilter || '').toLowerCase().includes('app error');
+    btnDev.style.display = isAppErr ? 'inline-flex' : 'none';
+  }
 
   const entries = await (api.logs.list ? api.logs.list(_currentLogFilter || null) : []);
   const terminal = document.getElementById('logs-terminal');
@@ -7535,7 +7604,11 @@ function appendLogEntryToUI(entry){
   const levelClass = entry.level === 'error' ? 'log-err' : (entry.level === 'warn' ? 'log-warn' : '');
   const div = document.createElement('div');
   div.className = `log-line ${levelClass}`;
-  div.innerHTML = `<span class="log-time">${escHtml(time)}</span><span class="log-source">${escHtml(entry.source || 'General')}</span><span class="log-msg">${escHtml(entry.message)}</span>`;
+  const isAppErr = (entry.source && (entry.source.toLowerCase().includes('application error') || entry.source.toLowerCase().includes('app error'))) || entry.level === 'error';
+  const reportBtn = isAppErr ? `<button class="btn btn-xs" style="margin-left:auto;font-size:10px;padding:2px 7px;background:rgba(225,29,72,0.15);color:#f43f5e;border:1px solid rgba(225,29,72,0.3);border-radius:3px;cursor:pointer" onclick="sendErrorToDeveloper('${escAttr(entry.id)}')">Report to Dev</button>` : '';
+  div.style.display = 'flex';
+  div.style.alignItems = 'center';
+  div.innerHTML = `<span class="log-time">${escHtml(time)}</span><span class="log-source">${escHtml(entry.source || 'General')}</span><span class="log-msg" style="flex:1">${escHtml(entry.message)}</span>${reportBtn}`;
   terminal.appendChild(div);
 
   if(terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight < 140){
@@ -7549,6 +7622,86 @@ async function clearServerLogs(){
   if(terminal) terminal.innerHTML = '<div class="log-line"><span class="log-time">--:--:--</span><span class="log-source">System</span><span class="log-msg">Logs cleared.</span></div>';
   toast('Logs cleared', 'info');
 }
+
+async function sendErrorToDeveloper(specificErrorId = null){
+  try {
+    const allEntries = await (api.logs.list ? api.logs.list() : []);
+    let targetEntries = [];
+    if(specificErrorId){
+      targetEntries = allEntries.filter(e => e.id === specificErrorId);
+    }
+    if(targetEntries.length === 0){
+      targetEntries = allEntries.filter(e => (e.source && (e.source.toLowerCase().includes('application error') || e.source.toLowerCase().includes('app error'))) || e.level === 'error');
+    }
+    if(targetEntries.length === 0){
+      targetEntries = allEntries.slice(-5);
+    }
+
+    const appVer = document.getElementById('titlebar-app-version')?.textContent || 'v1.1.6';
+    const osInfo = navigator.userAgent;
+    const services = (currentDashboardServices && currentDashboardServices.length > 0)
+      ? currentDashboardServices.map(s => `- ${s.name} (${s.type}): ${s.status} [Port: ${s.port || 'N/A'}]`).join('\n')
+      : 'No services active';
+
+    const latestError = targetEntries[targetEntries.length - 1];
+    const errorSnippet = latestError ? latestError.message : 'Application Error occurred';
+    const title = `[Bug]: ${errorSnippet.slice(0, 80)}`;
+
+    const logBlock = targetEntries.slice(-10).map(e => `[${e.time}] [${e.source}] [${(e.level || 'info').toUpperCase()}] ${e.message}`).join('\n');
+
+    const body = `### 🐞 Bug Report / Application Error
+
+**App Version:** \`${appVer}\`
+**Platform:** \`${osInfo}\`
+**Report Time:** ${new Date().toISOString()}
+
+### ⚠️ Error Description
+\`\`\`
+${errorSnippet}
+\`\`\`
+
+### 🖥️ Services Status
+${services}
+
+### 📜 Relevant Server Logs
+\`\`\`
+${logBlock || 'No logs captured'}
+\`\`\`
+
+---
+*Reported automatically from C-Script LocalHost Panel*`;
+
+    const githubUrl = `https://github.com/CHAMI-csr/c-script-localhost-panel/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}&labels=bug`;
+    if(api.shell?.openExternal){
+      await api.shell.openExternal(githubUrl);
+    } else {
+      window.open(githubUrl, '_blank');
+    }
+    toast('Opening GitHub Issue page to send error to developer...', 'info');
+  } catch(err){
+    toast('Could not open issue page: ' + err.message, 'error');
+  }
+}
+
+// Global renderer error handler to report application errors to Server Logs
+window.addEventListener('error', (event) => {
+  if (api?.logs?.reportAppError) {
+    api.logs.reportAppError({
+      title: 'UI Error: ' + event.message,
+      message: `${event.filename}:${event.lineno}:${event.colno}`,
+      stack: event.error?.stack || ''
+    }).catch(() => {});
+  }
+});
+window.addEventListener('unhandledrejection', (event) => {
+  if (api?.logs?.reportAppError) {
+    api.logs.reportAppError({
+      title: 'UI Unhandled Promise Rejection',
+      message: String(event.reason?.message || event.reason),
+      stack: event.reason?.stack || ''
+    }).catch(() => {});
+  }
+});
 
 // ══════════════════════════════════════════════════════════
 // PORT MANAGER & PORT KILLER

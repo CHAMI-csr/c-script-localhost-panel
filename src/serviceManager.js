@@ -754,6 +754,172 @@ class ServiceManager {
     this._ownedWindowsServices.clear();
     return { success: errors.length === 0, errors };
   }
+
+  /**
+   * Comprehensive startup & runtime health check for all core services
+   */
+  async runHealthCheck(siteManager = null, phpManager = null, mysqlManager = null) {
+    const results = {
+      healthy: true,
+      services: {},
+      errors: []
+    };
+
+    // 1. PHP Runtime Check
+    try {
+      const phpInfo = await this._detectPhp(phpManager);
+      if (!phpInfo.available) {
+        results.healthy = false;
+        const msg = `PHP executable not detected or unusable (${phpInfo.binPath || 'php'})`;
+        results.errors.push(msg);
+        results.services.php = { status: 'error', error: msg };
+      } else {
+        const { stdout, stderr } = await execPromise(`"${phpInfo.binPath || 'php'}" -v`, { timeout: 4000, windowsHide: true });
+        if (!stdout.includes('PHP')) {
+          results.healthy = false;
+          const msg = `PHP binary check failed: ${stderr || stdout}`;
+          results.errors.push(msg);
+          results.services.php = { status: 'error', error: msg };
+        } else {
+          results.services.php = { status: 'ok', version: phpInfo.fullVersion || phpInfo.version, path: phpInfo.binPath };
+        }
+      }
+    } catch (e) {
+      results.healthy = false;
+      const msg = `PHP Health Check Exception: ${e.message}`;
+      results.errors.push(msg);
+      results.services.php = { status: 'error', error: msg };
+    }
+
+    // 2. NGINX Web Server Check
+    try {
+      const webInfo = await this._detectWebServer();
+      if (webInfo.exePath && fs.existsSync(webInfo.exePath)) {
+        this._ensureNginxConfOptimized(webInfo.configPath);
+        if (webInfo.prefixDir) {
+          try { fs.mkdirSync(path.join(webInfo.prefixDir, 'logs'), { recursive: true }); } catch (_) {}
+          try { fs.mkdirSync(path.join(webInfo.prefixDir, 'temp'), { recursive: true }); } catch (_) {}
+        }
+        try {
+          const testCmd = `"${webInfo.exePath}" -t -p "${webInfo.prefixDir}" -c "${webInfo.configPath}"`;
+          await execPromise(testCmd, { cwd: webInfo.prefixDir, timeout: 5000, windowsHide: true });
+          results.services.nginx = { status: 'ok', configPath: webInfo.configPath };
+        } catch (testErr) {
+          const errDetail = testErr.stderr || testErr.stdout || testErr.message;
+          results.healthy = false;
+          const msg = `NGINX configuration check failed: ${errDetail.trim()}`;
+          results.errors.push(msg);
+          results.services.nginx = { status: 'error', error: msg };
+        }
+      } else {
+        results.services.nginx = { status: 'not_installed', info: 'NGINX not installed' };
+      }
+    } catch (e) {
+      results.healthy = false;
+      const msg = `NGINX Health Check Exception: ${e.message}`;
+      results.errors.push(msg);
+      results.services.nginx = { status: 'error', error: msg };
+    }
+
+    // 3. MySQL / MariaDB Server Check
+    try {
+      const mysqlInfo = await this._detectMySQL();
+      if (mysqlInfo.exePath && fs.existsSync(mysqlInfo.exePath)) {
+        if (mysqlInfo.configPath && !fs.existsSync(mysqlInfo.configPath)) {
+          results.healthy = false;
+          const msg = `MySQL configuration file missing: ${mysqlInfo.configPath}`;
+          results.errors.push(msg);
+          results.services.mysql = { status: 'error', error: msg };
+        } else {
+          results.services.mysql = { status: 'ok', displayName: mysqlInfo.displayName };
+        }
+      } else if (mysqlInfo.serviceName) {
+        results.services.mysql = { status: 'ok', serviceName: mysqlInfo.serviceName, state: mysqlInfo.state };
+      } else {
+        results.services.mysql = { status: 'not_installed', info: 'MySQL not installed' };
+      }
+    } catch (e) {
+      results.healthy = false;
+      const msg = `MySQL Health Check Exception: ${e.message}`;
+      results.errors.push(msg);
+      results.services.mysql = { status: 'error', error: msg };
+    }
+
+    return results;
+  }
+
+  /**
+   * Reinstall or repair an installed / managed service runtime
+   */
+  async reinstallService(id, siteManager = null, phpManager = null, mysqlManager = null, nginxInstaller = null, mysqlInstaller = null, phpInstaller = null) {
+    const sId = String(id || '').toLowerCase();
+    try {
+      if (sId === 'nginx' || sId === 'webserver') {
+        await this.stopService('webserver', siteManager, phpManager, mysqlManager, { force: true });
+        const AutoProvisioner = require('./autoProvisioner');
+        if (AutoProvisioner.getBundledDir()) {
+          const provRes = await AutoProvisioner.provisionIfNeeded(null, true);
+          if (provRes.success) {
+            const webInfo = await this._detectWebServer();
+            this._ensureNginxConfOptimized(webInfo.configPath);
+            return { success: true, message: 'NGINX service restored and repaired from bundled package.' };
+          }
+        }
+        if (nginxInstaller) {
+          const res = await nginxInstaller.downloadAndInstall();
+          if (res.success) {
+            this._ensureNginxConfOptimized(res.exePath ? path.join(path.dirname(res.exePath), 'conf', 'nginx.conf') : null);
+            return { success: true, message: 'NGINX service reinstalled successfully.' };
+          }
+          return { success: false, error: res.error || 'Failed to reinstall NGINX.' };
+        }
+        return { success: false, error: 'NGINX installer is not available.' };
+      }
+
+      if (sId === 'mysql' || sId === 'mariadb' || sId === 'database') {
+        await this.stopService('mysql', siteManager, phpManager, mysqlManager, { force: true });
+        const AutoProvisioner = require('./autoProvisioner');
+        if (AutoProvisioner.getBundledDir()) {
+          const provRes = await AutoProvisioner.provisionIfNeeded(null, true);
+          if (provRes.success) {
+            return { success: true, message: 'MariaDB / MySQL restored and repaired from bundled package.' };
+          }
+        }
+        if (mysqlInstaller) {
+          const res = await mysqlInstaller.downloadAndInstall();
+          if (res.success) {
+            mysqlInstaller.setupDefaultConf();
+            return { success: true, message: 'MariaDB / MySQL reinstalled and configured successfully.' };
+          }
+          return { success: false, error: res.error || 'Failed to reinstall MariaDB / MySQL.' };
+        }
+        return { success: false, error: 'MySQL installer is not available.' };
+      }
+
+      if (sId === 'php' || sId.startsWith('php')) {
+        await this.stopService('php', siteManager, phpManager, mysqlManager, { force: true });
+        const AutoProvisioner = require('./autoProvisioner');
+        if (AutoProvisioner.getBundledDir()) {
+          const provRes = await AutoProvisioner.provisionIfNeeded(null, true);
+          if (provRes.success) {
+            return { success: true, message: 'PHP runtime restored and repaired from bundled package.' };
+          }
+        }
+        if (phpInstaller) {
+          const res = await phpInstaller.downloadAndInstall('8.4');
+          if (res.success) {
+            return { success: true, message: 'PHP 8.4 runtime reinstalled successfully.' };
+          }
+          return { success: false, error: res.error || 'Failed to reinstall PHP.' };
+        }
+        return { success: false, error: 'PHP installer is not available.' };
+      }
+
+      return { success: false, error: `Unknown service: ${id}` };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
 }
 
 module.exports = ServiceManager;

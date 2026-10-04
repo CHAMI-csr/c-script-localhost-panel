@@ -32,7 +32,11 @@ class LogManager extends EventEmitter {
 
   getEntries(filterSource = null) {
     if (filterSource) {
-      return this.entries.filter(e => e.source.toLowerCase() === filterSource.toLowerCase());
+      const f = filterSource.toLowerCase().trim();
+      return this.entries.filter(e => {
+        const s = (e.source || '').toLowerCase().trim();
+        return s === f || s.includes(f) || f.includes(s);
+      });
     }
     return [...this.entries];
   }

@@ -1738,9 +1738,9 @@ DESCRIBE tablename;"></textarea>
           <div class="settings-row">
             <div class="form-group" style="flex:1">
               <label class="form-label">Ports Display Scope</label>
-              <select class="input select" id="s-ports-scope">
+              <select class="input select" id="s-ports-scope" onchange="onSettingsPortScopeChange(this.value)">
                 <option value="app" selected>App &amp; Web Services Only (Default Safe Mode)</option>
-                <option value="all">All System Ports (Requires Confirmation / Permission)</option>
+                <option value="all">All System Ports</option>
               </select>
               <div class="form-hint">By default, only ports relevant to your development workflow (PHP sites, MySQL, Web servers, local tools) are shown. Enable "All System Ports" to unlock full system listening sockets.</div>
             </div>
@@ -4210,6 +4210,8 @@ function updateSQLDBSelect(){
 
 function onSQLDBChange(db){
   if(!db) return;
+  const sqlSel = document.getElementById('sql-db-select');
+  if(sqlSel) sqlSel.blur();
   DB.activeDB = db;
   const erSel = document.getElementById('er-db-select');
   if(erSel) erSel.value = db;
@@ -5157,6 +5159,8 @@ function updateERDBSelect() {
 
 function onERDBChange(db) {
   if (!db) return;
+  const erSel = document.getElementById('er-db-select');
+  if (erSel) erSel.blur();
   DB.activeDB = db;
   const sqlSel = document.getElementById('sql-db-select');
   if (sqlSel) sqlSel.value = db;
@@ -5975,6 +5979,8 @@ function changePage(delta){
 }
 
 function changePageSize(size){
+  const pSel = document.getElementById('page-size-sel');
+  if (pSel) pSel.blur();
   DB.pageSize=parseInt(size); DB.page=1;
   if(DB.mainView==='table') loadDataTab();
 }
@@ -7159,7 +7165,10 @@ function applyTheme(themeName){
   document.documentElement.setAttribute('data-theme', themeName);
   if(document.body) document.body.setAttribute('data-theme', themeName);
   const sel = document.getElementById('s-app-theme');
-  if(sel && sel.value !== themeName) sel.value = themeName;
+  if(sel) {
+    if(sel.value !== themeName) sel.value = themeName;
+    sel.blur();
+  }
   localStorage.setItem('cscript_theme', themeName);
   localStorage.removeItem('antigravity_theme');
   try {
@@ -7988,7 +7997,10 @@ let _currentLogFilter = '';
 async function loadServerLogs(source = null){
   if(source !== null) _currentLogFilter = source;
   const filterSelect = document.getElementById('logs-source-filter');
-  if(filterSelect && source !== null) filterSelect.value = source;
+  if(filterSelect && source !== null) {
+    filterSelect.value = source;
+    filterSelect.blur();
+  }
   const btnDev = document.getElementById('btn-send-to-dev');
   if(btnDev) {
     const isAppErr = (_currentLogFilter || '').toLowerCase().includes('application error') || (_currentLogFilter || '').toLowerCase().includes('app error');
@@ -8177,22 +8189,39 @@ async function loadPortManager(showToast = false){
 }
 
 function onPortScopeChange(scopeVal) {
-  const newScope = scopeVal || 'app';
-  if (newScope === 'all') {
-    const confirmed = confirm(
-      "Permission Request:\n\nViewing 'All System Ports' reveals system background sockets (svchost, Windows services, RPC). Terminating system processes can destabilize Windows.\n\nDo you want to unlock and view All System Ports?"
-    );
-    if (!confirmed) {
-      const scopeSelector = document.getElementById('ports-scope-selector');
-      if (scopeSelector) scopeSelector.value = 'app';
-      _currentPortScope = 'app';
-      applyCurrentPortFilters();
-      return;
-    }
-    toast('Unlocked Full System Ports view', 'info');
+  const scopeSelector = document.getElementById('ports-scope-selector');
+  if (scopeSelector) {
+    scopeSelector.blur();
   }
+  const newScope = scopeVal || 'app';
   _currentPortScope = newScope;
+
+  const sScope = document.getElementById('s-ports-scope');
+  if (sScope && sScope.value !== newScope) {
+    sScope.value = newScope;
+  }
+
+  if (newScope === 'all') {
+    toast('Showing all system listening sockets. System-critical services are protected.', 'info');
+  } else {
+    toast('Filtered to Web and Development ports (PHP, Nginx, MySQL, etc.).', 'info');
+  }
+
   applyCurrentPortFilters();
+}
+
+function onSettingsPortScopeChange(scopeVal) {
+  const sScope = document.getElementById('s-ports-scope');
+  if (sScope) sScope.blur();
+  const newScope = scopeVal || 'app';
+  _currentPortScope = newScope;
+  const pScope = document.getElementById('ports-scope-selector');
+  if (pScope && pScope.value !== newScope) {
+    pScope.value = newScope;
+  }
+  if (document.getElementById('view-ports')?.style.display !== 'none') {
+    applyCurrentPortFilters();
+  }
 }
 
 function onPortSearchInput(query) {
@@ -8642,6 +8671,18 @@ function copyMigrationCode(){
 // ══════════════════════════════════════════════════════════
 // GLOBAL LISTENERS & SHORTCUTS SETUP
 // ══════════════════════════════════════════════════════════
+
+// Global safeguard: release focus after selection to prevent Windows Electron native dropdown popover glitch
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.tagName === 'SELECT') {
+    setTimeout(() => {
+      if (document.activeElement === e.target) {
+        e.target.blur();
+      }
+    }, 40);
+  }
+}, true);
+
 window.addEventListener('keydown', e => {
   if((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K' || e.key === 'p' || e.key === 'P')){
     e.preventDefault();

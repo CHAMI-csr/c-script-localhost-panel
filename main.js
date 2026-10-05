@@ -738,11 +738,23 @@ function setupAppUpdater() {
         mainWindow.show();
         mainWindow.focus();
       }
-      report('available', { version: info.version, releaseDate: info.releaseDate, releaseNotes: info.releaseNotes || '' });
+      let notes = info.releaseNotes || '';
+      if (Array.isArray(notes)) {
+        notes = notes.map(n => typeof n === 'string' ? n : (n.note || '')).filter(Boolean).join('\n\n');
+      }
+      const relUrl = `https://github.com/CHAMI-csr/c-script-localhost-panel/releases/tag/v${info.version}`;
+      report('available', { version: info.version, releaseDate: info.releaseDate, releaseNotes: notes, releaseUrl: relUrl });
     });
     autoUpdater.on('update-not-available', info => { updaterCheckInFlight = false; report('not-available', { version: info.version }); });
     autoUpdater.on('download-progress', progress => report('progress', { percent: progress.percent, transferred: progress.transferred, total: progress.total }));
-    autoUpdater.on('update-downloaded', info => report('downloaded', { version: info.version }));
+    autoUpdater.on('update-downloaded', info => {
+      let notes = info.releaseNotes || '';
+      if (Array.isArray(notes)) {
+        notes = notes.map(n => typeof n === 'string' ? n : (n.note || '')).filter(Boolean).join('\n\n');
+      }
+      const relUrl = `https://github.com/CHAMI-csr/c-script-localhost-panel/releases/tag/v${info.version}`;
+      report('downloaded', { version: info.version, releaseNotes: notes, releaseUrl: relUrl });
+    });
     autoUpdater.on('error', error => { updaterCheckInFlight = false; report('error', { message: error.message || String(error) }); });
     const firstCheck = setTimeout(() => requestAppUpdateCheck(), 2500);
     firstCheck.unref?.();
@@ -833,7 +845,7 @@ async function requestAppUpdateCheck() {
         releaseNotes: gh.releaseNotes,
         releaseUrl: gh.releaseUrl
       });
-      return { success: true, updateAvailable: true, version: gh.version };
+      return { success: true, updateAvailable: true, version: gh.version, releaseNotes: gh.releaseNotes, releaseUrl: gh.releaseUrl };
     } else if (gh.success && !gh.hasUpdate) {
       mainWindow?.webContents.send('updater:status', {
         status: 'not-available',

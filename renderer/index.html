@@ -25,6 +25,7 @@
 </script>
 <style>
 :root{
+  color-scheme: dark;
   --bg0:#0D0D14;--bg1:#12121E;--bg2:#1A1A2E;--bg3:#22223A;--bg4:#2A2A44;
   --accent:#7C6AF7;--accent2:#5A4BD1;--green:#3FCF8E;--red:#F25F5C;
   --yellow:#F7C948;--blue:#58B7FF;--orange:#FF8C42;--purple:#C084FC;
@@ -36,6 +37,7 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg0);color:var(--text1);height:100vh;overflow:hidden;font-size:13px}
 input,select,textarea,button{font-family:inherit;font-size:13px}
+select{cursor:pointer;color-scheme:dark}
 button{cursor:pointer}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -95,8 +97,8 @@ button{cursor:pointer}
 /* ── Input ── */
 .input{background:var(--bg2);border:1px solid var(--border2);color:var(--text1);border-radius:var(--radius-sm);padding:7px 11px;width:100%;transition:.15s;-webkit-app-region:no-drag}
 .input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(124,106,247,.15)}
-.input::placeholder{color:var(--text3)}
-.select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236060A0'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;padding-right:26px}
+.select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236060A0'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;padding-right:26px;cursor:pointer;color-scheme:dark}
+select option{background-color:var(--bg2);color:var(--text1);padding:5px 8px}
 
 /* ═══════════════════════════════════════════════════
    DATABASE MANAGEMENT PANEL
@@ -605,6 +607,7 @@ body[data-theme="light"] .tree-session-root{
   border-color:#E2E8F0;
   box-shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
 }
+body[data-theme="light"]{color-scheme:light}
 body[data-theme="light"] .input,
 body[data-theme="light"] select,
 body[data-theme="light"] textarea,
@@ -613,6 +616,11 @@ body[data-theme="light"] .results-filter-bar input,
 body[data-theme="light"] .results-filter-bar select{
   background:#FFFFFF !important;
   border-color:#CBD5E1 !important;
+  color:#0F172A !important;
+  color-scheme:light;
+}
+body[data-theme="light"] select option{
+  background:#FFFFFF !important;
   color:#0F172A !important;
 }
 body[data-theme="light"] .input:focus,
@@ -850,7 +858,7 @@ body[data-theme="dark"] .btn-primary:hover{background:#4752C4}
 body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-height:1.45;letter-spacing:.05px}
 .panel-header{min-height:56px;padding:0 22px;border-bottom-color:var(--border)}
 .app-update-card{display:flex;align-items:center;gap:14px;padding:15px 17px;margin-bottom:20px;background:var(--bg2);border:1px solid var(--border2);border-radius:9px}.app-update-icon{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 38px;border-radius:8px;background:rgba(114,170,255,.12);color:var(--accent);font-size:22px}.app-update-copy{flex:1;min-width:0}.app-update-title{font-size:13px;font-weight:700;color:var(--text1)}.app-update-status{font-size:11px;color:var(--text3);margin-top:3px;overflow-wrap:anywhere}.app-update-actions{display:flex;gap:7px;align-items:center}.app-update-progress-wrap{display:flex;align-items:center;gap:8px;margin-top:8px}.app-update-progress-track{height:5px;max-width:240px;flex:1;background:var(--bg4);border-radius:6px;overflow:hidden}.app-update-progress{height:100%;width:0;background:var(--accent);transition:width .2s}.app-update-progress-wrap span{font-size:10px;color:var(--text2);min-width:34px}
-.update-notice-modal{width:440px;max-width:calc(100vw - 28px)}.update-notice-body{display:flex;align-items:center;gap:14px;min-height:104px;flex-wrap:wrap}.update-notice-mark{display:flex;align-items:center;justify-content:center;width:44px;height:44px;flex:0 0 44px;background:rgba(88,101,242,.14);color:var(--accent);border-radius:11px;font-size:24px}.update-notice-message{font-size:13px;color:var(--text2);line-height:1.55}.update-notice-overlay{z-index:10020}.update-popup-progress{flex:1;min-width:100%;margin:12px 0 0}
+.update-notice-modal{width:540px;max-width:calc(100vw - 32px)}.update-notice-body{display:flex;align-items:center;gap:14px;min-height:104px;flex-wrap:wrap}.update-notice-mark{display:flex;align-items:center;justify-content:center;width:44px;height:44px;flex:0 0 44px;background:rgba(88,101,242,.14);color:var(--accent);border-radius:11px;font-size:24px}.update-notice-message{font-size:13px;color:var(--text2);line-height:1.55}.update-notice-overlay{z-index:10020}.update-popup-progress{flex:1;min-width:100%;margin:12px 0 0}.update-notes-container{scrollbar-width:thin}.update-notes-container ul{margin:4px 0 6px 18px;padding:0}.update-notes-container li{margin-bottom:3px}
 .btn{border-radius:6px;font-weight:600;letter-spacing:.05px;box-shadow:none;transition:background .15s,border-color .15s,color .15s}
 .btn:hover{transform:none;box-shadow:none}
 .input{border-radius:6px;background:var(--bg0);border-color:var(--border2);transition:border-color .15s,box-shadow .15s}
@@ -2038,9 +2046,47 @@ DESCRIBE tablename;"></textarea>
 
 <div class="modal-overlay update-notice-overlay" id="modal-app-update" onclick="if(event.target===this)dismissUpdatePopup()" role="dialog" aria-modal="true" aria-labelledby="update-popup-title">
   <div class="modal update-notice-modal">
-    <div class="modal-header"><div><div class="modal-title-main" id="update-popup-title">App update</div><div class="modal-subtitle">C-Script LocalHost Panel</div></div><button class="btn-icon" onclick="dismissUpdatePopup()" aria-label="Close">✕</button></div>
-    <div class="modal-body update-notice-body"><div class="update-notice-mark">↻</div><div class="update-notice-message" id="update-popup-message"></div><div class="app-update-progress-wrap update-popup-progress" id="update-popup-progress-wrap" style="display:none"><div class="app-update-progress-track"><div id="update-popup-progress" class="app-update-progress"></div></div><span id="update-popup-progress-label">0%</span></div></div>
-    <div class="modal-footer"><button class="btn" id="update-popup-later" onclick="dismissUpdatePopup()">Do Later</button><button class="btn btn-primary" id="update-popup-action" onclick="runUpdatePopupAction()">Download update</button></div>
+    <div class="modal-header">
+      <div>
+        <div class="modal-title-main" id="update-popup-title">App update</div>
+        <div class="modal-subtitle">C-Script LocalHost Panel</div>
+      </div>
+      <button class="btn-icon" onclick="dismissUpdatePopup()" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body update-notice-body" style="padding:18px 20px">
+      <div style="display:flex;align-items:center;gap:14px;width:100%">
+        <div class="update-notice-mark">
+          <svg class="tab-icon-svg" style="width:20px;height:20px;margin:0;stroke:var(--accent)" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px;color:var(--text1)" id="update-popup-headline">New Version Available</div>
+          <div class="update-notice-message" id="update-popup-message" style="margin-top:2px"></div>
+        </div>
+      </div>
+
+      <!-- Release Notes / Changelog -->
+      <div id="update-popup-notes-wrap" style="display:none;width:100%;margin-top:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3)">
+            What's New in this Release:
+          </span>
+          <span id="update-popup-version-badge" style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3)"></span>
+        </div>
+        <div id="update-popup-notes" class="update-notes-container" style="max-height:190px;overflow-y:auto;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:12px;color:var(--text2);line-height:1.6">
+        </div>
+      </div>
+
+      <div class="app-update-progress-wrap update-popup-progress" id="update-popup-progress-wrap" style="display:none;width:100%">
+        <div class="app-update-progress-track">
+          <div id="update-popup-progress" class="app-update-progress"></div>
+        </div>
+        <span id="update-popup-progress-label">0%</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" id="update-popup-later" onclick="dismissUpdatePopup()">Do Later</button>
+      <button class="btn btn-primary" id="update-popup-action" onclick="runUpdatePopupAction()">Download update</button>
+    </div>
   </div>
 </div>
 
@@ -2056,7 +2102,7 @@ DESCRIBE tablename;"></textarea>
       <div class="settings-row">
         <div class="form-group">
           <label class="form-label">Character Set</label>
-          <select class="input select" id="new-db-charset">
+          <select class="input select" id="new-db-charset" onchange="updateNewDbCollations()">
             <option value="utf8mb4" selected>utf8mb4 (recommended)</option>
             <option value="utf8">utf8</option>
             <option value="latin1">latin1</option>
@@ -4163,7 +4209,11 @@ function updateSQLDBSelect(){
 }
 
 function onSQLDBChange(db){
+  if(!db) return;
   DB.activeDB = db;
+  const erSel = document.getElementById('er-db-select');
+  if(erSel) erSel.value = db;
+  selectDatabase(db);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -4538,10 +4588,13 @@ async function openAddColumnModal(){
   after.replaceChildren();
   const first=document.createElement('option');
   first.value='__FIRST__'; first.textContent='First column'; after.appendChild(first);
+  let lastCol = '';
   (result.columns||[]).forEach(column=>{
     const option=document.createElement('option');
     option.value=column.field; option.textContent=`After ${column.field}`; after.appendChild(option);
+    lastCol = column.field;
   });
+  if(lastCol) after.value = lastCol;
   document.getElementById('add-column-name').value='';
   document.getElementById('add-column-type').value='INT';
   document.getElementById('add-column-length').value='';
@@ -5689,6 +5742,15 @@ function renderDataTable(data, fields, hasPagination){
   document.querySelectorAll('#db-results-area [data-edit-row]').forEach(button=>button.addEventListener('click',()=>editGridRow(Number(button.dataset.editRow))));
   document.querySelectorAll('#db-results-area [data-delete-row]').forEach(button=>button.addEventListener('click',()=>deleteGridRow(Number(button.dataset.deleteRow))));
   if(hasPagination) showPagination(true);
+  const filterBar = document.getElementById('data-quick-filter-bar');
+  if(filterBar && filterBar.style.display !== 'none'){
+    const sel = document.getElementById('qfilter-col');
+    if(sel && cols.length > 0){
+      const curCol = sel.value;
+      sel.innerHTML = cols.map(c => `<option value="${escAttr(c)}">${escHtml(c)}</option>`).join('');
+      if(cols.includes(curCol)) sel.value = curCol;
+    }
+  }
 }
 
 function startInlineEdit(td) {
@@ -5935,8 +5997,24 @@ function setResultInfo(html){ document.getElementById('db-result-info').innerHTM
 // ══════════════════════════════════════════════════════════
 // DB ACTIONS
 // ══════════════════════════════════════════════════════════
+function updateNewDbCollations(){
+  const charset = document.getElementById('new-db-charset')?.value || 'utf8mb4';
+  const collSelect = document.getElementById('new-db-collation');
+  if(!collSelect) return;
+  const map = {
+    utf8mb4: ['utf8mb4_unicode_ci', 'utf8mb4_general_ci', 'utf8mb4_0900_ai_ci', 'utf8mb4_bin'],
+    utf8: ['utf8_unicode_ci', 'utf8_general_ci', 'utf8_bin'],
+    latin1: ['latin1_swedish_ci', 'latin1_general_ci', 'latin1_bin'],
+    ascii: ['ascii_general_ci', 'ascii_bin']
+  };
+  const list = map[charset] || ['utf8mb4_unicode_ci'];
+  collSelect.innerHTML = list.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
 function openCreateDBModal(){
   document.getElementById('new-db-name').value='';
+  document.getElementById('new-db-charset').value='utf8mb4';
+  updateNewDbCollations();
   openModal('modal-create-db');
   setTimeout(()=>document.getElementById('new-db-name').focus(),100);
 }
@@ -6097,13 +6175,19 @@ async function submitCreateTable(){
 function safeText(value){return String(value??'—').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 let DB_SETTINGS_COLLATIONS={};
 function populateSettingsCollations(selectId,charsetId){
-  const charset=document.getElementById(charsetId).value,select=document.getElementById(selectId);
+  const charsetEl=document.getElementById(charsetId);
+  const select=document.getElementById(selectId);
+  if(!charsetEl||!select) return;
+  const charset=charsetEl.value||'utf8mb4';
   const available=DB_SETTINGS_COLLATIONS[charset]||[];
   const current=select.value;
   const preferred=charset==='utf8mb4'?['utf8mb4_0900_ai_ci','utf8mb4_unicode_ci','utf8mb4_general_ci']:charset==='utf8'?['utf8_unicode_ci','utf8_general_ci']:charset==='latin1'?['latin1_swedish_ci','latin1_general_ci']:['ascii_general_ci','ascii_bin'];
-  const options=[...new Set([current,...preferred,...available.filter(c=>c.endsWith('_ci')).slice(0,12)])].filter(c=>available.includes(c));
+  const options=available.length>0
+    ?[...new Set([current,...preferred,...available.filter(c=>c.endsWith('_ci')).slice(0,12)])].filter(c=>available.includes(c))
+    :preferred;
   select.innerHTML=options.map(c=>`<option value="${safeText(c)}">${safeText(c)}</option>`).join('');
   if(options.includes(current))select.value=current;
+  else if(options.length>0)select.value=options[0];
 }
 function updateSettingsCollations(){populateSettingsCollations('settings-collation','settings-charset');}
 function updateDatabaseCollations(){populateSettingsCollations('settings-db-collation','settings-db-charset');}
@@ -6254,9 +6338,9 @@ function exportResults(format){
 // ══════════════════════════════════════════════════════════
 let _scannedPhpVersions = [];
 
-async function populatePhpVersionSelects() {
+async function populatePhpVersionSelects(forceRefresh = false) {
   try {
-    if (_scannedPhpVersions.length === 0) {
+    if (_scannedPhpVersions.length === 0 || forceRefresh) {
       const result = await api.php.scanVersions();
       _scannedPhpVersions = Array.isArray(result) ? result : (result?.versions || []);
     }
@@ -6500,7 +6584,7 @@ function checkSiteFolder(siteIdOrPath){
 }
 
 async function openAddSiteModal(){
-  await populatePhpVersionSelects();
+  await populatePhpVersionSelects(true);
   const phpSelect = document.getElementById('site-php');
   if (phpSelect) phpSelect.value = '';
   openModal('modal-add-site');
@@ -6519,7 +6603,7 @@ let _editingSiteId = null;
 async function editSiteEntryFile(siteId){
   const site=_sitesMap[siteId];
   if(!site) return;
-  await populatePhpVersionSelects();
+  await populatePhpVersionSelects(true);
   _editingSiteId=siteId;
   document.getElementById('edit-site-entry-file').value=site.entryFile||'';
   document.getElementById('edit-site-port').value=site.port||0;
@@ -6579,10 +6663,13 @@ function onFrameworkSelectChange(framework){
     if(entryInput && !entryInput.value) entryInput.value = 'public\\index.php';
   } else if(framework === 'wordpress'){
     if(hint) hint.textContent = 'Creates WordPress index.php and wp-config.php with local MySQL database presets.';
+    if(entryInput && (entryInput.value === 'public\\index.php' || entryInput.value === 'public/index.php')) entryInput.value = '';
   } else if(framework === 'vanilla'){
     if(hint) hint.textContent = 'Creates modern responsive PHP starter with DB connection test and system dashboard.';
+    if(entryInput && (entryInput.value === 'public\\index.php' || entryInput.value === 'public/index.php')) entryInput.value = '';
   } else {
     if(hint) hint.textContent = 'Uses existing project files in the chosen directory.';
+    if(entryInput && (entryInput.value === 'public\\index.php' || entryInput.value === 'public/index.php')) entryInput.value = '';
   }
 }
 
@@ -7104,17 +7191,97 @@ function explainUpdaterError(message){
   if(/no published versions on github/i.test(String(message)))return 'No update release has been published yet. An update-enabled Setup release must be published before this app can update.';
   return 'Update check failed: '+message;
 }
-function showUpdatePopup(state,message,version=''){
-  if(state==='available'||state==='ready')updateProgressPopupDismissed=false;
-  updatePopupState=state;
-  const title=document.getElementById('update-popup-title'),body=document.getElementById('update-popup-message'),later=document.getElementById('update-popup-later'),action=document.getElementById('update-popup-action'),progress=document.getElementById('update-popup-progress-wrap');
-  progress.style.display=state==='progress'?'flex':'none';
-  later.style.display=state==='progress'||state==='error'?'none':'';
-  action.style.display='';
-  if(state==='available'){title.textContent='Update available';body.textContent=`Version ${version} is ready to download. Download it now and restart when convenient.`;later.textContent='Do Later';action.textContent='Download update';}
-  if(state==='progress'){title.textContent='Downloading update';body.textContent=message||'The update is downloading in the background.';action.textContent='Hide';}
-  if(state==='ready'){title.textContent='Update ready';body.textContent=`Version ${version} has downloaded. Restart the app to finish installing it.`;action.textContent='Restart and install';}
-  if(state==='error'){title.textContent='Update download failed';body.textContent=message||'The update could not be downloaded.';action.textContent='Close';}
+let _lastReleaseNotes = '';
+
+function formatReleaseNotes(raw) {
+  if (!raw || typeof raw !== 'string' || !raw.trim()) return '';
+  const hasHtml = /<\/?(p|div|ul|ol|li|br|h\d|span|strong|em)\b/i.test(raw);
+  if (hasHtml) {
+    return raw.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+              .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+  }
+  const lines = raw.split(/\r?\n/);
+  const formatted = [];
+  for (let line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (/^#{1,4}\s+(.*)/.test(trimmed)) {
+      const heading = trimmed.replace(/^#{1,4}\s+/, '');
+      formatted.push(`<div style="font-weight:700;color:var(--text1);margin-top:10px;margin-bottom:4px;font-size:12px;">${safeText(heading)}</div>`);
+      continue;
+    }
+    if (/^[\*\-\•]\s+(.*)/.test(trimmed)) {
+      let content = safeText(trimmed.replace(/^[\*\-\•]\s+/, ''));
+      content = content.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:var(--text1)">$1</strong>');
+      content = content.replace(/`([^`]+)`/g, '<code style="background:var(--bg3);padding:1px 4px;border-radius:3px;font-size:11px">$1</code>');
+      formatted.push(`<div style="display:flex;align-items:flex-start;gap:6px;margin:3px 0;"><span style="color:var(--accent);line-height:1.4">•</span><span style="flex:1">${content}</span></div>`);
+      continue;
+    }
+    let content = safeText(trimmed);
+    content = content.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:var(--text1)">$1</strong>');
+    content = content.replace(/`([^`]+)`/g, '<code style="background:var(--bg3);padding:1px 4px;border-radius:3px;font-size:11px">$1</code>');
+    formatted.push(`<div style="margin:3px 0;">${content}</div>`);
+  }
+  return formatted.join('');
+}
+
+function showUpdatePopup(state, message, version = '', releaseNotes = '') {
+  if (state === 'available' || state === 'ready') updateProgressPopupDismissed = false;
+  updatePopupState = state;
+  const title = document.getElementById('update-popup-title');
+  const headline = document.getElementById('update-popup-headline');
+  const body = document.getElementById('update-popup-message');
+  const later = document.getElementById('update-popup-later');
+  const action = document.getElementById('update-popup-action');
+  const progress = document.getElementById('update-popup-progress-wrap');
+  const notesWrap = document.getElementById('update-popup-notes-wrap');
+  const notesEl = document.getElementById('update-popup-notes');
+  const versionBadge = document.getElementById('update-popup-version-badge');
+
+  if (releaseNotes) _lastReleaseNotes = releaseNotes;
+  const notesHtml = formatReleaseNotes(_lastReleaseNotes);
+
+  if (versionBadge && version) versionBadge.textContent = 'v' + String(version).replace(/^v/, '');
+
+  if (progress) progress.style.display = state === 'progress' ? 'flex' : 'none';
+  if (later) later.style.display = state === 'progress' || state === 'error' ? 'none' : '';
+  if (action) action.style.display = '';
+
+  if (notesWrap && notesEl) {
+    if ((state === 'available' || state === 'ready') && notesHtml) {
+      notesEl.innerHTML = notesHtml;
+      notesWrap.style.display = 'block';
+    } else {
+      notesWrap.style.display = 'none';
+    }
+  }
+
+  if (state === 'available') {
+    if (title) title.textContent = 'App update';
+    if (headline) headline.textContent = `Update Available: v${version || ''}`;
+    if (body) body.textContent = message || `Version ${version} is ready to download. Download it now and restart when convenient.`;
+    if (later) later.textContent = 'Do Later';
+    if (action) action.textContent = 'Download update';
+  }
+  if (state === 'progress') {
+    if (title) title.textContent = 'Downloading update';
+    if (headline) headline.textContent = 'Downloading in background';
+    if (body) body.textContent = message || 'The update is downloading in the background.';
+    if (action) action.textContent = 'Hide';
+  }
+  if (state === 'ready') {
+    if (title) title.textContent = 'Update ready';
+    if (headline) headline.textContent = `Version ${version || ''} Ready`;
+    if (body) body.textContent = message || `Version ${version} has downloaded. Restart the app to finish installing it.`;
+    if (later) later.textContent = 'Later';
+    if (action) action.textContent = 'Restart and install';
+  }
+  if (state === 'error') {
+    if (title) title.textContent = 'Update download failed';
+    if (headline) headline.textContent = 'Update failed';
+    if (body) body.textContent = message || 'The update could not be downloaded.';
+    if (action) action.textContent = 'Close';
+  }
   openModal('modal-app-update');
 }
 function dismissUpdatePopup(){if(updatePopupState==='progress')updateProgressPopupDismissed=true;updatePopupState='idle';closeModal('modal-app-update');}
@@ -7134,19 +7301,21 @@ function runUpdatePopupAction(){
 }
 function handleUpdaterStatus(event){
   if(event && event.releaseUrl) latestUpdateReleaseUrl = event.releaseUrl;
+  if(event && event.releaseNotes) _lastReleaseNotes = event.releaseNotes;
   const check=document.getElementById('app-update-check'),download=document.getElementById('app-update-download'),install=document.getElementById('app-update-install');
   if(!check)return;
   if(event.status==='checking'){check.disabled=true;check.textContent='Checking…';setAppUpdateStatus('Checking for a newer version…');}
-  if(event.status==='available'){check.disabled=false;check.textContent='Check again';download.style.display='';install.style.display='none';setAppUpdateStatus(`Version ${event.version} is available. Download it, then restart to install.`);showUpdatePopup('available','',event.version);}
+  if(event.status==='available'){check.disabled=false;check.textContent='Check again';download.style.display='';install.style.display='none';setAppUpdateStatus(`Version ${event.version} is available. Download it, then restart to install.`);showUpdatePopup('available','',event.version,event.releaseNotes || _lastReleaseNotes);}
   if(event.status==='not-available'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='none';document.getElementById('app-update-releases').style.display='none';document.getElementById('app-update-progress-wrap').style.display='none';setAppUpdateStatus(`You’re using the latest version (v${event.version}).`);}
   if(event.status==='progress'){const wrap=document.getElementById('app-update-progress-wrap');wrap.style.display='flex';const percent=Math.max(0,Math.min(100,Number(event.percent)||0));document.getElementById('app-update-progress').style.width=percent+'%';document.getElementById('app-update-progress-label').textContent=Math.round(percent)+'%';document.getElementById('update-popup-progress').style.width=percent+'%';document.getElementById('update-popup-progress-label').textContent=Math.round(percent)+'%';setAppUpdateStatus('Downloading update…');download.disabled=true;if(updatePopupState!=='progress'&&!updateProgressPopupDismissed)showUpdatePopup('progress','The update is downloading. You can hide this window and keep using the app.');}
-  if(event.status==='downloaded'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='';document.getElementById('app-update-progress').style.width='100%';document.getElementById('app-update-progress-label').textContent='100%';setAppUpdateStatus(`Version ${event.version} is ready. Restart the app to finish updating.`);closeModal('modal-app-update');showUpdatePopup('ready','',event.version);}
+  if(event.status==='downloaded'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='';document.getElementById('app-update-progress').style.width='100%';document.getElementById('app-update-progress-label').textContent='100%';setAppUpdateStatus(`Version ${event.version} is ready. Restart the app to finish updating.`);closeModal('modal-app-update');showUpdatePopup('ready','',event.version,event.releaseNotes || _lastReleaseNotes);}
   if(event.status==='error'){check.disabled=false;check.textContent='Try again';download.disabled=false;download.textContent='Download update';const noRelease=/no published versions on github/i.test(String(event.message));document.getElementById('app-update-releases').style.display=noRelease?'':'none';setAppUpdateStatus(explainUpdaterError(event.message));if(updatePopupState==='progress')showUpdatePopup('error',event.message);}
 }
 async function checkForAppUpdates(){
   const button=document.getElementById('app-update-check');button.disabled=true;button.textContent='Checking…';setAppUpdateStatus('Connecting to the release server…');
   const result=await api.updater.check();
   if(!result.success){button.disabled=false;button.textContent='Try again';const noRelease=/no published versions on github/i.test(String(result.error));document.getElementById('app-update-releases').style.display=noRelease?'':'none';setAppUpdateStatus(explainUpdaterError(result.error));}
+  else if(result.releaseNotes){_lastReleaseNotes = result.releaseNotes;}
 }
 async function downloadAppUpdate(){
   const button=document.getElementById('app-update-download');button.disabled=true;button.textContent='Starting…';
@@ -7205,6 +7374,8 @@ async function scanPhpVersionsAction(){
     });
     html += `</div>`;
     container.innerHTML = html;
+    _scannedPhpVersions = res.versions || [];
+    await populatePhpVersionSelects(true);
   } catch(err){
     container.innerHTML = `<div style="font-size:12px;color:var(--red)">Scan failed: ${escHtml(err.message)}</div>`;
   }
@@ -7282,6 +7453,7 @@ async function downloadPhpVersionAction(major) {
       await saveSettings();
       await loadPHPInfo();
       await loadPhpCatalog();
+      await populatePhpVersionSelects(true);
     } else {
       toast(`Failed to install PHP: ${res.error}`, 'error');
     }

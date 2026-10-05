@@ -1166,7 +1166,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
             <div class="db-session-list" id="db-session-list"></div>
             <div class="db-session-sidebar-footer">
               <button class="btn btn-sm" style="flex:1" onclick="addNewCustomSession()" title="Add Custom Session">+ Custom</button>
-              <button class="btn btn-sm btn-danger" onclick="deleteActiveSession('page')" title="Delete Selected Session" id="btn-del-session">🗑️</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteActiveSession('page')" title="Delete Selected Session" id="btn-del-session"><svg class="tab-icon-svg" style="margin:0" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
             </div>
           </div>
 
@@ -1213,7 +1213,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
                 Connect / Open Session
               </button>
               <button class="btn btn-sm btn-success" style="flex:1" onclick="quickConnectRoot('page')" title="Quickly connect with standard root credentials">
-                ⚡ Quick Root
+                <svg class="tab-icon-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>Quick Root
               </button>
               <button class="btn btn-sm" onclick="saveActiveSession(true)" title="Save Session Changes">
                 Save
@@ -1367,8 +1367,8 @@ DESCRIBE tablename;"></textarea>
                 <div style="display:flex;gap:6px;align-items:center">
                   <button class="btn btn-sm" onclick="openAddColumnModal()">+ Column</button>
                   <button class="btn btn-sm btn-primary" onclick="insertGridRow()">+ Insert Row</button>
-                  <button class="btn btn-sm" style="background:rgba(99,102,241,0.15);border-color:var(--accent);color:var(--accent)" onclick="openMockDataModal()" title="Fill table with realistic mock data">⚡ Mock Data</button>
-                  <button class="btn btn-sm" onclick="toggleQuickFilterBar()" title="Toggle Quick Filter Bar">🔍 Filter</button>
+                  <button class="btn btn-sm" style="background:rgba(99,102,241,0.15);border-color:var(--accent);color:var(--accent)" onclick="openMockDataModal()" title="Fill table with realistic mock data"><svg class="tab-icon-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>Mock Data</button>
+                  <button class="btn btn-sm" onclick="toggleQuickFilterBar()" title="Toggle Quick Filter Bar"><svg class="tab-icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>Filter</button>
                   <select class="input select" id="export-format-sel" onchange="if(this.value){exportResults(this.value);this.value='';}" style="padding:4px 8px;font-size:11px">
                     <option value="">Export...</option>
                     <option value="csv">Export CSV</option>
@@ -1580,7 +1580,7 @@ DESCRIBE tablename;"></textarea>
         <div class="panel-actions">
           <select class="input select" id="logs-source-filter" onchange="loadServerLogs(this.value)" style="padding:3px 10px;font-size:12px">
             <option value="">All Sources</option>
-            <option value="Application Error">⚠️ Application Errors</option>
+            <option value="Application Error">Application Errors</option>
             <option value="PHP">PHP</option>
             <option value="NGINX">NGINX</option>
             <option value="MySQL">MySQL</option>
@@ -1627,8 +1627,8 @@ DESCRIBE tablename;"></textarea>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:12px;color:var(--text3);font-weight:600">Scope:</span>
             <select class="input select" id="ports-scope-selector" onchange="onPortScopeChange(this.value)" style="width:175px;padding:5px 10px;font-size:12px">
-              <option value="app" selected>⚡ App / Web Only (Default)</option>
-              <option value="all">🌐 All System Ports</option>
+              <option value="app" selected>App / Web Only (Default)</option>
+              <option value="all">All System Ports</option>
             </select>
           </div>
           <div style="display:flex;align-items:center;position:relative">
@@ -1768,7 +1768,7 @@ DESCRIBE tablename;"></textarea>
             <div style="display:flex;gap:8px">
               <input class="input" id="s-php-binary" placeholder="php.exe full path" style="flex:1">
               <button class="btn btn-sm" onclick="browsePHPBinary()">Browse…</button>
-              <button class="btn btn-sm btn-primary" onclick="scanPhpVersionsAction()">🔍 Scan System for PHP</button>
+              <button class="btn btn-sm btn-primary" onclick="scanPhpVersionsAction()"><svg class="tab-icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>Scan System for PHP</button>
             </div>
             <div class="form-hint">Choose your php.exe executable or scan to auto-detect installed versions.</div>
             <div id="scanned-phps-container" style="display:none;margin-top:10px;background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px"></div>
@@ -1778,7 +1778,7 @@ DESCRIBE tablename;"></textarea>
           <div style="margin-top:16px;padding:14px;background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.25);border-radius:var(--radius-sm)">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:18px">🛡️</span>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
                 <div>
                   <span style="font-weight:700;font-size:13px;color:var(--text1)">Standalone PHP Versions</span>
                   <div style="font-size:11px;color:var(--text3)">Installed in this app's LocalHost storage.</div>
@@ -1805,14 +1805,14 @@ DESCRIBE tablename;"></textarea>
           <div style="margin-top:16px;padding:14px;background:rgba(63,207,142,0.05);border:1px solid rgba(63,207,142,0.25);border-radius:var(--radius-sm)">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:18px">🌐</span>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                 <div>
                   <span style="font-weight:700;font-size:13px;color:var(--text1)">Standalone NGINX Web Server (Port 80 / 443 SSL)</span>
                   <div style="font-size:11px;color:var(--text3)">Handles reverse proxying for .test domains on Port 80 and HTTPS 443 without specifying ports.</div>
                 </div>
               </div>
               <div style="display:flex;gap:6px" id="nginx-action-buttons">
-                <button class="btn btn-sm btn-accent" onclick="downloadNginxAction()" id="btn-dl-nginx" style="font-size:11px;font-weight:700">⬇️ Install Official NGINX (2MB)</button>
+                <button class="btn btn-sm btn-accent" onclick="downloadNginxAction()" id="btn-dl-nginx" style="font-size:11px;font-weight:700"><svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Install Official NGINX (2MB)</button>
               </div>
             </div>
 
@@ -1822,7 +1822,7 @@ DESCRIBE tablename;"></textarea>
                 <span id="nginx-version-text" style="font-size:12px;color:var(--text1);font-weight:600">NGINX Web Server</span>
               </div>
               <div style="display:flex;gap:6px">
-                <button class="btn btn-sm" onclick="reloadNginxAction()" id="btn-reload-nginx" title="Reload NGINX configuration">🔄 Reload</button>
+                <button class="btn btn-sm" onclick="reloadNginxAction()" id="btn-reload-nginx" title="Reload NGINX configuration"><svg class="tab-icon-svg" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>Reload</button>
                 <button class="btn btn-sm btn-primary" onclick="restartNginxAction()" id="btn-restart-nginx">Restart</button>
               </div>
             </div>
@@ -1855,14 +1855,14 @@ DESCRIBE tablename;"></textarea>
           <div style="margin-top:16px;padding:14px;background:rgba(234,179,8,0.05);border:1px solid rgba(234,179,8,0.25);border-radius:var(--radius-sm)">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
               <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:18px">🗄️</span>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
                 <div>
                   <span style="font-weight:700;font-size:13px;color:var(--text1)">MySQL / MariaDB Database Server (Port 3306)</span>
                   <div style="font-size:11px;color:var(--text3)">Controls system MySQL services (MySQL80) or 1-Click portable standalone MariaDB/MySQL.</div>
                 </div>
               </div>
               <div style="display:flex;gap:6px" id="mysql-installer-actions">
-                <button class="btn btn-sm btn-accent" onclick="downloadMysqlAction()" id="btn-dl-mysql" style="font-size:11px;font-weight:700">⬇️ Install Standalone MariaDB (86MB)</button>
+                <button class="btn btn-sm btn-accent" onclick="downloadMysqlAction()" id="btn-dl-mysql" style="font-size:11px;font-weight:700"><svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Install Standalone MariaDB (86MB)</button>
               </div>
             </div>
 
@@ -1925,9 +1925,9 @@ DESCRIBE tablename;"></textarea>
             </div>
             <p style="margin:0 0 10px 0;font-size:13px;color:var(--text3);line-height:1.4">Modern, High-Performance Local Development Environment for PHP, NGINX &amp; MySQL.</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(63,207,142,0.12);color:var(--green);border:1px solid rgba(63,207,142,0.25)">✓ Standalone</span>
-              <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.25)">⚡ Fast Reverse Proxy</span>
-              <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(234,179,8,0.12);color:#eab308;border:1px solid rgba(234,179,8,0.25)">🔒 Auto Local SSL</span>
+              <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(63,207,142,0.12);color:var(--green);border:1px solid rgba(63,207,142,0.25);display:inline-flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Standalone</span>
+              <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.25);display:inline-flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>Fast Reverse Proxy</span>
+              <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(234,179,8,0.12);color:#eab308;border:1px solid rgba(234,179,8,0.25);display:inline-flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Auto Local SSL</span>
             </div>
           </div>
         </div>
@@ -1964,7 +1964,7 @@ DESCRIBE tablename;"></textarea>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
           <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
             <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:6px;display:flex;align-items:center;gap:8px">
-              <span>🐘</span> Multi-PHP Runtime
+              <svg class="tab-icon-svg" style="color:var(--blue);width:16px;height:16px;margin:0" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>Multi-PHP Runtime
             </div>
             <div style="font-size:12px;color:var(--text3);line-height:1.5">
               1-click downloaders for official PHP 8.1 - 8.5 with pre-configured extensions (curl, mysqli, pdo, gd, mbstring, openssl, zip) and dedicated AppData storage.
@@ -1973,7 +1973,7 @@ DESCRIBE tablename;"></textarea>
 
           <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
             <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:6px;display:flex;align-items:center;gap:8px">
-              <span>🌐</span> NGINX Web Server
+              <svg class="tab-icon-svg" style="color:var(--green);width:16px;height:16px;margin:0" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>NGINX Web Server
             </div>
             <div style="font-size:12px;color:var(--text3);line-height:1.5">
               Port 80 &amp; 443 reverse proxying with automated virtual host config generation. Access local projects directly using clean <code>project.test</code> domains.
@@ -1982,7 +1982,7 @@ DESCRIBE tablename;"></textarea>
 
           <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
             <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:6px;display:flex;align-items:center;gap:8px">
-              <span>🗄️</span> MySQL / MariaDB Server
+              <svg class="tab-icon-svg" style="color:#eab308;width:16px;height:16px;margin:0" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>MySQL / MariaDB Server
             </div>
             <div style="font-size:12px;color:var(--text3);line-height:1.5">
               Native Windows MySQL service detection (Port 3306) and 1-click portable MariaDB 11.4 LTS with complete database manager &amp; ER diagram tool.
@@ -1991,7 +1991,7 @@ DESCRIBE tablename;"></textarea>
 
           <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px">
             <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:6px;display:flex;align-items:center;gap:8px">
-              <span>🚀</span> Cloudflare Tunnel &amp; Mail
+              <svg class="tab-icon-svg" style="color:var(--accent);width:16px;height:16px;margin:0" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>Cloudflare Tunnel &amp; Mail
             </div>
             <div style="font-size:12px;color:var(--text3);line-height:1.5">
               Share local web projects instantly to the public web with Cloudflare Tunnels, plus a built-in SMTP Mail Catcher to test outgoing emails.
@@ -2151,7 +2151,7 @@ DESCRIBE tablename;"></textarea>
           </div>
           <div class="db-session-list" id="modal-session-list" style="padding:6px;flex:1;overflow-y:auto"></div>
           <div style="padding:8px 10px;border-top:1px solid var(--border);display:flex;gap:6px">
-            <button class="btn btn-sm btn-danger" style="flex:1" onclick="deleteActiveSession('modal')" id="modal-btn-del-session">🗑️ Delete Session</button>
+            <button class="btn btn-sm btn-danger" style="flex:1" onclick="deleteActiveSession('modal')" id="modal-btn-del-session"><svg class="tab-icon-svg" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Delete Session</button>
           </div>
         </div>
         <!-- Form -->
@@ -2186,7 +2186,7 @@ DESCRIBE tablename;"></textarea>
     </div>
     <div class="modal-footer" style="display:flex;justify-content:space-between">
       <div>
-        <button class="btn btn-sm btn-success" onclick="quickConnectRoot('modal')">⚡ Quick Root Connect</button>
+        <button class="btn btn-sm btn-success" onclick="quickConnectRoot('modal')"><svg class="tab-icon-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>Quick Root Connect</button>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn" onclick="closeModal('modal-db-sessions')">Close</button>
@@ -2285,7 +2285,7 @@ DESCRIBE tablename;"></textarea>
         <div style="display:flex;gap:8px">
           <input class="input" id="mysql-modal-root-pass" type="password" placeholder="MySQL root password" style="flex:1" onkeydown="if(event.key==='Enter') stopMySqlWithPasswordAction()">
           <button class="btn btn-primary btn-sm" id="btn-mysql-pass-stop" onclick="stopMySqlWithPasswordAction()">
-            ⚡ Stop MySQL
+            <svg class="tab-icon-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>Stop MySQL
           </button>
         </div>
       </div>
@@ -2305,7 +2305,7 @@ DESCRIBE tablename;"></textarea>
         </div>
         <div style="display:flex;justify-content:flex-end">
           <button class="btn btn-sm" id="btn-mysql-uac-stop" style="background:rgba(255,140,66,0.18);border-color:var(--orange);color:var(--orange);font-weight:600" onclick="stopMySqlWithUacAction()">
-            🛡️ Authorize Windows UAC & Stop
+            <svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>Authorize Windows UAC &amp; Stop
           </button>
         </div>
       </div>
@@ -2933,9 +2933,10 @@ function renderSessionList() {
   DBSessions.forEach(s => {
     const isActive = s.id === activeSessionId;
     const isRoot = (s.user || '').toLowerCase() === 'root';
+    const sessIcon = isRoot ? '<svg class="tree-icon-svg" style="width:14px;height:14px;margin:0;stroke:var(--accent)" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' : '<svg class="tree-icon-svg" style="width:14px;height:14px;margin:0;stroke:var(--text3)" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>';
     html += `
       <div class="db-session-item ${isActive ? 'active' : ''}" onclick="selectSession('${s.id}')">
-        <span class="db-session-item-icon">${isRoot ? '⚡' : '🖥️'}</span>
+        <span class="db-session-item-icon" style="display:flex;align-items:center;justify-content:center">${sessIcon}</span>
         <div class="db-session-item-info">
           <span class="db-session-item-name" title="${escHtml(s.name)}">${escHtml(s.name)}</span>
           <span class="db-session-item-sub">${escHtml(s.user)}@${escHtml(s.host)}:${escHtml(s.port)}</span>
@@ -2954,9 +2955,10 @@ function renderModalSessionList() {
   DBSessions.forEach(s => {
     const isActive = s.id === activeSessionId;
     const isRoot = (s.user || '').toLowerCase() === 'root';
+    const sessIcon = isRoot ? '<svg class="tree-icon-svg" style="width:14px;height:14px;margin:0;stroke:var(--accent)" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' : '<svg class="tree-icon-svg" style="width:14px;height:14px;margin:0;stroke:var(--text3)" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>';
     html += `
       <div class="db-session-item ${isActive ? 'active' : ''}" onclick="selectSession('${s.id}', 'modal')">
-        <span class="db-session-item-icon">${isRoot ? '⚡' : '🖥️'}</span>
+        <span class="db-session-item-icon" style="display:flex;align-items:center;justify-content:center">${sessIcon}</span>
         <div class="db-session-item-info">
           <span class="db-session-item-name" title="${escHtml(s.name)}">${escHtml(s.name)}</span>
           <span class="db-session-item-sub">${escHtml(s.user)}@${escHtml(s.host)}:${escHtml(s.port)}</span>
@@ -3295,7 +3297,7 @@ function renderDashboardServices(services) {
 
           <!-- Reinstall / Repair Button -->
           <button class="btn btn-sm" data-svc-action="reinstall" data-svc-id="${escHtml(svc.id)}" onclick="reinstallServiceAction('${escHtml(svc.id)}')" title="Reinstall or Repair service">
-            🔄
+            <svg class="tab-icon-svg" style="margin:0" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
           </button>
 
           ${svc.url ? `
@@ -3376,10 +3378,10 @@ function openMySqlControlModal(svcName = 'MySQL80') {
   }
 
   const passBtn = document.getElementById('btn-mysql-pass-stop');
-  if (passBtn) { passBtn.disabled = false; passBtn.innerHTML = '⚡ Stop MySQL'; }
+  if (passBtn) { passBtn.disabled = false; passBtn.innerHTML = '<svg class="tab-icon-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>Stop MySQL'; }
 
   const uacBtn = document.getElementById('btn-mysql-uac-stop');
-  if (uacBtn) { uacBtn.disabled = false; uacBtn.innerHTML = '🛡️ Authorize Windows UAC & Stop'; }
+  if (uacBtn) { uacBtn.disabled = false; uacBtn.innerHTML = '<svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>Authorize Windows UAC &amp; Stop'; }
 
   openModal('modal-mysql-service-control');
 }
@@ -3418,7 +3420,7 @@ async function stopMySqlWithPasswordAction() {
       msgEl.textContent = err.message;
     }
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Stop MySQL'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg class="tab-icon-svg" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>Stop MySQL'; }
   }
 }
 
@@ -3461,7 +3463,7 @@ async function stopMySqlWithUacAction() {
       msgEl.textContent = err.message;
     }
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '🛡️ Authorize Windows UAC & Stop'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>Authorize Windows UAC &amp; Stop'; }
   }
 }
 
@@ -3615,7 +3617,7 @@ function showServiceInfo(id) {
       <button class="btn btn-sm btn-success" onclick="controlService('${escHtml(svc.id)}', 'start'); closeModal('modal-service-details');">Start Service</button>
     `}
     <button class="btn btn-sm btn-warn" onclick="controlService('${escHtml(svc.id)}', 'restart'); closeModal('modal-service-details');">Restart Service</button>
-    <button class="btn btn-sm btn-accent" onclick="reinstallServiceAction('${escHtml(svc.id)}'); closeModal('modal-service-details');" style="margin-left:auto">🔄 Reinstall / Repair</button>
+    <button class="btn btn-sm btn-accent" onclick="reinstallServiceAction('${escHtml(svc.id)}'); closeModal('modal-service-details');" style="margin-left:auto"><svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>Reinstall / Repair</button>
   `;
 
   openModal('modal-service-details');
@@ -6131,7 +6133,7 @@ async function openDatabaseSettings(){
   if(pwdHint){
     if(s.hasEmptyPassword){
       pwdHint.style.display='block';
-      pwdHint.innerHTML='⚠️ <strong>No password is currently set for this account.</strong> Leave "Current password" blank and enter your new password below.';
+      pwdHint.innerHTML='<svg class="tab-icon-svg" style="stroke:var(--yellow);margin-right:4px;vertical-align:-2px" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><strong>No password is currently set for this account.</strong> Leave "Current password" blank and enter your new password below.';
       if(curInput)curInput.placeholder='Leave blank (no password currently set)';
     }else{
       pwdHint.style.display='none';
@@ -6316,8 +6318,8 @@ async function loadSites(){
               <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)"></span>
               ${testUrl}
             </a>
-            ${s.domain ? `<a href="#" onclick="event.preventDefault();openRealBrowser('${testUrl}')" style="color:var(--green);background:rgba(63,207,142,0.1);padding:2px 8px;border-radius:4px;font-size:11px;border:1px solid rgba(63,207,142,0.3);font-weight:700" title="Open ${s.domain} (HTTP Port 80)">🌐 ${escHtml(s.domain)}</a>` : ''}
-            ${httpsUrl ? `<a href="#" onclick="event.preventDefault();openRealBrowser('${httpsUrl}')" style="color:#38bdf8;background:rgba(56,189,248,0.1);padding:2px 8px;border-radius:4px;font-size:11px;border:1px solid rgba(56,189,248,0.3);font-weight:700" title="Open ${s.domain} with HTTPS (SSL Port 443)">🔒 SSL</a>` : ''}
+            ${s.domain ? `<a href="#" onclick="event.preventDefault();openRealBrowser('${testUrl}')" style="color:var(--green);background:rgba(63,207,142,0.1);padding:2px 8px;border-radius:4px;font-size:11px;border:1px solid rgba(63,207,142,0.3);font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Open ${s.domain} (HTTP Port 80)"><svg class="tab-icon-svg" style="margin:0;width:11px;height:11px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>${escHtml(s.domain)}</a>` : ''}
+            ${httpsUrl ? `<a href="#" onclick="event.preventDefault();openRealBrowser('${httpsUrl}')" style="color:#38bdf8;background:rgba(56,189,248,0.1);padding:2px 8px;border-radius:4px;font-size:11px;border:1px solid rgba(56,189,248,0.3);font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Open ${s.domain} with HTTPS (SSL Port 443)"><svg class="tab-icon-svg" style="margin:0;width:11px;height:11px" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>SSL</a>` : ''}
             <span style="color:var(--text3);font-size:10px;font-family:var(--font-mono)">:${s.port}</span>
           </div>`
         :(s.domain ? `<span style="color:var(--text3);font-size:11px">Domain: ${escHtml(s.domain)} (stopped)</span>` : '–')}</div>
@@ -6349,7 +6351,7 @@ async function loadSites(){
       if (badge) {
         if (git && git.isGit) {
           badge.className = `site-git-badge ${git.isClean ? 'clean' : 'dirty'}`;
-          badge.innerHTML = `🌿 ${escHtml(git.branch)}${git.isClean ? '' : ' *'}`;
+          badge.innerHTML = `<svg class="tab-icon-svg" style="width:11px;height:11px;margin-right:4px;margin-top:-1px" viewBox="0 0 24 24"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>${escHtml(git.branch)}${git.isClean ? '' : ' *'}`;
           badge.style.display = 'inline-flex';
           badge.title = `Git Branch: ${git.branch} (${git.isClean ? 'Clean' : 'Modified changes present'})`;
         } else {
@@ -6405,7 +6407,7 @@ function renderActiveTunnelUI(siteId, url, provider = 'Live Tunnel') {
       <div style="display:flex;align-items:center;gap:7px;overflow:hidden">
         <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);flex-shrink:0"></span>
         <span style="background:rgba(56,189,248,0.15);color:#38bdf8;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;flex-shrink:0">${escHtml(provider)}</span>
-        <a href="${escAttr(url)}" target="_blank" onclick="event.preventDefault();openRealBrowser('${escAttr(url)}')" class="site-tunnel-link" title="Open ${escAttr(url)}">🌐 ${escHtml(url)}</a>
+        <a href="${escAttr(url)}" target="_blank" onclick="event.preventDefault();openRealBrowser('${escAttr(url)}')" class="site-tunnel-link" title="Open ${escAttr(url)}"><svg class="tab-icon-svg" style="margin-right:4px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>${escHtml(url)}</a>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
         <button class="btn btn-sm" onclick="copyShareUrl('${escAttr(url)}')">Copy Link</button>
@@ -6795,7 +6797,7 @@ function renderPHPInfoDashboard(data, allExtensions = []) {
   html += '</div>';
 
   html += '<div class="php-ext-toolbar">';
-  html += '  <input class="php-ext-search" id="php-ext-search-input" placeholder="🔍 Search extensions (e.g. curl, intl, mysqli, zip, gd)..." oninput="filterPhpExtensions(this.value)">';
+  html += '  <input class="php-ext-search" id="php-ext-search-input" placeholder="Search extensions (e.g. curl, intl, mysqli, zip, gd)..." oninput="filterPhpExtensions(this.value)">';
   html += '  <div style="display:flex;gap:6px;flex-wrap:wrap">';
   html += '    <button class="btn btn-sm" onclick="filterByTag(\'pdo\')">PDO</button>';
   html += '    <button class="btn btn-sm" onclick="filterByTag(\'sql\')">MySQL</button>';
@@ -7237,9 +7239,9 @@ async function loadPhpCatalog() {
         <div style="display:flex;gap:6px">
           ${item.installed ? `
             <button class="btn btn-sm btn-primary" onclick="selectDetectedPhp('${escAttr(item.exePath)}')">Use Default</button>
-            <button class="btn btn-sm" onclick="reinstallServiceAction('php')" title="Reinstall or Repair PHP runtime">🔄 Repair</button>
+            <button class="btn btn-sm" onclick="reinstallServiceAction('php')" title="Reinstall or Repair PHP runtime"><svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>Repair</button>
           ` : `
-            <button class="btn btn-sm btn-accent" id="btn-dl-php-${item.major}" onclick="downloadPhpVersionAction('${item.major}')">⬇️ Install PHP ${item.major}</button>
+            <button class="btn btn-sm btn-accent" id="btn-dl-php-${item.major}" onclick="downloadPhpVersionAction('${item.major}')"><svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Install PHP ${item.major}</button>
           `}
         </div>
       </div>
@@ -7288,7 +7290,7 @@ async function downloadPhpVersionAction(major) {
     toast(`Error: ${err.message}`, 'error');
   } finally {
     if (wrap) wrap.style.display = 'none';
-    if (btn) { btn.disabled = false; btn.innerText = `⬇️ Install PHP ${major}`; }
+    if (btn) { btn.disabled = false; btn.innerHTML = `<svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Install PHP ${major}`; }
   }
 }
 
@@ -7316,7 +7318,7 @@ async function loadNginxInfo() {
       if (verText) verText.innerText = `${info.version || 'NGINX'} (Port 80/443 Reverse Proxy)`;
       if (btnDl) {
         btnDl.style.display = 'inline-block';
-        btnDl.innerText = '🔄 Reinstall / Repair';
+        btnDl.innerHTML = '<svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>Reinstall / Repair';
         btnDl.onclick = () => reinstallServiceAction('nginx');
       }
       if (btnReload) btnReload.style.display = 'inline-block';
@@ -7329,7 +7331,7 @@ async function loadNginxInfo() {
       if (verText) verText.innerText = 'Official NGINX 1.26.2 (Available for 1-Click Install)';
       if (btnDl) {
         btnDl.style.display = 'inline-block';
-        btnDl.innerText = '⬇️ Install Official NGINX (2MB)';
+        btnDl.innerHTML = '<svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Install Official NGINX (2MB)';
       }
       if (btnReload) btnReload.style.display = 'none';
       if (btnRestart) btnRestart.style.display = 'none';
@@ -7375,7 +7377,7 @@ async function downloadNginxAction() {
     toast(`Error: ${err.message}`, 'error');
   } finally {
     if (wrap) wrap.style.display = 'none';
-    if (btn) { btn.disabled = false; btn.innerText = '⬇️ Install Official NGINX (2MB)'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Install Official NGINX (2MB)'; }
   }
 }
 
@@ -7447,11 +7449,11 @@ async function loadMysqlInstallerInfo() {
     if (btnDl) {
       if (info.standaloneInstalled) {
         btnDl.style.display = 'inline-block';
-        btnDl.innerText = '🔄 Reinstall / Repair';
+        btnDl.innerHTML = '<svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>Reinstall / Repair';
         btnDl.onclick = () => reinstallServiceAction('mysql');
       } else {
         btnDl.style.display = 'inline-block';
-        btnDl.innerText = '⬇️ Install Standalone MariaDB (86MB)';
+        btnDl.innerHTML = '<svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Install Standalone MariaDB (86MB)';
       }
     }
   } catch (e) {
@@ -7498,7 +7500,7 @@ async function downloadMysqlAction() {
     toast(`Error: ${err.message}`, 'error');
   } finally {
     if (wrap) wrap.style.display = 'none';
-    if (btn) { btn.disabled = false; btn.innerText = '⬇️ Install Standalone MariaDB (86MB)'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Install Standalone MariaDB (86MB)'; }
   }
 }
 
@@ -7896,21 +7898,21 @@ async function sendErrorToDeveloper(specificErrorId = null){
 
     const logBlock = targetEntries.slice(-10).map(e => `[${e.time}] [${e.source}] [${(e.level || 'info').toUpperCase()}] ${e.message}`).join('\n');
 
-    const body = `### 🐞 Bug Report / Application Error
+    const body = `### Bug Report / Application Error
 
 **App Version:** \`${appVer}\`
 **Platform:** \`${osInfo}\`
 **Report Time:** ${new Date().toISOString()}
 
-### ⚠️ Error Description
+### Error Description
 \`\`\`
 ${errorSnippet}
 \`\`\`
 
-### 🖥️ Services Status
+### Services Status
 ${services}
 
-### 📜 Relevant Server Logs
+### Relevant Server Logs
 \`\`\`
 ${logBlock || 'No logs captured'}
 \`\`\`

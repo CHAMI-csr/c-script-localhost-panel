@@ -918,6 +918,18 @@ ipcMain.handle('mysql:add-column', async (event, { database, table, column }) =>
   return await mysqlManager.addTableColumn(database, table, column);
 });
 
+ipcMain.handle('mysql:drop-column', async (event, { database, table, column }) => {
+  return await mysqlManager.dropTableColumn(database, table, column);
+});
+
+ipcMain.handle('mysql:modify-column', async (event, { database, table, oldColumn, column }) => {
+  return await mysqlManager.modifyTableColumn(database, table, oldColumn, column);
+});
+
+ipcMain.handle('mysql:rename-table', async (event, { database, oldName, newName }) => {
+  return await mysqlManager.renameTable(database, oldName, newName);
+});
+
 ipcMain.handle('mysql:server-vars', async () => {
   return await mysqlManager.getServerVars();
 });

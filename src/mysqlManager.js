@@ -159,10 +159,77 @@ class MySQLManager {
                 AUTO_INCREMENT, TABLE_COLLATION,
                 CREATE_TIME, UPDATE_TIME, TABLE_COMMENT
          FROM information_schema.TABLES
-         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`,
+         WHERE LOWER(TABLE_SCHEMA) = LOWER(?) AND LOWER(TABLE_NAME) = LOWER(?)`,
         [database, table]
       );
-      return { success: true, info: rows[0] || {} };
+
+      let info = rows && rows[0] ? { ...rows[0] } : {};
+
+      // Fallback to SHOW TABLE STATUS if information_schema returned empty
+      if (!info.TABLE_NAME && !info.table_name && !info.Name) {
+        try {
+          const [statusRows] = await this.connection.query(
+            `SHOW TABLE STATUS FROM ${quoteIdent(database)} LIKE ?`,
+            [table]
+          );
+          if (statusRows && statusRows[0]) {
+            const s = statusRows[0];
+            const dataBytes = Number(s.Data_length || s.data_length || 0);
+            const indexBytes = Number(s.Index_length || s.index_length || 0);
+            info = {
+              TABLE_NAME: s.Name || s.name || table,
+              ENGINE: s.Engine || s.engine || 'InnoDB',
+              TABLE_ROWS: s.Rows || s.rows || 0,
+              dataMB: Number((dataBytes / 1024 / 1024).toFixed(3)),
+              indexMB: Number((indexBytes / 1024 / 1024).toFixed(3)),
+              totalMB: Number(((dataBytes + indexBytes) / 1024 / 1024).toFixed(3)),
+              AUTO_INCREMENT: s.Auto_increment || s.auto_increment,
+              TABLE_COLLATION: s.Collation || s.collation,
+              CREATE_TIME: s.Create_time || s.create_time,
+              UPDATE_TIME: s.Update_time || s.update_time,
+              TABLE_COMMENT: s.Comment || s.comment || ''
+            };
+          }
+        } catch (_) {}
+      }
+
+      // Count exact rows
+      try {
+        const [[{ exactCount }]] = await this.connection.query(
+          `SELECT COUNT(*) as exactCount FROM ${quoteIdent(database)}.${quoteIdent(table)}`
+        );
+        info.exactCount = exactCount;
+      } catch (_) {}
+
+      // Count columns & get primary key
+      try {
+        const [cols] = await this.connection.query(
+          `SELECT COLUMN_NAME, COLUMN_KEY FROM information_schema.COLUMNS
+           WHERE LOWER(TABLE_SCHEMA) = LOWER(?) AND LOWER(TABLE_NAME) = LOWER(?)`,
+          [database, table]
+        );
+        info.colCount = cols.length;
+        const pkCol = cols.find(c => String(c.COLUMN_KEY || c.column_key).toUpperCase() === 'PRI');
+        info.primaryKey = pkCol ? (pkCol.COLUMN_NAME || pkCol.column_name) : null;
+      } catch (_) {}
+
+      // Normalize property names for reliable casing
+      const normalized = {
+        ...info,
+        TABLE_NAME: info.TABLE_NAME || info.table_name || table,
+        ENGINE: info.ENGINE || info.engine || 'InnoDB',
+        TABLE_ROWS: info.TABLE_ROWS ?? info.table_rows ?? info.exactCount ?? 0,
+        TABLE_COLLATION: info.TABLE_COLLATION || info.table_collation || info.Collation || '—',
+        AUTO_INCREMENT: info.AUTO_INCREMENT ?? info.auto_increment ?? '—',
+        CREATE_TIME: info.CREATE_TIME || info.create_time || null,
+        UPDATE_TIME: info.UPDATE_TIME || info.update_time || null,
+        TABLE_COMMENT: info.TABLE_COMMENT || info.table_comment || '',
+        dataMB: info.dataMB ?? 0,
+        indexMB: info.indexMB ?? 0,
+        totalMB: info.totalMB ?? ((Number(info.dataMB || 0) + Number(info.indexMB || 0)).toFixed(3))
+      };
+
+      return { success: true, info: normalized };
     } catch (err) { return { success: false, error: this._fmtErr(err) }; }
   }
 
@@ -172,17 +239,17 @@ class MySQLManager {
     try {
       const [[sizes]] = await this.connection.query(
         `SELECT COUNT(*) as tableCount,
-                SUM(TABLE_ROWS) as totalRows,
-                ROUND(SUM(DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as totalMB
-         FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?`,
+                COALESCE(SUM(TABLE_ROWS), 0) as totalRows,
+                COALESCE(ROUND(SUM(DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2), 0) as totalMB
+         FROM information_schema.TABLES WHERE LOWER(TABLE_SCHEMA) = LOWER(?)`,
         [database]
       );
       const [[schema]] = await this.connection.query(
         `SELECT DEFAULT_CHARACTER_SET_NAME as charset, DEFAULT_COLLATION_NAME as collation
-         FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?`,
+         FROM information_schema.SCHEMATA WHERE LOWER(SCHEMA_NAME) = LOWER(?)`,
         [database]
       );
-      return { success: true, ...sizes, ...schema };
+      return { success: true, ...(sizes || {}), ...(schema || {}) };
     } catch (err) { return { success: false, error: this._fmtErr(err) }; }
   }
 
@@ -205,29 +272,25 @@ class MySQLManager {
 
   async updateTableRow(database, table, primary, changes) {
     if (!this.connection) return { success: false, error: 'Not connected' };
-    if (!primary || !Object.keys(primary).length) return { success: false, error: 'This table has no primary key; row editing is disabled to avoid changing the wrong row.' };
     if (!changes || !Object.keys(changes).length) return { success: false, error: 'No values to update' };
     try {
-      const [keys] = await this.connection.query(
-        `SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=? AND TABLE_NAME=? AND CONSTRAINT_NAME='PRIMARY'`,
-        [database, table]
-      );
-      const allowedKeys = new Set(keys.map(row => row.COLUMN_NAME));
       const [columns] = await this.connection.query(
-        'SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME=?',
+        'SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE LOWER(TABLE_SCHEMA)=LOWER(?) AND LOWER(TABLE_NAME)=LOWER(?)',
         [database, table]
       );
       const allowedColumns = new Set(columns.map(row => row.COLUMN_NAME));
-      const keyNames = Object.keys(primary);
-      if (!keyNames.length || keyNames.length !== allowedKeys.size || keyNames.some(key => !allowedKeys.has(key))) return { success: false, error: 'Provide every primary key column for this table' };
-      const setNames = Object.keys(changes);
-      if (setNames.some(column => !allowedColumns.has(column) || allowedKeys.has(column))) return { success: false, error: 'Invalid update column' };
-      const where = keyNames.map(key => primary[key] == null ? `${quoteIdent(key)} IS NULL` : `${quoteIdent(key)} = ?`);
-      const values = [...setNames.map(key => changes[key]), ...keyNames.filter(key => primary[key] != null).map(key => primary[key])];
-      const [result] = await this.connection.query(
-        `UPDATE ${quoteIdent(database)}.${quoteIdent(table)} SET ${setNames.map(key => `${quoteIdent(key)} = ?`).join(', ')} WHERE ${where.join(' AND ')}`,
-        values
-      );
+      const setNames = Object.keys(changes).filter(c => allowedColumns.has(c));
+      if (!setNames.length) return { success: false, error: 'No valid update columns' };
+
+      const keyEntries = Object.entries(primary || {}).filter(([k]) => allowedColumns.has(k));
+      if (!keyEntries.length) return { success: false, error: 'No matching row identifier provided' };
+
+      const where = keyEntries.map(([k, v]) => v == null ? `${quoteIdent(k)} IS NULL` : `${quoteIdent(k)} = ?`);
+      const whereValues = keyEntries.filter(([, v]) => v != null).map(([, v]) => v);
+      const setValues = setNames.map(k => changes[k]);
+
+      const sql = `UPDATE ${quoteIdent(database)}.${quoteIdent(table)} SET ${setNames.map(k => `${quoteIdent(k)} = ?`).join(', ')} WHERE ${where.join(' AND ')} LIMIT 1`;
+      const [result] = await this.connection.query(sql, [...setValues, ...whereValues]);
       return { success: true, affectedRows: result.affectedRows };
     } catch (err) { return { success: false, error: this._fmtErr(err) }; }
   }
@@ -253,21 +316,21 @@ class MySQLManager {
 
   async deleteTableRow(database, table, primary) {
     if (!this.connection) return { success: false, error: 'Not connected' };
-    if (!primary || !Object.keys(primary).length) return { success: false, error: 'This table has no primary key; row deletion is disabled to avoid deleting the wrong row.' };
+    if (!primary || !Object.keys(primary).length) return { success: false, error: 'No row identifier provided for deletion' };
     try {
-      const [keys] = await this.connection.query(
-        `SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=? AND TABLE_NAME=? AND CONSTRAINT_NAME='PRIMARY'`,
+      const [columns] = await this.connection.query(
+        'SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE LOWER(TABLE_SCHEMA)=LOWER(?) AND LOWER(TABLE_NAME)=LOWER(?)',
         [database, table]
       );
-      const allowedKeys = new Set(keys.map(row => row.COLUMN_NAME));
-      const keyNames = Object.keys(primary);
-      if (!keyNames.length || keyNames.length !== allowedKeys.size || keyNames.some(key => !allowedKeys.has(key))) return { success: false, error: 'Provide every primary key column for this table' };
-      const where = keyNames.map(key => primary[key] == null ? `${quoteIdent(key)} IS NULL` : `${quoteIdent(key)} = ?`);
-      const values = keyNames.filter(key => primary[key] != null).map(key => primary[key]);
-      const [result] = await this.connection.query(
-        `DELETE FROM ${quoteIdent(database)}.${quoteIdent(table)} WHERE ${where.join(' AND ')}`,
-        values
-      );
+      const allowedColumns = new Set(columns.map(row => row.COLUMN_NAME));
+      const keyEntries = Object.entries(primary).filter(([k]) => allowedColumns.has(k));
+      if (!keyEntries.length) return { success: false, error: 'No valid columns provided for deletion' };
+
+      const where = keyEntries.map(([k, v]) => v == null ? `${quoteIdent(k)} IS NULL` : `${quoteIdent(k)} = ?`);
+      const values = keyEntries.filter(([, v]) => v != null).map(([, v]) => v);
+
+      const sql = `DELETE FROM ${quoteIdent(database)}.${quoteIdent(table)} WHERE ${where.join(' AND ')} LIMIT 1`;
+      const [result] = await this.connection.query(sql, values);
       return { success: true, affectedRows: result.affectedRows };
     } catch (err) { return { success: false, error: this._fmtErr(err) }; }
   }
@@ -969,6 +1032,59 @@ class MySQLManager {
       await this.connection.query(`ALTER TABLE ${quoteIdent(database)}.${quoteIdent(table)} ${clauses.join(', ')}`);
       return { success: true };
     } catch (err) { return { success: false, error: this._fmtErr(err) }; }
+  }
+
+  /** Drop a column from an existing table */
+  async dropTableColumn(database, table, columnName) {
+    if (!this.connection) return { success: false, error: 'Not connected' };
+    if (!columnName) return { success: false, error: 'Column name required' };
+    try {
+      await this.connection.query(
+        `ALTER TABLE ${quoteIdent(database)}.${quoteIdent(table)} DROP COLUMN ${quoteIdent(columnName)}`
+      );
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: this._fmtErr(err) };
+    }
+  }
+
+  /** Modify an existing column in a table */
+  async modifyTableColumn(database, table, oldName, column) {
+    if (!this.connection) return { success: false, error: 'Not connected' };
+    if (!oldName || !column || !column.name) return { success: false, error: 'Column name is required' };
+    const newName = column.name.trim();
+    const type = (column.type || 'VARCHAR').toUpperCase();
+    const length = column.length ? String(column.length).trim() : '';
+
+    let definition = `${quoteIdent(newName)} ${type}${length ? `(${length})` : ''} ${column.nullable ? 'NULL' : 'NOT NULL'}`;
+    if (column.defaultMode === 'null') definition += ' DEFAULT NULL';
+    else if (column.defaultMode === 'literal' && column.defaultValue != null && column.defaultValue !== '') definition += ` DEFAULT ${this.connection.escape(String(column.defaultValue))}`;
+    else if (column.defaultMode === 'current_timestamp') definition += ' DEFAULT CURRENT_TIMESTAMP';
+    if (column.autoIncrement) definition += ' AUTO_INCREMENT';
+    if (column.comment) definition += ` COMMENT ${this.connection.escape(String(column.comment))}`;
+
+    try {
+      await this.connection.query(
+        `ALTER TABLE ${quoteIdent(database)}.${quoteIdent(table)} CHANGE COLUMN ${quoteIdent(oldName)} ${definition}`
+      );
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: this._fmtErr(err) };
+    }
+  }
+
+  /** Rename an existing table */
+  async renameTable(database, oldName, newName) {
+    if (!this.connection) return { success: false, error: 'Not connected' };
+    if (!oldName || !newName) return { success: false, error: 'Both old and new table names are required' };
+    try {
+      await this.connection.query(
+        `RENAME TABLE ${quoteIdent(database)}.${quoteIdent(oldName)} TO ${quoteIdent(database)}.${quoteIdent(newName)}`
+      );
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: this._fmtErr(err) };
+    }
   }
   /** Get all foreign key relationships for a specific table */
   async getTableRelationships(database, table) {

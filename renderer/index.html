@@ -2468,6 +2468,47 @@ DESCRIBE tablename;"></textarea>
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-edit-db-column" onclick="if(event.target===this)closeModal('modal-edit-db-column')">
+  <div class="modal" style="width:560px;max-width:95vw">
+    <div class="modal-header">
+      <span id="edit-column-modal-title">Edit Column</span>
+      <button class="btn-icon" onclick="closeModal('modal-edit-db-column')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-column-old-name">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Column Name</label><input class="input" id="edit-column-name" placeholder="column_name"></div>
+        <div class="form-group"><label class="form-label">Type</label>
+          <select class="input select" id="edit-column-type" onchange="updateEditColumnType()">
+            <option>INT</option><option>BIGINT</option><option>SMALLINT</option><option>TINYINT</option>
+            <option>VARCHAR</option><option>CHAR</option><option>TEXT</option><option>LONGTEXT</option><option>MEDIUMTEXT</option>
+            <option>DECIMAL</option><option>FLOAT</option><option>DOUBLE</option>
+            <option>DATE</option><option>DATETIME</option><option>TIMESTAMP</option><option>BOOLEAN</option><option>JSON</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Length / Values</label><input class="input" id="edit-column-length" placeholder="e.g. 255 or 10,2"></div>
+        <div class="form-group"><label class="form-label">Default</label>
+          <select class="input select" id="edit-column-default-mode" onchange="updateEditColumnDefault()">
+            <option value="none">No default</option><option value="literal">Value</option><option value="null">NULL</option><option value="current_timestamp">CURRENT_TIMESTAMP</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" id="edit-column-default-value-wrap" style="display:none"><label class="form-label">Default Value</label><input class="input" id="edit-column-default-value"></div>
+      <div class="form-row">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="edit-column-nullable"> Allow NULL values</label>
+        <label class="form-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="edit-column-auto"> AUTO_INCREMENT</label>
+      </div>
+      <div class="form-group"><label class="form-label">Comment</label><input class="input" id="edit-column-comment" placeholder="Column description (optional)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-edit-db-column')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitEditColumn()">Save Column</button>
+    </div>
+  </div>
+</div>
+
 <!-- Add Relationship Modal -->
 <div class="modal-overlay" id="modal-add-relationship" onclick="if(event.target===this)closeModal('modal-add-relationship')">
   <div class="modal" style="width:520px">
@@ -3971,11 +4012,11 @@ function displayDatabaseOverviewTableList(tables, dbName) {
       : (sizeKB > 0 ? sizeKB.toFixed(1) + ' KB' : '0 KB');
 
     html += `
-      <tr>
+      <tr ondblclick="openTable('${escAttr(dbName)}', '${escAttr(t.name)}')" title="Double-click to open table data" style="cursor:pointer">
         <td>
-          <span class="tbl-link" onclick="openTable('${escHtml(dbName)}', '${escHtml(t.name)}')">
+          <span class="tbl-link" onclick="event.stopPropagation();openTable('${escAttr(dbName)}', '${escAttr(t.name)}')">
             ${icon}
-            <span>${escHtml(t.name)}</span>
+            <span style="font-weight:600">${escHtml(t.name)}</span>
           </span>
         </td>
         <td style="color:var(--text2)">${escHtml(t.engine || (isView ? 'VIEW' : 'InnoDB'))}</td>
@@ -3984,10 +4025,11 @@ function displayDatabaseOverviewTableList(tables, dbName) {
         <td style="color:var(--text3);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${escHtml(t.comment || '')}">${escHtml(t.comment || '—')}</td>
         <td style="text-align:right;white-space:nowrap">
           <div class="db-ov-actions">
-            <button class="db-ov-act-btn browse" onclick="openTable('${escHtml(dbName)}', '${escHtml(t.name)}')" title="Browse data">Browse</button>
-            <button class="db-ov-act-btn structure" onclick="openTableStructure('${escHtml(dbName)}', '${escHtml(t.name)}')" title="View columns & indexes">Structure</button>
-            ${!isView ? `<button class="db-ov-act-btn empty" onclick="truncateTable('${escHtml(dbName)}', '${escHtml(t.name)}')" title="Empty table">Empty</button>` : ''}
-            <button class="db-ov-act-btn drop" onclick="dropTableFromOverview('${escHtml(dbName)}', '${escHtml(t.name)}')" title="Drop table">Drop</button>
+            <button class="db-ov-act-btn browse" onclick="event.stopPropagation();openTable('${escAttr(dbName)}', '${escAttr(t.name)}')" title="Browse data">Browse</button>
+            <button class="db-ov-act-btn structure" onclick="event.stopPropagation();openTableStructure('${escAttr(dbName)}', '${escAttr(t.name)}')" title="View columns & structure">Structure</button>
+            <button class="db-ov-act-btn info" onclick="event.stopPropagation();openTableInfo('${escAttr(dbName)}', '${escAttr(t.name)}')" title="View table information" style="background:rgba(124,106,247,0.12);color:var(--accent);border-color:rgba(124,106,247,0.3)">Info</button>
+            ${!isView ? `<button class="db-ov-act-btn empty" onclick="event.stopPropagation();truncateTable('${escAttr(dbName)}', '${escAttr(t.name)}')" title="Empty table">Empty</button>` : ''}
+            <button class="db-ov-act-btn drop" onclick="event.stopPropagation();dropTableFromOverview('${escAttr(dbName)}', '${escAttr(t.name)}')" title="Drop table">Drop</button>
           </div>
         </td>
       </tr>
@@ -4022,6 +4064,11 @@ function filterDatabaseOverviewTables(query) {
 async function openTableStructure(db, table) {
   await openTable(db, table);
   switchTableTab('structure');
+}
+
+async function openTableInfo(db, table) {
+  await openTable(db, table);
+  switchTableTab('info');
 }
 
 async function dropTableFromOverview(db, table) {
@@ -4341,23 +4388,144 @@ async function loadDataTab(){
   showPagination(DB.totalRows > pageSize);
 }
 
+let _currentTableColumns = [];
+
 async function loadStructureTab(){
   const r = await api.mysql.tableStructure(DB.activeDB, DB.activeTable);
   if(!r.success){ showResultMsg(r.error,'error'); return; }
   const cols = r.columns||[];
-  let html = '<div class="results-table-wrap"><table class="structure-table"><thead><tr><th>#</th><th>Field</th><th>Type</th><th>Null</th><th>Key</th><th>Default</th><th>Extra</th><th>Comment</th></tr></thead><tbody>';
+  _currentTableColumns = cols;
+  let html = '<div class="results-table-wrap"><table class="structure-table"><thead><tr><th>#</th><th>Field</th><th>Type</th><th>Null</th><th>Key</th><th>Default</th><th>Extra</th><th>Comment</th><th style="text-align:right">Actions</th></tr></thead><tbody>';
   cols.forEach((c,i)=>{
     const keyBadge = c.key_type==='PRI'?`<span class="key-badge key-pk">PK</span>`
       : c.key_type==='UNI'?`<span class="key-badge key-uk">UQ</span>`
       : c.key_type==='MUL'?`<span class="key-badge key-mul">IDX</span>`:'';
     const nullBadge = c.nullable==='NO'?`<span class="nullable-no">NOT NULL</span>`:`<span class="nullable-yes">NULL</span>`;
     const extraBadge = c.extra?`<span class="extra-badge">${escHtml(c.extra)}</span>`:'';
-    html += `<tr><td style="color:var(--text3)">${i+1}</td><td><strong>${escHtml(c.field)}</strong></td><td style="color:var(--blue)">${escHtml(c.type)}</td><td>${nullBadge}</td><td>${keyBadge}</td><td style="color:var(--text3)">${c.def!=null?escHtml(c.def):'<span style="color:var(--text3);font-style:italic">NULL</span>'}</td><td>${extraBadge}</td><td style="color:var(--text3)">${escHtml(c.comment||'')}</td></tr>`;
+    html += `<tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td><strong>${escHtml(c.field)}</strong></td>
+      <td style="color:var(--blue);font-family:var(--font-mono)">${escHtml(c.type)}</td>
+      <td>${nullBadge}</td>
+      <td>${keyBadge}</td>
+      <td style="color:var(--text3)">${c.def!=null?escHtml(c.def):'<span style="color:var(--text3);font-style:italic">NULL</span>'}</td>
+      <td>${extraBadge}</td>
+      <td style="color:var(--text3)">${escHtml(c.comment||'')}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm" onclick="openEditColumnModal(${i})" title="Edit column definition" style="padding:2px 8px;font-size:11px">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:2px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>Edit
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="dropColumnAction('${escAttr(c.field)}')" title="Drop column" style="padding:2px 8px;font-size:11px;margin-left:4px">
+          Drop
+        </button>
+      </td>
+    </tr>`;
   });
   html += '</tbody></table></div>';
   document.getElementById('db-results-area').innerHTML = html;
-  setResultInfo(`<span class="ri-ok">✓</span> ${cols.length} columns`);
+  setResultInfo(`<span class="ri-ok">✓</span> ${cols.length} columns in <strong>${escHtml(DB.activeTable)}</strong>`);
   hidePagination();
+}
+
+async function openEditColumnModal(colIndex) {
+  const col = _currentTableColumns[colIndex];
+  if (!col) return;
+
+  document.getElementById('edit-column-modal-title').textContent = `Edit Column "${col.field}" in ${DB.activeTable}`;
+  document.getElementById('edit-column-old-name').value = col.field;
+  document.getElementById('edit-column-name').value = col.field;
+
+  const rawType = String(col.type || '').toUpperCase();
+  const match = rawType.match(/^([a-z]+)(?:\((.+)\))?/i);
+  const baseType = match ? match[1].toUpperCase() : 'VARCHAR';
+  const len = match && match[2] ? match[2] : '';
+
+  const typeSel = document.getElementById('edit-column-type');
+  let matched = false;
+  for (let opt of typeSel.options) {
+    if (opt.value === baseType) { opt.selected = true; matched = true; break; }
+  }
+  if (!matched) {
+    const opt = document.createElement('option');
+    opt.value = baseType; opt.textContent = baseType; opt.selected = true;
+    typeSel.appendChild(opt);
+  }
+
+  document.getElementById('edit-column-length').value = len;
+
+  const defModeSel = document.getElementById('edit-column-default-mode');
+  if (col.def === null && col.nullable === 'YES') {
+    defModeSel.value = 'null';
+  } else if (String(col.def || '').toLowerCase().includes('current_timestamp')) {
+    defModeSel.value = 'current_timestamp';
+  } else if (col.def !== null && col.def !== undefined) {
+    defModeSel.value = 'literal';
+    document.getElementById('edit-column-default-value').value = col.def;
+  } else {
+    defModeSel.value = 'none';
+  }
+  updateEditColumnDefault();
+
+  document.getElementById('edit-column-nullable').checked = col.nullable === 'YES';
+  document.getElementById('edit-column-auto').checked = String(col.extra || '').toLowerCase().includes('auto_increment');
+  document.getElementById('edit-column-comment').value = col.comment || '';
+
+  openModal('modal-edit-db-column');
+}
+
+function updateEditColumnDefault() {
+  const mode = document.getElementById('edit-column-default-mode').value;
+  document.getElementById('edit-column-default-value-wrap').style.display = mode === 'literal' ? '' : 'none';
+}
+
+function updateEditColumnType() {
+  const type = document.getElementById('edit-column-type').value;
+  const length = document.getElementById('edit-column-length');
+  const usesLength = ['VARCHAR', 'CHAR', 'DECIMAL'].includes(type);
+  length.disabled = !usesLength;
+  if (!usesLength && !['INT', 'BIGINT', 'SMALLINT', 'TINYINT'].includes(type)) length.value = '';
+}
+
+async function submitEditColumn() {
+  const oldName = document.getElementById('edit-column-old-name').value;
+  const newName = document.getElementById('edit-column-name').value.trim();
+  if (!newName) { toast('Column name is required', 'error'); return; }
+
+  const column = {
+    name: newName,
+    type: document.getElementById('edit-column-type').value,
+    length: document.getElementById('edit-column-length').value.trim(),
+    defaultMode: document.getElementById('edit-column-default-mode').value,
+    defaultValue: document.getElementById('edit-column-default-value').value,
+    nullable: document.getElementById('edit-column-nullable').checked,
+    autoIncrement: document.getElementById('edit-column-auto').checked,
+    comment: document.getElementById('edit-column-comment').value.trim()
+  };
+
+  const res = await api.mysql.modifyColumn(DB.activeDB, DB.activeTable, oldName, column);
+  if (!res.success) {
+    toast('Failed to modify column: ' + res.error, 'error');
+    return;
+  }
+
+  closeModal('modal-edit-db-column');
+  toast(`Column "${oldName}" updated successfully`, 'success');
+  await loadStructureTab();
+  await loadTreeTables(DB.activeDB);
+}
+
+async function dropColumnAction(colName) {
+  if (!confirm(`Are you sure you want to drop column "${colName}" from table "${DB.activeTable}"?\nThis cannot be undone and will delete all data in this column!`)) return;
+
+  const res = await api.mysql.dropColumn(DB.activeDB, DB.activeTable, colName);
+  if (!res.success) {
+    toast('Failed to drop column: ' + res.error, 'error');
+    return;
+  }
+
+  toast(`Column "${colName}" dropped successfully`, 'success');
+  await loadStructureTab();
+  await loadTreeTables(DB.activeDB);
 }
 
 async function openAddColumnModal(){
@@ -4469,27 +4637,101 @@ async function loadIndexesTab(){
 }
 
 async function loadInfoTab(){
-  const [ri, di] = await Promise.all([
-    api.mysql.tableInfo(DB.activeDB, DB.activeTable),
-    api.mysql.dbInfo(DB.activeDB)
-  ]);
-  const info = ri.success?ri.info:{};
-  const dbInfo = di.success?di:{};
-  const sizeMB = ((info.dataMB||0)+(info.indexMB||0)).toFixed(3);
-  const html = `<div class="info-grid">
-    <div class="info-card green"><div class="info-card-label">Rows (approx)</div><div class="info-card-value">${fmtNum(info.TABLE_ROWS||0)}</div><div class="info-card-sub">estimated count</div></div>
-    <div class="info-card blue"><div class="info-card-label">Data Size</div><div class="info-card-value">${info.dataMB||0} MB</div><div class="info-card-sub">+${info.indexMB||0} MB index</div></div>
-    <div class="info-card yellow"><div class="info-card-label">Engine</div><div class="info-card-value">${info.ENGINE||'—'}</div><div class="info-card-sub">storage engine</div></div>
-    <div class="info-card"><div class="info-card-label">Collation</div><div class="info-card-value" style="font-size:13px">${info.TABLE_COLLATION||'—'}</div></div>
-    <div class="info-card"><div class="info-card-label">Auto Increment</div><div class="info-card-value">${info.AUTO_INCREMENT||'—'}</div></div>
-    <div class="info-card"><div class="info-card-label">Created</div><div class="info-card-value" style="font-size:12px">${info.CREATE_TIME?new Date(info.CREATE_TIME).toLocaleString():'—'}</div></div>
-    <div class="info-card"><div class="info-card-label">Updated</div><div class="info-card-value" style="font-size:12px">${info.UPDATE_TIME?new Date(info.UPDATE_TIME).toLocaleString():'—'}</div></div>
-    <div class="info-card"><div class="info-card-label">Comment</div><div class="info-card-value" style="font-size:12px">${info.TABLE_COMMENT||'—'}</div></div>
-    <div class="info-card accent"><div class="info-card-label">DB Charset</div><div class="info-card-value" style="font-size:14px">${dbInfo.charset||'—'}</div><div class="info-card-sub">${dbInfo.collation||''}</div></div>
-  </div>`;
-  document.getElementById('db-results-area').innerHTML = html;
-  setResultInfo(`<span class="ri-ok">✓</span> Table info loaded`);
-  hidePagination();
+  const db = DB.activeDB;
+  const table = DB.activeTable;
+  if (!db || !table) return;
+  setResultInfo('Loading table information...');
+
+  try {
+    const [ri, di] = await Promise.all([
+      api.mysql.tableInfo(db, table),
+      api.mysql.dbInfo(db)
+    ]);
+
+    if (!ri || !ri.success) {
+      showResultMsg(ri?.error || 'Could not load table information from database.', 'error');
+      return;
+    }
+
+    const info = ri.info || {};
+    const dbInfo = di?.success ? di : {};
+
+    const rowCount = info.exactCount != null ? info.exactCount : (info.TABLE_ROWS ?? info.table_rows ?? 0);
+    const isApprox = info.exactCount == null;
+    const dataSize = Number(info.dataMB ?? info.data_mb ?? 0);
+    const indexSize = Number(info.indexMB ?? info.index_mb ?? 0);
+    const totalSize = (dataSize + indexSize).toFixed(3);
+    const engine = info.ENGINE || info.engine || 'InnoDB';
+    const collation = info.TABLE_COLLATION || info.table_collation || info.collation || '—';
+    const autoInc = info.AUTO_INCREMENT ?? info.auto_increment ?? '—';
+    const createDate = (info.CREATE_TIME || info.create_time) ? new Date(info.CREATE_TIME || info.create_time).toLocaleString() : '—';
+    const updateDate = (info.UPDATE_TIME || info.update_time) ? new Date(info.UPDATE_TIME || info.update_time).toLocaleString() : '—';
+    const comment = info.TABLE_COMMENT || info.table_comment || '—';
+    const colCount = info.colCount ?? (_currentTableColumns?.length || '—');
+    const pk = info.primaryKey || (DB.primaryKeys && DB.primaryKeys.length > 0 ? DB.primaryKeys.join(', ') : 'None');
+
+    const html = `
+      <div class="info-grid">
+        <div class="info-card green">
+          <div class="info-card-label">Total Rows</div>
+          <div class="info-card-value">${fmtNum(rowCount)}</div>
+          <div class="info-card-sub">${isApprox ? 'estimated count' : 'exact count'}</div>
+        </div>
+        <div class="info-card blue">
+          <div class="info-card-label">Data Storage</div>
+          <div class="info-card-value">${totalSize} MB</div>
+          <div class="info-card-sub">${dataSize} MB data + ${indexSize} MB index</div>
+        </div>
+        <div class="info-card yellow">
+          <div class="info-card-label">Storage Engine</div>
+          <div class="info-card-value">${escHtml(engine)}</div>
+          <div class="info-card-sub">table storage engine</div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-label">Total Columns</div>
+          <div class="info-card-value">${colCount}</div>
+          <div class="info-card-sub">defined fields</div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-label">Primary Key</div>
+          <div class="info-card-value" style="font-size:14px;color:var(--accent)">${escHtml(pk)}</div>
+          <div class="info-card-sub">unique row identifier</div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-label">Auto Increment</div>
+          <div class="info-card-value">${escHtml(String(autoInc))}</div>
+          <div class="info-card-sub">next inserted ID</div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-label">Collation</div>
+          <div class="info-card-value" style="font-size:13px">${escHtml(collation)}</div>
+          <div class="info-card-sub">character collation</div>
+        </div>
+        <div class="info-card accent">
+          <div class="info-card-label">Database Charset</div>
+          <div class="info-card-value" style="font-size:14px">${escHtml(dbInfo.charset || '—')}</div>
+          <div class="info-card-sub">${escHtml(dbInfo.collation || '')}</div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-label">Created Date</div>
+          <div class="info-card-value" style="font-size:12px">${escHtml(createDate)}</div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-label">Last Updated</div>
+          <div class="info-card-value" style="font-size:12px">${escHtml(updateDate)}</div>
+        </div>
+        <div class="info-card" style="grid-column:1/-1">
+          <div class="info-card-label">Table Comment / Description</div>
+          <div class="info-card-value" style="font-size:13px;font-weight:400;color:var(--text2)">${escHtml(comment)}</div>
+        </div>
+      </div>
+    `;
+    document.getElementById('db-results-area').innerHTML = html;
+    setResultInfo(`<span class="ri-ok">✓</span> Table info loaded for <strong>${escHtml(table)}</strong>`);
+    hidePagination();
+  } catch (err) {
+    showResultMsg('Failed to load table info: ' + err.message, 'error');
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -5406,13 +5648,13 @@ function renderDataTable(data, fields, hasPagination){
     ? sourceData.filter(row=>cols.some(col=>String(row[col]??'NULL').toLowerCase().includes(DB.rowSearch.toLowerCase())))
     : sourceData;
   DB.visibleRows=filteredData;
-  const canEdit=isTableData&&DB.primaryKeys.length>0;
+  const canEdit=isTableData;
   let html = '<div class="results-table-wrap"><table class="results-table"><thead><tr><th class="row-num">#</th>';
   cols.forEach(c=>{
     const sortIcon = DB.sortCol===c ? (DB.sortDir==='asc'?' ↑':' ↓'):'';
     html += `<th data-sort-column="${escHtml(c)}" title="${escHtml(c)}">${escHtml(c)}<span class="sort-icon">${sortIcon}</span></th>`;
   });
-  if(canEdit) html+='<th>Actions</th>';
+  if(canEdit) html+='<th style="text-align:right">Actions</th>';
   html += '</tr></thead><tbody>';
 
   const startRow = (DB.page-1)*DB.pageSize;
@@ -5421,7 +5663,7 @@ function renderDataTable(data, fields, hasPagination){
     cols.forEach(c=>{
       const v = row[c];
       const isPk = DB.primaryKeys.includes(c);
-      const isEditable = canEdit && !isPk;
+      const isEditable = canEdit;
       const cellAttrs = isEditable
         ? `data-row-idx="${i}" data-col="${escAttr(c)}" ondblclick="startInlineEdit(this)" title="Double click to edit cell"`
         : '';
@@ -5436,7 +5678,7 @@ function renderDataTable(data, fields, hasPagination){
         html += `<td class="${cls}" title="${escHtml(sv)}" ${cellAttrs}>${escHtml(display)}</td>`;
       }
     });
-    if(canEdit) html+=`<td style="white-space:nowrap"><button class="btn btn-sm" data-edit-row="${i}" title="Edit row"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button> <button class="btn btn-sm btn-danger" data-delete-row="${i}" title="Delete row">×</button></td>`;
+    if(canEdit) html+=`<td style="white-space:nowrap;text-align:right"><button class="btn btn-sm" data-edit-row="${i}" title="Edit row" style="padding:2px 8px;font-size:11px"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:2px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>Edit</button> <button class="btn btn-sm btn-danger" data-delete-row="${i}" title="Delete row" style="padding:2px 8px;font-size:11px;margin-left:4px">Delete</button></td>`;
     html += '</tr>';
   });
   html += '</tbody></table></div>';
@@ -5452,7 +5694,7 @@ function startInlineEdit(td) {
   const rowIdx = parseInt(td.dataset.rowIdx, 10);
   const col = td.dataset.col;
   const row = DB.visibleRows[rowIdx];
-  if (!row || !DB.primaryKeys.length) return;
+  if (!row) return;
 
   const currentVal = row[col] === null || row[col] === undefined ? '' : String(row[col]);
   const originalHtml = td.innerHTML;
@@ -5523,12 +5765,16 @@ function filterCurrentTableData(value){
 }
 
 function getRowPrimary(row){
-  return Object.fromEntries(DB.primaryKeys.map(key=>[key,row[key]]));
+  if (DB.primaryKeys && DB.primaryKeys.length > 0) {
+    return Object.fromEntries(DB.primaryKeys.map(key=>[key, row[key]]));
+  }
+  // For keyless tables, match all columns of the row to uniquely identify it
+  return Object.fromEntries(Object.entries(row));
 }
 
 function editGridRow(index){
   const row=DB.visibleRows[index];
-  if(!row||!DB.primaryKeys.length) return;
+  if(!row) return;
   _rowEditorMode='edit';
   document.getElementById('db-row-save-button').textContent='Save Row';
   document.getElementById('edit-db-row-title').textContent=`Edit ${DB.activeTable} Row`;
@@ -5539,14 +5785,15 @@ function editGridRow(index){
     label.className='form-group';
     label.style.display='block';
     label.style.marginBottom='10px';
+    const isPk = DB.primaryKeys.includes(column);
     const caption=document.createElement('span');
     caption.className='form-label';
-    caption.textContent=column+(DB.primaryKeys.includes(column)?' (Primary Key)':'');
+    caption.textContent=column+(isPk?' (Primary Key)':'');
     const input=document.createElement('input');
     input.className='input row-edit-value';
     input.dataset.column=column;
     input.value=row[column]===null?'NULL':String(row[column]);
-    input.disabled=DB.primaryKeys.includes(column);
+    input.disabled=false;
     label.append(caption,input);
     fields.appendChild(label);
   });
@@ -5614,7 +5861,7 @@ async function saveEditedDBRow(){
 
 async function deleteGridRow(index){
   const row=DB.visibleRows[index];
-  if(!row||!DB.primaryKeys.length) return;
+  if(!row) return;
   if(!confirm(`Delete this row from ${DB.activeTable}? This cannot be undone.`)) return;
   const result=await api.mysql.deleteRow(DB.activeDB,DB.activeTable,getRowPrimary(row));
   if(!result.success){toast('Delete failed: '+result.error,'error');return;}

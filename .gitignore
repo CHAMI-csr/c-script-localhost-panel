@@ -12,7 +12,11 @@ build/
 *.blockmap
 
 # Large bundled binaries (downloaded/extracted locally during build)
-resources/bundled/
+resources/bundled/mysql/
+resources/bundled/nginx/
+resources/bundled/php/
+!resources/bundled/vc-runtime/
+!resources/bundled/vc-runtime/**
 
 # Operating System Files
 Thumbs.db

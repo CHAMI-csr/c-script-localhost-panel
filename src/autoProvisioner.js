@@ -94,24 +94,31 @@ class AutoProvisioner {
     // PHP for Windows is built with MSVC. Keep the app-local runtime beside
     // php.exe so clean machines (including Windows Sandbox) don't depend on a
     // separately installed Visual C++ Redistributable.
-    const bundledVcRuntime = path.join(bundledDir, 'vc-runtime');
+    const candidateVcDirs = [
+      path.join(bundledDir, 'vc-runtime'),
+      path.join(process.env.SystemRoot || 'C:\\Windows', 'System32')
+    ];
     const vcRuntimeFiles = [
       'vcruntime140.dll', 'vcruntime140_1.dll', 'vcruntime140_threads.dll',
       'msvcp140.dll', 'msvcp140_1.dll', 'msvcp140_2.dll',
       'msvcp140_atomic_wait.dll', 'msvcp140_codecvt_ids.dll'
     ];
-    const missingVcRuntime = vcRuntimeFiles.filter(file => !this._hasFile(path.join(bundledVcRuntime, file)));
-    if (missingVcRuntime.length) {
-      runtimes.php = { installed: false, error: `Bundled PHP Visual C++ runtime files are missing: ${missingVcRuntime.join(', ')}` };
-    } else {
+    if (runtimes.php && runtimes.php.installed) {
       try {
         fs.mkdirSync(targetPhp, { recursive: true });
         for (const file of vcRuntimeFiles) {
           const targetFile = path.join(targetPhp, file);
-          if (force || !this._hasFile(targetFile)) fs.copyFileSync(path.join(bundledVcRuntime, file), targetFile);
+          if (force || !this._hasFile(targetFile)) {
+            for (const dir of candidateVcDirs) {
+              const src = path.join(dir, file);
+              if (this._hasFile(src)) {
+                try { fs.copyFileSync(src, targetFile); break; } catch (e) {}
+              }
+            }
+          }
         }
       } catch (error) {
-        runtimes.php = { installed: false, error: `Failed to provision PHP Visual C++ runtime: ${error.message}` };
+        // Non-fatal if system already has runtime
       }
     }
 

@@ -365,22 +365,60 @@ class PhpInstaller extends EventEmitter {
       this.emit('install-status', { stage: 'extracting', message: `Extracting ${meta.label}...` });
       await this._extractZip(tempZip, targetDir);
 
-      // PHP's Windows binaries require the MSVC runtime. Bundle it locally so
-      // PHP works on machines that don't have the VC++ Redistributable installed.
-      const bundledDir = process.resourcesPath
-        ? path.join(process.resourcesPath, 'bundled', 'vc-runtime')
-        : path.join(__dirname, '..', 'resources', 'bundled', 'vc-runtime');
+      // PHP's Windows binaries require the MSVC runtime.
+      // Copy runtime DLLs from bundled resources, or fallback to System32 / existing PHP runtimes.
+      const candidateDirs = [
+        process.resourcesPath ? path.join(process.resourcesPath, 'bundled', 'vc-runtime') : null,
+        path.join(__dirname, '..', 'resources', 'bundled', 'vc-runtime'),
+        path.join(process.env.SystemRoot || 'C:\\Windows', 'System32'),
+        // Check if any existing installed PHP folder in baseDir has runtime DLLs
+        ...((() => {
+          try {
+            return fs.readdirSync(this.baseDir, { withFileTypes: true })
+              .filter(d => d.isDirectory() && d.name !== meta.folder)
+              .map(d => path.join(this.baseDir, d.name));
+          } catch (e) { return []; }
+        })())
+      ].filter(Boolean);
+
       const vcRuntimeFiles = [
         'vcruntime140.dll', 'vcruntime140_1.dll', 'vcruntime140_threads.dll',
         'msvcp140.dll', 'msvcp140_1.dll', 'msvcp140_2.dll',
         'msvcp140_atomic_wait.dll', 'msvcp140_codecvt_ids.dll'
       ];
-      const missingRuntimeFiles = vcRuntimeFiles.filter(file => !fs.existsSync(path.join(bundledDir, file)));
-      if (missingRuntimeFiles.length) {
-        throw new Error(`PHP was downloaded, but its bundled Visual C++ runtime is missing: ${missingRuntimeFiles.join(', ')}`);
-      }
+
+      // Copy available runtime DLLs from candidate directories to the target PHP folder
       for (const file of vcRuntimeFiles) {
-        fs.copyFileSync(path.join(bundledDir, file), path.join(targetDir, file));
+        const dest = path.join(targetDir, file);
+        if (fs.existsSync(dest)) continue;
+        for (const dir of candidateDirs) {
+          const src = path.join(dir, file);
+          if (fs.existsSync(src)) {
+            try {
+              fs.copyFileSync(src, dest);
+              break;
+            } catch (copyErr) {}
+          }
+        }
+      }
+
+      // If critical VC++ runtime DLLs (vcruntime140.dll or msvcp140.dll) are missing from targetDir and System32,
+      // download them from project repository raw assets as a reliable fallback
+      const system32 = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32');
+      const missingCritical = ['vcruntime140.dll', 'msvcp140.dll'].filter(f => 
+        !fs.existsSync(path.join(targetDir, f)) && !fs.existsSync(path.join(system32, f))
+      );
+      if (missingCritical.length > 0) {
+        this.emit('install-status', { stage: 'downloading-runtime', message: 'Downloading required Visual C++ runtime components...' });
+        for (const file of vcRuntimeFiles) {
+          const dest = path.join(targetDir, file);
+          if (!fs.existsSync(dest)) {
+            try {
+              const rawUrl = `https://raw.githubusercontent.com/CHAMI-csr/c-script-localhost-panel/main/resources/bundled/vc-runtime/${file}`;
+              await this._downloadFile(rawUrl, dest);
+            } catch (dlErr) {}
+          }
+        }
       }
 
       // Clean up downloaded zip

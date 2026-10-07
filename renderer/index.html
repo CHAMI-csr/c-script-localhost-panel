@@ -993,6 +993,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
     </div>
     <div class="sidebar-footer">
       <div class="status-pill"><div class="status-dot" id="php-status-dot"></div><span id="php-status-text">PHP...</span></div>
+      <div class="status-pill"><div class="status-dot" id="nginx-status-dot"></div><span id="nginx-status-text">NGINX...</span></div>
       <div class="status-pill"><div class="status-dot" id="mysql-status-dot"></div><span id="mysql-status-text">MySQL...</span></div>
     </div>
   </aside>
@@ -3166,6 +3167,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await initUpdaterUI();
   await checkPHPStatus();
   await checkMySQLStatus();
+  await checkNginxStatus();
   loadNginxInfo();
   loadMysqlInstallerInfo();
   await loadSites();
@@ -3405,6 +3407,31 @@ function updateDashboardStats(services) {
     dbVal.textContent = `${mysql.displayName || mysql.name} (${mysql.status === 'running' ? 'Active' : 'Stopped'})`;
     dbVal.style.color = mysql.status === 'running' ? 'var(--orange)' : 'var(--text3)';
     dbSub.textContent = mysql.status === 'running' ? `Port :${mysql.port} listening` : 'Database server stopped';
+  }
+
+  // Sync sidebar footer status pills
+  const nginxDot = document.getElementById('nginx-status-dot');
+  const nginxTxt = document.getElementById('nginx-status-text');
+  if (nginxDot && nginxTxt) {
+    if (web && web.status === 'running') {
+      nginxDot.className = 'status-dot green';
+      nginxTxt.textContent = 'NGINX: ' + (web.port || 80);
+      nginxTxt.title = 'NGINX web server is running on port ' + (web.port || 80);
+    } else {
+      nginxDot.className = 'status-dot yellow';
+      nginxTxt.textContent = 'NGINX: off';
+      nginxTxt.title = 'NGINX web server is stopped';
+    }
+  }
+
+  const phpDot = document.getElementById('php-status-dot');
+  const phpTxt = document.getElementById('php-status-text');
+  if (phpDot && phpTxt && php) {
+    if (php.status === 'running') {
+      phpDot.className = 'status-dot green';
+      phpTxt.textContent = php.name || 'PHP active';
+      phpTxt.title = php.description || 'PHP runtime is running';
+    }
   }
 }
 
@@ -3858,6 +3885,25 @@ async function checkMySQLStatus() {
     const txt=document.getElementById('mysql-status-text');
     if(r.connected){dot.className='status-dot green';txt.textContent='MySQL:'+r.port;}
     else{dot.className='status-dot yellow';txt.textContent='MySQL: off';}
+  } catch(e){}
+}
+
+async function checkNginxStatus() {
+  try{
+    const services = await api.services.list();
+    const nginx = (services || []).find(s => s.id === 'webserver' || s.id === 'nginx');
+    const dot = document.getElementById('nginx-status-dot');
+    const txt = document.getElementById('nginx-status-text');
+    if(!dot || !txt) return;
+    if(nginx && nginx.status === 'running'){
+      dot.className = 'status-dot green';
+      txt.textContent = 'NGINX: ' + (nginx.port || 80);
+      txt.title = 'NGINX web server is running on port ' + (nginx.port || 80);
+    } else {
+      dot.className = 'status-dot yellow';
+      txt.textContent = 'NGINX: off';
+      txt.title = 'NGINX web server is stopped';
+    }
   } catch(e){}
 }
 
@@ -6901,6 +6947,9 @@ async function startSite(id){
   }
   await loadSites();
   await loadDashboardServices(false);
+  await checkPHPStatus();
+  await checkMySQLStatus();
+  await checkNginxStatus();
 }
 
 async function stopSite(id){
@@ -6908,6 +6957,9 @@ async function stopSite(id){
   toast('Server stopped','info');
   await loadSites();
   await loadDashboardServices(false);
+  await checkPHPStatus();
+  await checkMySQLStatus();
+  await checkNginxStatus();
 }
 
 async function removeSite(id){
@@ -7651,7 +7703,7 @@ function handleUpdaterStatus(event){
   if(!check)return;
   if(event.status==='checking'){check.disabled=true;check.textContent='Checking…';setAppUpdateStatus('Checking for a newer version…');}
   if(event.status==='available'){check.disabled=false;check.textContent='Check again';download.style.display='';install.style.display='none';setAppUpdateStatus(`Version ${event.version} is available. Download it, then restart to install.`);showUpdatePopup('available','',event.version,event.releaseNotes || _lastReleaseNotes);}
-  if(event.status==='not-available'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='none';document.getElementById('app-update-releases').style.display='none';document.getElementById('app-update-progress-wrap').style.display='none';setAppUpdateStatus(`You’re using the latest version (v${event.version}).`);}
+  if(event.status==='not-available'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='none';document.getElementById('app-update-releases').style.display='none';document.getElementById('app-update-progress-wrap').style.display='none';const activeVer = window.__currentAppVersion || event.version || '1.2.2';setAppUpdateStatus(`You’re using the latest version (v${activeVer}).`);}
   if(event.status==='progress'){const wrap=document.getElementById('app-update-progress-wrap');wrap.style.display='flex';const percent=Math.max(0,Math.min(100,Number(event.percent)||0));document.getElementById('app-update-progress').style.width=percent+'%';document.getElementById('app-update-progress-label').textContent=Math.round(percent)+'%';document.getElementById('update-popup-progress').style.width=percent+'%';document.getElementById('update-popup-progress-label').textContent=Math.round(percent)+'%';setAppUpdateStatus('Downloading update…');download.disabled=true;if(updatePopupState!=='progress'&&!updateProgressPopupDismissed)showUpdatePopup('progress','The update is downloading. You can hide this window and keep using the app.');}
   if(event.status==='downloaded'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='';document.getElementById('app-update-progress').style.width='100%';document.getElementById('app-update-progress-label').textContent='100%';setAppUpdateStatus(`Version ${event.version} is ready. Restart the app to finish updating.`);closeModal('modal-app-update');showUpdatePopup('ready','',event.version,event.releaseNotes || _lastReleaseNotes);}
   if(event.status==='error'){check.disabled=false;check.textContent='Try again';download.disabled=false;download.textContent='Download update';const noRelease=/no published versions on github/i.test(String(event.message));document.getElementById('app-update-releases').style.display=noRelease?'':'none';setAppUpdateStatus(explainUpdaterError(event.message));if(updatePopupState==='progress')showUpdatePopup('error',event.message);}

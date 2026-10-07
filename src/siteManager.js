@@ -39,12 +39,14 @@ class SiteManager {
 
   /** Get all sites */
   getSites() {
-    return this.sites.map(site => ({ ...site }));
+    return this.sites.map(site => ({ autoindex: site.autoindex !== false, ...site }));
   }
 
   /** Get a single site by ID */
   getSite(id) {
-    return this.sites.find(s => s.id === id) || null;
+    const site = this.sites.find(s => s.id === id);
+    if (!site) return null;
+    return { autoindex: site.autoindex !== false, ...site };
   }
 
   /** Add a new site */
@@ -55,6 +57,7 @@ class SiteManager {
       root: siteData.root,
       // Persist the explicitly selected PHP router/entry file.
       entryFile: siteData.entryFile || null,
+      autoindex: siteData.autoindex !== undefined ? !!siteData.autoindex : true,
       port: siteData.port ? parseInt(siteData.port) : null,
       php: siteData.php || null,
       description: siteData.description || '',

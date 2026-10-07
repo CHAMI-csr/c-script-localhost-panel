@@ -258,6 +258,11 @@ class PhpManager extends EventEmitter {
     // Optional router/entry file (passed as last arg to php -S)
     if (site.entryFile && fs.existsSync(site.entryFile)) {
       args.push(site.entryFile);
+    } else if (site.autoindex !== false) {
+      const router = path.join(__dirname, 'autoindexRouter.php');
+      if (fs.existsSync(router)) {
+        args.push(router);
+      }
     }
     const bin = this.getBinaryForSite(site);
     const phpProcess = this._spawnPhp(args, site.root, bin);

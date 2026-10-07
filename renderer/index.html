@@ -875,6 +875,31 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
 .db-connected-actions{align-items:center;gap:6px}.server-setting-card{align-self:start}.server-setting-value{word-break:break-word}.server-setting-value.sql-mode{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.settings-inline-result{display:inline-block;margin-left:9px;font-size:11px;color:var(--text2)}.settings-inline-result.success{color:var(--green)}.settings-inline-result.error{color:var(--red)}.settings-badge{margin-left:6px;padding:2px 6px;border-radius:10px;background:rgba(114,170,255,.12);color:var(--accent);font-size:9px;text-transform:uppercase;letter-spacing:.5px}
 @media(max-width:760px){.table-builder-top{grid-template-columns:1fr 1fr}.builder-columns-head{display:none}.builder-column-row{grid-template-columns:1fr 1fr 68px 34px}.builder-column-row .builder-default{grid-column:1/3}.builder-key-options{grid-column:1/4}.db-server-settings-grid{grid-template-columns:1fr 1fr}.db-connected-actions{flex-wrap:wrap;justify-content:flex-end}.db-settings-modal{max-height:calc(100vh - 16px)}}
 @media(max-width:640px){.app-update-card{align-items:flex-start;flex-wrap:wrap}.app-update-actions{width:100%;padding-left:52px}}
+
+/* ── What's New Update Modal (Picture Match) ── */
+.whatsnew-modal{width:480px;max-width:calc(100vw - 32px);border-radius:20px;overflow:hidden;background:var(--bg2);border:1px solid var(--border2);box-shadow:0 24px 70px rgba(0,0,0,.5);display:flex;flex-direction:column;animation:whatsnew-pop .28s cubic-bezier(.16,1,.3,1)}
+@keyframes whatsnew-pop{from{opacity:0;transform:scale(.94) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.whatsnew-header{position:relative;background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 45%,#3b82f6 100%);padding:28px 24px 22px;color:#ffffff;overflow:hidden}
+.whatsnew-header-content{position:relative;z-index:2;display:flex;align-items:center;gap:16px}
+.whatsnew-header-icon{width:46px;height:46px;border-radius:13px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 14px rgba(0,0,0,.15)}
+.whatsnew-header-title{font-size:22px;font-weight:800;color:#ffffff;margin:0;line-height:1.2;letter-spacing:-.4px}
+.whatsnew-header-version{font-size:13.5px;color:rgba(255,255,255,.9);font-weight:600;margin-top:3px}
+.whatsnew-close-btn{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.18);border:none;color:#ffffff;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:3;transition:all .15s ease}
+.whatsnew-close-btn:hover{background:rgba(255,255,255,.32);transform:scale(1.06)}
+.whatsnew-rocket-svg{position:absolute;right:6px;bottom:0;width:145px;height:110px;pointer-events:none;z-index:1}
+.whatsnew-body{padding:22px 24px 16px;max-height:60vh;overflow-y:auto}
+.whatsnew-intro{font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.5}
+.whatsnew-list{display:flex;flex-direction:column;gap:14px}
+.whatsnew-item{display:flex;align-items:flex-start;gap:14px}
+.whatsnew-item-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,.14)}
+.whatsnew-item-info{flex:1;min-width:0}
+.whatsnew-item-title{font-size:13.5px;font-weight:700;color:var(--text1);line-height:1.3}
+.whatsnew-item-desc{font-size:12px;color:var(--text3);line-height:1.45;margin-top:3px}
+.whatsnew-footer{padding:12px 24px 24px;display:flex;justify-content:center}
+.whatsnew-gotit-btn{min-width:140px;height:40px;padding:0 32px;background:#2563eb;color:#ffffff;border:none;border-radius:10px;font-weight:700;font-size:13.5px;cursor:pointer;box-shadow:0 4px 16px rgba(37,99,235,.35);transition:all .15s ease;display:inline-flex;align-items:center;justify-content:center}
+.whatsnew-gotit-btn:hover{background:#1d4ed8;transform:translateY(-1px);box-shadow:0 6px 20px rgba(37,99,235,.45)}
+.titlebar-whatsnew-btn{background:rgba(88,101,242,.14);color:var(--accent);border:1px solid rgba(88,101,242,.28);border-radius:10px;padding:2px 8px;font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;gap:4px;cursor:pointer;transition:all .15s;margin-left:6px}
+.titlebar-whatsnew-btn:hover{background:rgba(88,101,242,.25);color:#ffffff}
 </style>
 </head>
 <body>
@@ -885,7 +910,11 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
   <div class="titlebar-logo" onclick="switchPanel('about')" style="cursor:pointer" title="About C-Script LocalHost Panel">
     <img src="../assets/icon.png" alt="C-Script" style="width:22px;height:22px;border-radius:6px;">
     <span>C-Script LocalHost Panel</span>
-    <span class="titlebar-badge" id="titlebar-app-version">v1.1.2</span>
+    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.0</span>
+    <button class="titlebar-whatsnew-btn" onclick="event.stopPropagation();openWhatsNewModal()" title="See What's New in this update">
+      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+      <span>What's New</span>
+    </button>
   </div>
   <div class="titlebar-center">
     <button class="titlebar-cmd-btn" onclick="openCommandPalette()" title="Press Ctrl+K to search">
@@ -1704,6 +1733,14 @@ DESCRIBE tablename;"></textarea>
               </div>
             </div>
           </div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <label class="form-label" style="margin-bottom:6px">Developer Directory Indexing (Autoindex)</label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="s-app-autoindex" checked>
+              <span>Enable developer file browser by default when <code>index.php</code> is missing</span>
+            </label>
+            <div class="form-hint" style="margin-top:4px">When a project or subfolder doesn't have an <code>index.php</code> or entry file, serve a modern developer directory listing with quick script execution instead of 404/Forbidden.</div>
+          </div>
         </div>
 
         <!-- Appearance & Themes -->
@@ -1927,9 +1964,13 @@ DESCRIBE tablename;"></textarea>
         <div style="display:flex;align-items:center;gap:20px;padding:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;margin-bottom:20px">
           <img src="../assets/icon.png" style="width:72px;height:72px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.35);object-fit:cover" />
           <div style="flex:1">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
               <h1 style="font-size:22px;font-weight:700;color:var(--text1);margin:0">C-Script LocalHost Panel</h1>
-              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3)">v1.1.0</span>
+              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.0</span>
+              <button class="btn btn-xs" onclick="openWhatsNewModal()" style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;font-size:11px;padding:3px 9px;cursor:pointer">
+                <svg class="tab-icon-svg" style="width:11px;height:11px;margin:0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                What's New
+              </button>
             </div>
             <p style="margin:0 0 10px 0;font-size:13px;color:var(--text3);line-height:1.4">Modern, High-Performance Local Development Environment for PHP, NGINX &amp; MySQL.</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1943,7 +1984,7 @@ DESCRIBE tablename;"></textarea>
         <div class="app-update-card">
           <div class="app-update-icon">↻</div>
           <div class="app-update-copy"><div class="app-update-title">App updates</div><div id="app-update-status" class="app-update-status">Check GitHub for the latest version.</div><div id="app-update-progress-wrap" class="app-update-progress-wrap" style="display:none"><div class="app-update-progress-track"><div id="app-update-progress" class="app-update-progress"></div></div><span id="app-update-progress-label">0%</span></div></div>
-          <div class="app-update-actions"><button class="btn btn-sm" id="app-update-releases" onclick="api.shell.openExternal('https://github.com/CHAMI-csr/c-script-localhost-panel/releases')" style="display:none">View releases</button><button class="btn btn-sm" id="app-update-check" onclick="checkForAppUpdates()">Check for updates</button><button class="btn btn-sm btn-primary" id="app-update-download" onclick="downloadAppUpdate()" style="display:none">Download update</button><button class="btn btn-sm btn-primary" id="app-update-install" onclick="installAppUpdate()" style="display:none">Restart to update</button></div>
+          <div class="app-update-actions"><button class="btn btn-sm" onclick="openWhatsNewModal()">What's New</button><button class="btn btn-sm" id="app-update-releases" onclick="api.shell.openExternal('https://github.com/CHAMI-csr/c-script-localhost-panel/releases')" style="display:none">View releases</button><button class="btn btn-sm" id="app-update-check" onclick="checkForAppUpdates()">Check for updates</button><button class="btn btn-sm btn-primary" id="app-update-download" onclick="downloadAppUpdate()" style="display:none">Download update</button><button class="btn btn-sm btn-primary" id="app-update-install" onclick="installAppUpdate()" style="display:none">Restart to update</button></div>
         </div>
 
         <!-- Developer Profile Card -->
@@ -2044,6 +2085,70 @@ DESCRIBE tablename;"></textarea>
 <div class="toast-container" id="toast-container"></div>
 <div class="er-tooltip" id="er-tooltip"></div>
 
+<!-- What's New Modal (Post-Update Announcement matching screenshot) -->
+<div class="modal-overlay" id="modal-whats-new" onclick="if(event.target===this)closeWhatsNewModal()" role="dialog" aria-modal="true" aria-labelledby="whatsnew-title">
+  <div class="modal whatsnew-modal">
+    <!-- Header with Rocket & Megaphone Banner -->
+    <div class="whatsnew-header">
+      <button class="whatsnew-close-btn" onclick="closeWhatsNewModal()" aria-label="Close">✕</button>
+
+      <!-- Vector Rocket & Cloud Illustration matching screenshot -->
+      <svg class="whatsnew-rocket-svg" viewBox="0 0 145 110" fill="none">
+        <!-- Cloud puffs -->
+        <path d="M10 110 C20 88, 48 88, 58 110 C70 85, 102 85, 115 110 C125 92, 142 92, 145 110 Z" fill="rgba(255, 255, 255, 0.22)"/>
+        <path d="M35 110 C48 94, 76 94, 90 110 C100 94, 128 94, 138 110 Z" fill="rgba(255, 255, 255, 0.35)"/>
+        <!-- Thruster flames -->
+        <path d="M54 74 C47 84, 45 96, 50 102 C55 96, 61 85, 62 76 Z" fill="#F97316"/>
+        <path d="M53 76 C49 84, 48 92, 51 97 C54 92, 58 84, 59 78 Z" fill="#FBBF24"/>
+        <!-- Rocket Body (diagonal 45deg) -->
+        <g transform="translate(84, 50) rotate(-45)">
+          <!-- Fin left -->
+          <path d="M-13 18 L-24 32 L-9 27 Z" fill="#2563EB"/>
+          <!-- Fin right -->
+          <path d="M13 18 L24 32 L9 27 Z" fill="#2563EB"/>
+          <!-- Fin center -->
+          <path d="M-2 20 L0 30 L2 20 Z" fill="#1D4ED8"/>
+          <!-- Main Body -->
+          <path d="M0 -30 C15 -14, 16 12, 11 24 L-11 24 C-16 12, -15 -14, 0 -30 Z" fill="#FFFFFF"/>
+          <!-- Nose Cone -->
+          <path d="M0 -30 C5 -22, 7 -16, 8 -11 L-8 -11 C-7 -16, -5 -22, 0 -30 Z" fill="#2563EB"/>
+          <!-- Window ring & glass -->
+          <circle cx="0" cy="0" r="7" fill="#1D4ED8"/>
+          <circle cx="0" cy="0" r="5" fill="#60A5FA"/>
+          <circle cx="-1.8" cy="-1.8" r="1.8" fill="#FFFFFF"/>
+        </g>
+      </svg>
+
+      <div class="whatsnew-header-content">
+        <div class="whatsnew-header-icon">
+          <!-- Megaphone SVG from screenshot -->
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+        </div>
+        <div>
+          <h2 class="whatsnew-header-title" id="whatsnew-title">What's New</h2>
+          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="whatsnew-body">
+      <div class="whatsnew-intro">We're excited to bring you the latest update! Here are the new features and improvements:</div>
+      <div class="whatsnew-list" id="whatsnew-items-list">
+        <!-- Rendered via JavaScript -->
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="whatsnew-footer">
+      <button class="whatsnew-gotit-btn" onclick="closeWhatsNewModal()">Got it</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay update-notice-overlay" id="modal-app-update" onclick="if(event.target===this)dismissUpdatePopup()" role="dialog" aria-modal="true" aria-labelledby="update-popup-title">
   <div class="modal update-notice-modal">
     <div class="modal-header">
@@ -2070,7 +2175,10 @@ DESCRIBE tablename;"></textarea>
           <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3)">
             What's New in this Release:
           </span>
-          <span id="update-popup-version-badge" style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3)"></span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="btn btn-xs" onclick="openWhatsNewModal()" style="font-size:10px;padding:2px 7px;cursor:pointer;">Visual Card View</button>
+            <span id="update-popup-version-badge" style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3)"></span>
+          </div>
         </div>
         <div id="update-popup-notes" class="update-notes-container" style="max-height:190px;overflow-y:auto;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:12px;color:var(--text2);line-height:1.6">
         </div>
@@ -2415,6 +2523,13 @@ DESCRIBE tablename;"></textarea>
         </select>
         <div class="form-hint">Choose a specific PHP runtime version for this site.</div>
       </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text1)">
+          <input type="checkbox" id="site-autoindex" checked>
+          <span>Developer Directory Indexing (Autoindex)</span>
+        </label>
+        <div class="form-hint">Show file browser and click-to-run buttons when <code>index.php</code> is missing.</div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-add-site')">Cancel</button>
@@ -2451,6 +2566,13 @@ DESCRIBE tablename;"></textarea>
           <button class="btn btn-sm" onclick="clearEditSiteEntryFile()">Clear</button>
         </div>
         <div class="form-hint">Only PHP files inside this site's folder can be selected. Clear the field to use the folder default.</div>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text1)">
+          <input type="checkbox" id="edit-site-autoindex" checked>
+          <span>Developer Directory Indexing (Autoindex)</span>
+        </label>
+        <div class="form-hint">Show file browser and click-to-run buttons when <code>index.php</code> is missing.</div>
       </div>
     </div>
     <div class="modal-footer">
@@ -3097,6 +3219,8 @@ async function loadConfig() {
       if(document.getElementById('s-app-tld')) document.getElementById('s-app-tld').value = tldVal;
       const autovhostsVal = c.autoVirtualHosts !== undefined ? c.autoVirtualHosts : (c.app?.autoVirtualHosts !== undefined ? c.app.autoVirtualHosts : true);
       if(document.getElementById('s-app-autovhosts')) document.getElementById('s-app-autovhosts').checked = !!autovhostsVal;
+      const autoindexVal = c.autoindex !== undefined ? c.autoindex : (c.app?.autoindex !== undefined ? c.app.autoindex : true);
+      if(document.getElementById('s-app-autoindex')) document.getElementById('s-app-autoindex').checked = !!autoindexVal;
       const pageSizeVal = c.pageSize || c.app?.pageSize || 50;
       if(document.getElementById('s-app-pagesize')){
         document.getElementById('s-app-pagesize').value = pageSizeVal;
@@ -3128,6 +3252,7 @@ async function saveSettings() {
   const themeInput = document.getElementById('s-app-theme')?.value || 'dark';
   const tldInput = document.getElementById('s-app-tld')?.value.trim().replace(/^\./, '') || 'test';
   const autoVhostsInput = document.getElementById('s-app-autovhosts') ? document.getElementById('s-app-autovhosts').checked : true;
+  const autoindexInput = document.getElementById('s-app-autoindex') ? document.getElementById('s-app-autoindex').checked : true;
   const pageSizeInput = parseInt(document.getElementById('s-app-pagesize')?.value) || 50;
   const portsScopeInput = document.getElementById('s-ports-scope')?.value || 'app';
   const mailPortInput = parseInt(document.getElementById('s-mail-port')?.value) || 1025;
@@ -3145,6 +3270,7 @@ async function saveSettings() {
       theme: themeInput,
       tld: tldInput,
       autoVirtualHosts: autoVhostsInput,
+      autoindex: autoindexInput,
       pageSize: pageSizeInput,
       portsScope: portsScopeInput,
       mailCatcherPort: mailPortInput,
@@ -3153,6 +3279,7 @@ async function saveSettings() {
     theme: themeInput,
     tld: tldInput,
     autoVirtualHosts: autoVhostsInput,
+    autoindex: autoindexInput,
     pageSize: pageSizeInput,
     portsScope: portsScopeInput,
     mail: {
@@ -6413,7 +6540,7 @@ async function loadSites(){
             <span style="color:var(--text3);font-size:10px;font-family:var(--font-mono)">:${s.port}</span>
           </div>`
         :(s.domain ? `<span style="color:var(--text3);font-size:11px">Domain: ${escHtml(s.domain)} (stopped)</span>` : '–')}</div>
-      <div class="site-root" title="${escHtml(s.root)}">${escHtml(s.root)}<br><span style="color:var(--text3);font-size:10px">Internal Port: ${isRunning?s.port:(s.port||'Auto')}</span>${s.entryFile?`<br><span style="color:var(--accent);font-size:10px">→ ${escHtml(s.entryFile.split(/[/\\]/).pop())}</span>`:''}</div>
+      <div class="site-root" title="${escHtml(s.root)}">${escHtml(s.root)}<br><span style="color:var(--text3);font-size:10px">Internal Port: ${isRunning?s.port:(s.port||'Auto')}</span>${s.entryFile?`<br><span style="color:var(--accent);font-size:10px">→ ${escHtml(s.entryFile.split(/[/\\]/).pop())}</span>`:''}${s.autoindex !== false && !s.entryFile ? `<span style="color:var(--text3);font-size:10px;margin-left:6px" title="Directory indexing active when index.php is missing">• Autoindex</span>` : ''}</div>
       <div class="site-actions">
         ${isRunning
           ?`<button class="btn btn-sm btn-danger" onclick="stopSite('${s.id}')"><svg class="tab-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>Stop</button>
@@ -6593,6 +6720,8 @@ async function openAddSiteModal(){
   await populatePhpVersionSelects(true);
   const phpSelect = document.getElementById('site-php');
   if (phpSelect) phpSelect.value = '';
+  const autoindexDefault = document.getElementById('s-app-autoindex') ? document.getElementById('s-app-autoindex').checked : true;
+  if (document.getElementById('site-autoindex')) document.getElementById('site-autoindex').checked = autoindexDefault;
   openModal('modal-add-site');
   setTimeout(()=>document.getElementById('site-name').focus(),100);
 }
@@ -6614,6 +6743,7 @@ async function editSiteEntryFile(siteId){
   document.getElementById('edit-site-entry-file').value=site.entryFile||'';
   document.getElementById('edit-site-port').value=site.port||0;
   if(document.getElementById('edit-site-php')) document.getElementById('edit-site-php').value=site.php||'';
+  if(document.getElementById('edit-site-autoindex')) document.getElementById('edit-site-autoindex').checked = site.autoindex !== false;
   openModal('modal-edit-site-entry');
 }
 
@@ -6633,10 +6763,11 @@ async function saveSiteEntryFile(){
   const entryFile=document.getElementById('edit-site-entry-file').value.trim()||null;
   const port=Number(document.getElementById('edit-site-port').value);
   const php=document.getElementById('edit-site-php')?.value || null;
+  const autoindex=document.getElementById('edit-site-autoindex') ? document.getElementById('edit-site-autoindex').checked : true;
   if(!Number.isInteger(port)||port<0||port>65535){toast('Enter a port from 0 to 65535','error');return;}
   const wasRunning=site.status==='running';
   if(wasRunning) await api.sites.stop(site.id);
-  const result=await api.sites.update(site.id,{entryFile,port:port||null,php});
+  const result=await api.sites.update(site.id,{entryFile,port:port||null,php,autoindex});
   if(!result?.success){
     if(wasRunning) await api.sites.start(site.id);
     toast('Could not save site settings: '+(result?.error||'Unknown error'),'error');
@@ -6686,6 +6817,7 @@ async function addSite(){
   const port=parseInt(document.getElementById('site-port').value)||0;
   const php=document.getElementById('site-php')?.value || null;
   const framework=document.getElementById('site-framework')?.value || 'none';
+  const autoindex=document.getElementById('site-autoindex') ? document.getElementById('site-autoindex').checked : true;
   if(!name||!root){ toast('Name and root required','error'); return; }
 
   // Scaffolding if framework selected
@@ -6703,7 +6835,7 @@ async function addSite(){
     }
   }
 
-  const result=await api.sites.add({name, root, port, entryFile: entryFile||null, php});
+  const result=await api.sites.add({name, root, port, entryFile: entryFile||null, php, autoindex});
   if(!result?.success){ toast('Could not add site: '+(result?.error||'Unknown error'),'error'); return; }
   closeModal('modal-add-site');
   // Reset form
@@ -6712,6 +6844,10 @@ async function addSite(){
   document.getElementById('site-entry-file').value='';
   document.getElementById('site-port').value='0';
   if(document.getElementById('site-framework')) document.getElementById('site-framework').value='none';
+  if(document.getElementById('site-autoindex')) {
+    const autoindexDefault = document.getElementById('s-app-autoindex') ? document.getElementById('s-app-autoindex').checked : true;
+    document.getElementById('site-autoindex').checked = autoindexDefault;
+  }
   toast('Site "'+name+'" added!','success');
   await loadSites();
 }
@@ -7180,12 +7316,82 @@ function applyTheme(themeName){
   } catch(e) {}
 }
 
+// ══════════════════════════════════════════════════════════
+// WHAT'S NEW MODAL & POST-UPDATE ANNOUNCEMENT
+// ══════════════════════════════════════════════════════════
+const WHATS_NEW_DATA = {
+  'default': [
+    {
+      iconColor: '#2563eb',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg>',
+      title: 'Developer Directory Indexing',
+      desc: 'Smart file explorer with quick click-to-run script execution when index.php is missing in projects or subfolders.'
+    },
+    {
+      iconColor: '#10b981',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
+      title: 'Faster Performance',
+      desc: 'Optimized standalone PHP server runtime, instantaneous socket checks, and swift port handling.'
+    },
+    {
+      iconColor: '#8b5cf6',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>',
+      title: 'Modern Interface & Dark Mode',
+      desc: 'Cleaner, emoji-free professional vector icons across all tables, services, and system dialogs.'
+    },
+    {
+      iconColor: '#ef4444',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>',
+      title: 'Fixed Dropdowns & Scope Glitches',
+      desc: 'Resolved selection bugs in Port Manager scope, Virtual Hosts, and site modal dropdowns.'
+    },
+    {
+      iconColor: '#f59e0b',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
+      title: 'Improved Security',
+      desc: 'Enhanced directory traversal barriers, sanitized file paths, and safe default port scoping.'
+    }
+  ]
+};
+
+function openWhatsNewModal(targetVersion, customItems){
+  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.0';
+  const verClean = String(ver).replace(/^v/i, '').trim();
+  const verEl = document.getElementById('whatsnew-version');
+  if(verEl) verEl.textContent = `Version ${verClean}`;
+
+  const listEl = document.getElementById('whatsnew-items-list');
+  if(listEl){
+    const items = customItems || WHATS_NEW_DATA[verClean] || WHATS_NEW_DATA['default'];
+    listEl.innerHTML = items.map(item => `
+      <div class="whatsnew-item">
+        <div class="whatsnew-item-icon" style="background:${item.iconColor || '#2563eb'}">
+          ${item.iconSvg}
+        </div>
+        <div class="whatsnew-item-info">
+          <div class="whatsnew-item-title">${escHtml(item.title)}</div>
+          <div class="whatsnew-item-desc">${escHtml(item.desc)}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  openModal('modal-whats-new');
+}
+
+function closeWhatsNewModal(){
+  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.0';
+  localStorage.setItem('c_script_last_seen_version', ver);
+  closeModal('modal-whats-new');
+}
+
 let updaterStatusUnsubscribe=null;
 let updatePopupState='idle';
 let updateProgressPopupDismissed=false;
 async function initUpdaterUI(){
   try{
     const info=await api.updater.version();
+    window.__currentAppVersion = info.version;
     window.__isPortable = Boolean(info && info.portable);
     const titlebarVersion=document.getElementById('titlebar-app-version');
     if(titlebarVersion)titlebarVersion.textContent=`v${info.version}`;
@@ -7193,6 +7399,16 @@ async function initUpdaterUI(){
     setAppUpdateStatus(info.portable?'Portable build · install Setup once to enable app updates.':'Current version · v'+info.version);
     if(!updaterStatusUnsubscribe)updaterStatusUnsubscribe=api.updater.onStatus(handleUpdaterStatus);
     setTimeout(() => { if(api?.updater?.check) api.updater.check().catch(() => {}); }, 2500);
+
+    // Automatically show "What's New" modal on first run after an update
+    const lastSeenVer = localStorage.getItem('c_script_last_seen_version');
+    if(lastSeenVer && lastSeenVer !== info.version){
+      setTimeout(() => {
+        openWhatsNewModal(info.version);
+      }, 1200);
+    } else if(!lastSeenVer){
+      localStorage.setItem('c_script_last_seen_version', info.version);
+    }
   }catch(error){setAppUpdateStatus('Could not read app version.');}
 }
 function setAppUpdateStatus(message){const el=document.getElementById('app-update-status');if(el)el.textContent=message;}
@@ -7758,6 +7974,7 @@ function buildCommandPaletteItems(){
     { category: 'Actions', title: 'Sync Hosts File (.dev)', desc: 'Write local .dev domains to Windows hosts file', action: () => syncVhostsAction() },
     { category: 'Actions', title: 'Scan for PHP Versions', desc: 'Auto-detect PHP installations on your system', action: () => { switchPanel('settings'); scanPhpVersionsAction(); } },
     { category: 'Actions', title: 'PHP File Syntax Checker', desc: 'Check PHP syntax across all project files', action: () => openModal('modal-php-checker') },
+    { category: 'Actions', title: 'What\'s New (Release Highlights)', desc: 'View new features and improvements in this release', action: () => openWhatsNewModal() },
     { category: 'Actions', title: 'Clear Server Logs', desc: 'Clear all live server log entries', action: () => clearServerLogs() },
     { category: 'Actions', title: 'Clear Mail Catcher Inbox', desc: 'Remove all captured test emails', action: () => clearMailInbox() },
 
@@ -8070,7 +8287,7 @@ async function sendErrorToDeveloper(specificErrorId = null){
       targetEntries = allEntries.slice(-5);
     }
 
-    const appVer = document.getElementById('titlebar-app-version')?.textContent || 'v1.1.9';
+    const appVer = document.getElementById('titlebar-app-version')?.textContent || 'v1.2.0';
     const osInfo = navigator.userAgent;
     const services = (currentDashboardServices && currentDashboardServices.length > 0)
       ? currentDashboardServices.map(s => `- ${s.name} (${s.type}): ${s.status} [Port: ${s.port || 'N/A'}]`).join('\n')

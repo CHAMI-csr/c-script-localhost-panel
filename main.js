@@ -83,6 +83,7 @@ const DEFAULT_CONFIG = {
     autoStartServices: false,
     tld: 'test',
     autoVirtualHosts: true,
+    autoindex: true,
     mailCatcherPort: 1025,
     autoStartMailCatcher: true,
     pageSize: 50,
@@ -458,13 +459,20 @@ ipcMain.handle('sites:add', async (event, siteData) => {
   }
   let tld = 'test';
   let autoVhosts = true;
+  let defaultAutoindex = true;
   try {
     const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
     if (cfg?.app?.tld) tld = cfg.app.tld;
     else if (cfg?.tld) tld = cfg.tld;
     if (cfg?.app?.autoVirtualHosts !== undefined) autoVhosts = cfg.app.autoVirtualHosts;
     else if (cfg?.autoVirtualHosts !== undefined) autoVhosts = cfg.autoVirtualHosts;
+    if (cfg?.app?.autoindex !== undefined) defaultAutoindex = cfg.app.autoindex;
+    else if (cfg?.autoindex !== undefined) defaultAutoindex = cfg.autoindex;
   } catch (e) {}
+
+  if (siteData && siteData.autoindex === undefined) {
+    siteData.autoindex = defaultAutoindex;
+  }
 
   siteData.domain = siteData.domain || vhostsManager.getDomain(siteData.name, tld);
   const result = siteManager.addSite(siteData);
@@ -547,6 +555,9 @@ ipcMain.handle('sites:update', (event, { id, data }) => {
   if (Object.prototype.hasOwnProperty.call(data || {}, 'entryFile') && data.entryFile &&
       (!site || !isPhpFileInsideFolder(site.root, data.entryFile))) {
     return { success: false, error: 'Choose a PHP run file from inside the selected site folder.' };
+  }
+  if (Object.prototype.hasOwnProperty.call(data || {}, 'autoindex')) {
+    data.autoindex = !!data.autoindex;
   }
   return siteManager.updateSite(id, data);
 });
@@ -1399,6 +1410,7 @@ ipcMain.handle('config:save', (event, config) => {
       theme: config.theme ?? config.app?.theme ?? existing.app?.theme ?? existing.theme ?? DEFAULT_CONFIG.app.theme,
       tld: (config.tld ?? config.app?.tld ?? existing.app?.tld ?? existing.tld ?? DEFAULT_CONFIG.app.tld).replace(/^\./, ''),
       autoVirtualHosts: config.autoVirtualHosts !== undefined ? config.autoVirtualHosts : (config.app?.autoVirtualHosts !== undefined ? config.app.autoVirtualHosts : existing.app?.autoVirtualHosts ?? DEFAULT_CONFIG.app.autoVirtualHosts),
+      autoindex: config.autoindex !== undefined ? config.autoindex : (config.app?.autoindex !== undefined ? config.app.autoindex : existing.app?.autoindex ?? DEFAULT_CONFIG.app.autoindex),
       pageSize: parseInt(config.pageSize ?? config.app?.pageSize ?? existing.app?.pageSize ?? existing.pageSize) || 50,
       portsScope: config.portsScope ?? config.app?.portsScope ?? existing.app?.portsScope ?? existing.portsScope ?? 'app',
       mailCatcherPort: parseInt(config.mail?.port ?? config.mailCatcherPort ?? config.app?.mailCatcherPort ?? existing.app?.mailCatcherPort ?? existing.mailCatcherPort) || 1025,
@@ -1414,6 +1426,7 @@ ipcMain.handle('config:save', (event, config) => {
       theme: appSettings.theme,
       tld: appSettings.tld,
       autoVirtualHosts: appSettings.autoVirtualHosts,
+      autoindex: appSettings.autoindex,
       pageSize: appSettings.pageSize,
       portsScope: appSettings.portsScope,
       mailCatcherPort: appSettings.mailCatcherPort,

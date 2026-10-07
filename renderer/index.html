@@ -910,7 +910,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
   <div class="titlebar-logo" onclick="switchPanel('about')" style="cursor:pointer" title="About C-Script LocalHost Panel">
     <img src="../assets/icon.png" alt="C-Script" style="width:22px;height:22px;border-radius:6px;">
     <span>C-Script LocalHost Panel</span>
-    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.1</span>
+    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.2</span>
     <button class="titlebar-whatsnew-btn" onclick="event.stopPropagation();openWhatsNewModal()" title="See What's New in this update">
       <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
       <span>What's New</span>
@@ -1966,7 +1966,7 @@ DESCRIBE tablename;"></textarea>
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
               <h1 style="font-size:22px;font-weight:700;color:var(--text1);margin:0">C-Script LocalHost Panel</h1>
-              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.1</span>
+              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.2</span>
               <button class="btn btn-xs" onclick="openWhatsNewModal()" style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;font-size:11px;padding:3px 9px;cursor:pointer">
                 <svg class="tab-icon-svg" style="width:11px;height:11px;margin:0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 What's New
@@ -2129,7 +2129,7 @@ DESCRIBE tablename;"></textarea>
         </div>
         <div>
           <h2 class="whatsnew-header-title" id="whatsnew-title">What's New</h2>
-          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.1</div>
+          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.2</div>
         </div>
       </div>
     </div>
@@ -6890,8 +6890,15 @@ function clearSiteEntryFile(){document.getElementById('site-entry-file').value='
 async function startSite(id){
   toast('Starting server...','info');
   const r = await api.sites.start(id);
-  if(r.success) toast('Server started on port '+r.port,'success');
-  else toast('Failed: '+r.error,'error');
+  if(r.success) {
+    if(r.warning) {
+      toast(r.warning, 'warn');
+    } else {
+      toast('Server and NGINX started on port '+r.port,'success');
+    }
+  } else {
+    toast('Failed: '+(r.error||'Unknown error'),'error');
+  }
   await loadSites();
   await loadDashboardServices(false);
 }
@@ -7346,6 +7353,26 @@ function applyTheme(themeName){
 // WHAT'S NEW MODAL & POST-UPDATE ANNOUNCEMENT
 // ══════════════════════════════════════════════════════════
 const WHATS_NEW_DATA = {
+  '1.2.2': [
+    {
+      iconColor: '#10b981',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
+      title: 'Auto-Start NGINX on Site Launch',
+      desc: 'Starting any local site now automatically launches NGINX alongside PHP so your custom domains (*.test) work immediately.'
+    },
+    {
+      iconColor: '#2563eb',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg>',
+      title: 'Automated Hosts & Reverse Proxy Sync',
+      desc: 'Local host DNS bindings and port 80/443 reverse proxy configurations are dynamically updated whenever a site starts or stops.'
+    },
+    {
+      iconColor: '#f59e0b',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
+      title: 'Port 80 Conflict Detection & Alerts',
+      desc: 'If an external app like IIS, Apache, or Skype occupies port 80, the panel alerts you immediately without failing the site start process.'
+    }
+  ],
   '1.2.1': [
     {
       iconColor: '#2563eb',
@@ -7445,7 +7472,7 @@ const WHATS_NEW_DATA = {
 };
 
 function openWhatsNewModal(targetVersion, customItems){
-  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.1';
+  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.2';
   const verClean = String(ver).replace(/^v/i, '').trim();
   const verEl = document.getElementById('whatsnew-version');
   if(verEl) verEl.textContent = `Version ${verClean}`;
@@ -7473,7 +7500,7 @@ function openWhatsNewModal(targetVersion, customItems){
 }
 
 function closeWhatsNewModal(){
-  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.1';
+  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.2';
   const verClean = String(ver).replace(/^v/i, '').trim();
   localStorage.setItem('c_script_last_seen_version', verClean);
   closeModal('modal-whats-new');
@@ -8380,7 +8407,7 @@ async function sendErrorToDeveloper(specificErrorId = null){
       targetEntries = allEntries.slice(-5);
     }
 
-    const appVer = document.getElementById('titlebar-app-version')?.textContent || 'v1.2.1';
+    const appVer = document.getElementById('titlebar-app-version')?.textContent || 'v1.2.2';
     const osInfo = navigator.userAgent;
     const services = (currentDashboardServices && currentDashboardServices.length > 0)
       ? currentDashboardServices.map(s => `- ${s.name} (${s.type}): ${s.status} [Port: ${s.port || 'N/A'}]`).join('\n')

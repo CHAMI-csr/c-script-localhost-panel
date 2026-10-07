@@ -535,7 +535,7 @@ ipcMain.handle('sites:start', async (event, id) => {
   const result = await phpManager.start(site, reservedPorts);
   if (result.success) {
     siteManager.updateSite(id, { status: 'running', port: result.port });
-    // Sync reverse proxy so site is accessible on port 80 without entering any port number!
+    // Sync hosts and reverse proxy so site is accessible on port 80 without entering any port number!
     if (vhostsManager) {
       const allSites = siteManager.getSites().map(s => ({
         ...s,
@@ -543,7 +543,20 @@ ipcMain.handle('sites:start', async (event, id) => {
         status: phpManager.isRunning(s.id) ? 'running' : 'stopped',
         port: phpManager.getPort(s.id) || s.port
       }));
-      vhostsManager.syncReverseProxy(allSites).catch(() => {});
+      const domains = allSites.map(s => s.domain);
+      vhostsManager.syncHosts(domains).catch(() => {});
+      await vhostsManager.syncReverseProxy(allSites).catch(() => {});
+    }
+
+    // Automatically ensure NGINX Web Server is started so custom domains (*.test on port 80/443) load in the browser!
+    try {
+      const nginxRes = await serviceManager.startService('webserver', siteManager, phpManager);
+      if (nginxRes && !nginxRes.success) {
+        result.warning = `Site started on port ${result.port}, but NGINX could not start: ${nginxRes.error}`;
+      }
+    } catch (nginxErr) {
+      result.warning = `Site started on port ${result.port}, but NGINX could not start: ${nginxErr.message}`;
+      console.warn('[Sites:Start] Auto-start NGINX error:', nginxErr.message);
     }
   }
   return result;

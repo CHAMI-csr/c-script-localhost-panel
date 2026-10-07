@@ -7,6 +7,7 @@
     "type": "git",
     "url": "https://github.com/CHAMI-csr/c-script-localhost-panel.git"
   },
+  "author": "Chamika Sandeepa <chamikasandeepa40@gmail.com>",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -28,7 +29,9 @@
         "nsis",
         "portable"
       ],
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "publisherName": "Chamika Sandeepa",
+      "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
       "oneClick": false,

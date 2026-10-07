@@ -22,8 +22,14 @@ class PhpManager extends EventEmitter {
     this.phpBinary = value || 'php';
   }
 
-  _usedPorts() {
-    return new Set(Object.values(this.servers).map(s => s.port));
+  _usedPorts(extraReserved = []) {
+    const used = new Set(Object.values(this.servers).map(s => s.port));
+    if (extraReserved) {
+      for (const p of extraReserved) {
+        if (p && Number(p) > 0) used.add(Number(p));
+      }
+    }
+    return used;
   }
 
   _isPortFree(port) {
@@ -37,14 +43,70 @@ class PhpManager extends EventEmitter {
     });
   }
 
-  /** Find a free port starting from startPort */
-  async findFreePort(startPort = 8000) {
-    const used = this._usedPorts();
+  /** Find a free port starting from startPort that is neither active nor reserved */
+  async findFreePort(startPort = 8000, extraReserved = []) {
+    const used = this._usedPorts(extraReserved);
     for (let port = startPort; port <= 9999; port++) {
       if (used.has(port)) continue;
       if (await this._isPortFree(port)) return port;
     }
     throw new Error('No free ports available');
+  }
+
+  /**
+   * Returns a physical Windows path to autoindexRouter.php.
+   * If packaged in Electron (inside app.asar), extracts/syncs it to AppData
+   * so that external native binaries like php.exe can access it without failing.
+   */
+  getAutoindexRouterPath() {
+    try {
+      const userProfile = process.env.USERPROFILE || require('os').homedir() || '';
+      const appData = process.env.APPDATA || (userProfile ? path.join(userProfile, 'AppData', 'Roaming') : '');
+      const scriptsDir = path.join(appData, 'c-script-localhost', 'scripts');
+      if (!fs.existsSync(scriptsDir)) {
+        fs.mkdirSync(scriptsDir, { recursive: true });
+      }
+      const targetPath = path.join(scriptsDir, 'autoindexRouter.php');
+
+      // Check if unpacked by asarUnpack
+      const unpackedCandidate = path.join(
+        __dirname.replace(/app\.asar$/, 'app.asar.unpacked').replace(/app\.asar[\\/]/, 'app.asar.unpacked' + path.sep),
+        'autoindexRouter.php'
+      );
+      if (fs.existsSync(unpackedCandidate) && !unpackedCandidate.includes('app.asar\\') && !unpackedCandidate.includes('app.asar/')) {
+        return unpackedCandidate;
+      }
+
+      // Read bundled source (fs.readFileSync works from inside asar via Electron's patched fs)
+      const bundledPath = path.join(__dirname, 'autoindexRouter.php');
+      let needsWrite = !fs.existsSync(targetPath);
+      if (!needsWrite && fs.existsSync(bundledPath)) {
+        try {
+          const bundledContent = fs.readFileSync(bundledPath, 'utf8');
+          const targetContent = fs.readFileSync(targetPath, 'utf8');
+          if (bundledContent !== targetContent) needsWrite = true;
+        } catch (_) {
+          needsWrite = true;
+        }
+      }
+
+      if (needsWrite && fs.existsSync(bundledPath)) {
+        const content = fs.readFileSync(bundledPath, 'utf8');
+        fs.writeFileSync(targetPath, content, 'utf8');
+      }
+
+      if (fs.existsSync(targetPath)) {
+        return targetPath;
+      }
+    } catch (err) {
+      console.warn('Failed to ensure physical autoindexRouter.php in AppData:', err);
+    }
+
+    const local = path.join(__dirname, 'autoindexRouter.php');
+    if (fs.existsSync(local) && !local.includes('.asar')) {
+      return local;
+    }
+    return null;
   }
 
   _quoteCmdArg(value) {
@@ -230,7 +292,7 @@ class PhpManager extends EventEmitter {
   }
 
   /** Start a PHP built-in server for a site */
-  async start(site) {
+  async start(site, extraReserved = []) {
     if (this.servers[site.id]) {
       return { success: true, port: this.servers[site.id].port, alreadyRunning: true };
     }
@@ -239,16 +301,19 @@ class PhpManager extends EventEmitter {
       return { success: false, error: `Directory not found: ${site.root}` };
     }
 
-    const requested = site.port && site.port > 0 ? site.port : null;
+    const requested = site.port && site.port > 0 ? Number(site.port) : null;
     let port;
     try {
       if (requested) {
-        if (this._usedPorts().has(requested) || !(await this._isPortFree(requested))) {
-          return { success: false, error: `Port ${requested} is already in use` };
+        if (this._usedPorts(extraReserved).has(requested)) {
+          return { success: false, error: `Port ${requested} is reserved or already in use by another site.` };
+        }
+        if (!(await this._isPortFree(requested))) {
+          return { success: false, error: `Port ${requested} is already in use by another application.` };
         }
         port = requested;
       } else {
-        port = await this.findFreePort(8000);
+        port = await this.findFreePort(8000, extraReserved);
       }
     } catch (err) {
       return { success: false, error: err.message };
@@ -259,8 +324,8 @@ class PhpManager extends EventEmitter {
     if (site.entryFile && fs.existsSync(site.entryFile)) {
       args.push(site.entryFile);
     } else if (site.autoindex !== false) {
-      const router = path.join(__dirname, 'autoindexRouter.php');
-      if (fs.existsSync(router)) {
+      const router = this.getAutoindexRouterPath();
+      if (router && fs.existsSync(router)) {
         args.push(router);
       }
     }

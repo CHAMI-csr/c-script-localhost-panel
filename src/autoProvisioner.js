@@ -167,6 +167,18 @@ class AutoProvisioner {
       }
     }
 
+    // 4. Provision Developer Autoindex Router Script to AppData
+    try {
+      const scriptsDir = path.join(appDataDir, 'scripts');
+      fs.mkdirSync(scriptsDir, { recursive: true });
+      const targetRouter = path.join(scriptsDir, 'autoindexRouter.php');
+      const srcRouter = path.join(__dirname, 'autoindexRouter.php');
+      if (fs.existsSync(srcRouter)) {
+        const content = fs.readFileSync(srcRouter, 'utf8');
+        fs.writeFileSync(targetRouter, content, 'utf8');
+      }
+    } catch (_) {}
+
     const errors = Object.values(runtimes).filter(runtime => !runtime.installed).map(runtime => runtime.error);
     for (const error of errors) console.error(`[AutoProvisioner] ${error}`);
     return {

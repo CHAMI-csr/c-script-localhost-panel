@@ -1,7 +1,7 @@
 {
   "name": "c-script-localhost-panel",
   "productName": "C-Script LocalHost Panel",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "C-Script LocalHost Panel — local PHP & MySQL development environment",
   "repository": {
     "type": "git",
@@ -17,6 +17,9 @@
   "build": {
     "appId": "com.cscript.localhostpanel",
     "productName": "C-Script LocalHost Panel",
+    "asarUnpack": [
+      "src/autoindexRouter.php"
+    ],
     "directories": {
       "output": "dist"
     },

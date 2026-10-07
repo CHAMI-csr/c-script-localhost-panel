@@ -49,8 +49,34 @@ class SiteManager {
     return { autoindex: site.autoindex !== false, ...site };
   }
 
+  /** Check if a port is already assigned to another site (running or stopped) */
+  isPortUsedByOtherSite(port, excludeSiteId = null) {
+    if (!port || port <= 0) return null;
+    const num = parseInt(port, 10);
+    return this.sites.find(s => s.id !== excludeSiteId && s.port && parseInt(s.port, 10) === num) || null;
+  }
+
+  /** Get set of all ports assigned to any site in the panel */
+  getAllAssignedPorts(excludeSiteId = null) {
+    const set = new Set();
+    for (const s of this.sites) {
+      if (s.id !== excludeSiteId && s.port && parseInt(s.port, 10) > 0) {
+        set.add(parseInt(s.port, 10));
+      }
+    }
+    return set;
+  }
+
   /** Add a new site */
   addSite(siteData) {
+    const requestedPort = siteData.port ? parseInt(siteData.port, 10) : null;
+    if (requestedPort && requestedPort > 0) {
+      const conflict = this.isPortUsedByOtherSite(requestedPort);
+      if (conflict) {
+        return { success: false, error: `Port ${requestedPort} is already assigned to site "${conflict.name}".` };
+      }
+    }
+
     const site = {
       id: this._generateId(),
       name: siteData.name || path.basename(siteData.root) || 'My Site',
@@ -58,7 +84,7 @@ class SiteManager {
       // Persist the explicitly selected PHP router/entry file.
       entryFile: siteData.entryFile || null,
       autoindex: siteData.autoindex !== undefined ? !!siteData.autoindex : true,
-      port: siteData.port ? parseInt(siteData.port) : null,
+      port: requestedPort,
       php: siteData.php || null,
       description: siteData.description || '',
       createdAt: new Date().toISOString(),
@@ -84,6 +110,15 @@ class SiteManager {
   updateSite(id, updates) {
     const index = this.sites.findIndex(s => s.id === id);
     if (index === -1) return { success: false, error: 'Site not found' };
+
+    if (updates.port && parseInt(updates.port, 10) > 0) {
+      const portNum = parseInt(updates.port, 10);
+      const conflict = this.isPortUsedByOtherSite(portNum, id);
+      if (conflict) {
+        return { success: false, error: `Port ${portNum} is already assigned to site "${conflict.name}".` };
+      }
+      updates.port = portNum;
+    }
 
     this.sites[index] = { ...this.sites[index], ...updates };
     this._save();

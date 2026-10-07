@@ -457,6 +457,24 @@ ipcMain.handle('sites:add', async (event, siteData) => {
   if (siteData?.entryFile && !isPhpFileInsideFolder(siteData.root, siteData.entryFile)) {
     return { success: false, error: 'Choose a PHP run file from inside the selected site folder.' };
   }
+
+  // Validate requested port or assign a dedicated free port
+  const requestedPort = siteData?.port ? parseInt(siteData.port, 10) : 0;
+  if (requestedPort > 0) {
+    const conflict = siteManager.isPortUsedByOtherSite(requestedPort);
+    if (conflict) {
+      return { success: false, error: `Port ${requestedPort} is already assigned to site "${conflict.name}". Please choose another port.` };
+    }
+  } else {
+    // If 0/auto, allocate a guaranteed free port so every site has its own reserved port
+    const reserved = siteManager.getAllAssignedPorts();
+    try {
+      siteData.port = await phpManager.findFreePort(8000, reserved);
+    } catch (_) {
+      siteData.port = null;
+    }
+  }
+
   let tld = 'test';
   let autoVhosts = true;
   let defaultAutoindex = true;
@@ -512,7 +530,9 @@ ipcMain.handle('sites:start', async (event, id) => {
   // Ensure PHP service runtime is active
   await serviceManager.startService('php', siteManager, phpManager);
 
-  const result = await phpManager.start(site);
+  // Reserve all ports of other sites (stopped and running)
+  const reservedPorts = siteManager.getAllAssignedPorts(site.id);
+  const result = await phpManager.start(site, reservedPorts);
   if (result.success) {
     siteManager.updateSite(id, { status: 'running', port: result.port });
     // Sync reverse proxy so site is accessible on port 80 without entering any port number!
@@ -550,6 +570,12 @@ ipcMain.handle('sites:update', (event, { id, data }) => {
   if (Object.prototype.hasOwnProperty.call(data || {}, 'port')) {
     const port=data.port==null?0:Number(data.port);
     if (!Number.isInteger(port)||port<0||port>65535) return { success: false, error: 'Port must be between 0 and 65535.' };
+    if (port > 0) {
+      const conflict = siteManager.isPortUsedByOtherSite(port, id);
+      if (conflict) {
+        return { success: false, error: `Port ${port} is already assigned to site "${conflict.name}". Please choose another port.` };
+      }
+    }
     data.port=port||null;
   }
   if (Object.prototype.hasOwnProperty.call(data || {}, 'entryFile') && data.entryFile &&
@@ -560,6 +586,15 @@ ipcMain.handle('sites:update', (event, { id, data }) => {
     data.autoindex = !!data.autoindex;
   }
   return siteManager.updateSite(id, data);
+});
+
+ipcMain.handle('sites:suggest-port', async () => {
+  const reserved = siteManager.getAllAssignedPorts();
+  try {
+    return await phpManager.findFreePort(8000, reserved);
+  } catch (e) {
+    return 8000;
+  }
 });
 
 ipcMain.handle('sites:browse-folder', async () => {

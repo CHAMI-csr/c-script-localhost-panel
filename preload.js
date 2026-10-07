@@ -17,7 +17,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openFolder: (path) => ipcRenderer.invoke('sites:open-folder', path),
     openCode: (path) => ipcRenderer.invoke('sites:open-code', path),
     openTerminal: (path) => ipcRenderer.invoke('sites:open-terminal', path),
-    getGitInfo: (path) => ipcRenderer.invoke('sites:git-info', path)
+    getGitInfo: (path) => ipcRenderer.invoke('sites:git-info', path),
+    suggestPort: () => ipcRenderer.invoke('sites:suggest-port')
   },
 
   // ── MySQL ──────────────────────────────────────────────────────────────────

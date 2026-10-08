@@ -2485,7 +2485,7 @@ DESCRIBE tablename;"></textarea>
     <div class="modal-body">
       <div class="form-group">
         <label class="form-label">Site Name</label>
-        <input class="input" id="site-name" placeholder="My Site" oninput="updateAddSiteDomainPreview(this.value)">
+        <input class="input" id="site-name" placeholder="My Site" oninput="onSiteNameInput(this.value)">
         <div style="font-size:11px;color:var(--accent);margin-top:4px" id="add-site-domain-preview">→ Local Domain: <code>my-site.dev</code></div>
       </div>
       <div class="form-group">
@@ -2502,7 +2502,7 @@ DESCRIBE tablename;"></textarea>
       <div class="form-group">
         <label class="form-label">Document Root (Folder)</label>
         <div style="display:flex;gap:6px">
-          <input class="input" id="site-root" placeholder="C:\path\to\project" style="flex:1">
+          <input class="input" id="site-root" placeholder="C:\path\to\project" style="flex:1" oninput="onSiteRootInput(this.value)">
           <button class="btn btn-sm" onclick="browseSiteFolder()">Browse…</button>
         </div>
         <div class="form-hint">The root folder of your PHP project</div>
@@ -6762,7 +6762,49 @@ function checkSiteFolder(siteIdOrPath){
   openModal('modal-php-checker');
 }
 
+let _siteNameManuallyEdited = false;
+
+function onSiteNameInput(val){
+  _siteNameManuallyEdited = Boolean(val && val.trim().length > 0);
+  updateAddSiteDomainPreview(val);
+}
+
+function deriveSiteNameFromPath(folderPath){
+  if (!folderPath) return '';
+  const clean = String(folderPath).trim().replace(/[\\/]+$/, '');
+  const parts = clean.split(/[\\/]/);
+  const last = parts.pop() || '';
+  if (/^[a-zA-Z]:$/i.test(last)) {
+    return 'drive-' + last[0].toLowerCase();
+  }
+  return last;
+}
+
+function applyAutoSiteNameFromFolder(folderPath){
+  const siteNameEl = document.getElementById('site-name');
+  if (!siteNameEl) return;
+  const currentVal = siteNameEl.value.trim();
+  if (!_siteNameManuallyEdited || currentVal === '') {
+    const derived = deriveSiteNameFromPath(folderPath);
+    if (derived) {
+      siteNameEl.value = derived;
+      updateAddSiteDomainPreview(derived);
+    }
+  }
+}
+
+function onSiteRootInput(val){
+  applyAutoSiteNameFromFolder(val);
+}
+
 async function openAddSiteModal(){
+  _siteNameManuallyEdited = false;
+  const nameInput = document.getElementById('site-name');
+  if (nameInput) nameInput.value = '';
+  const rootInput = document.getElementById('site-root');
+  if (rootInput) rootInput.value = '';
+  updateAddSiteDomainPreview('');
+
   await populatePhpVersionSelects(true);
   const phpSelect = document.getElementById('site-php');
   if (phpSelect) phpSelect.value = '';
@@ -6785,7 +6827,10 @@ async function openAddSiteModal(){
 
 async function browseSiteFolder(){
   const p = await api.sites.browseFolder();
-  if(p){ document.getElementById('site-root').value=p; }
+  if(p){
+    document.getElementById('site-root').value = p;
+    applyAutoSiteNameFromFolder(p);
+  }
 }
 
 // Site map - stores sites by ID to avoid passing Windows paths through onclick
@@ -6911,6 +6956,7 @@ async function addSite(){
   if(!result?.success){ toast('Could not add site: '+(result?.error||'Unknown error'),'error'); return; }
   closeModal('modal-add-site');
   // Reset form
+  _siteNameManuallyEdited = false;
   document.getElementById('site-name').value='';
   document.getElementById('site-root').value='';
   document.getElementById('site-entry-file').value='';

@@ -319,15 +319,43 @@ class PhpManager extends EventEmitter {
       return { success: false, error: err.message };
     }
 
-    const args = ['-S', `127.0.0.1:${port}`, '-t', site.root];
-    // Optional router/entry file (passed as last arg to php -S)
-    if (site.entryFile && fs.existsSync(site.entryFile)) {
-      args.push(site.entryFile);
+    let docRoot = site.root;
+    let routerArg = null;
+
+    if (site.entryFile) {
+      const resolvedEntry = path.isAbsolute(site.entryFile)
+        ? site.entryFile
+        : path.join(site.root, site.entryFile);
+
+      if (fs.existsSync(resolvedEntry)) {
+        const relDir = path.relative(site.root, path.dirname(resolvedEntry));
+        if (relDir.toLowerCase() === 'public' || relDir.toLowerCase().startsWith('public' + path.sep)) {
+          docRoot = path.dirname(resolvedEntry);
+          const laravelServerPhp = path.join(site.root, 'server.php');
+          if (fs.existsSync(laravelServerPhp)) {
+            routerArg = laravelServerPhp;
+          }
+        } else {
+          routerArg = resolvedEntry;
+        }
+      }
+    } else if (fs.existsSync(path.join(site.root, 'public', 'index.php'))) {
+      // Auto-detect Laravel / public docRoot even without explicit entryFile
+      docRoot = path.join(site.root, 'public');
+      const laravelServerPhp = path.join(site.root, 'server.php');
+      if (fs.existsSync(laravelServerPhp)) {
+        routerArg = laravelServerPhp;
+      }
     } else if (site.autoindex !== false) {
       const router = this.getAutoindexRouterPath();
       if (router && fs.existsSync(router)) {
-        args.push(router);
+        routerArg = router;
       }
+    }
+
+    const args = ['-S', `127.0.0.1:${port}`, '-t', docRoot];
+    if (routerArg) {
+      args.push(routerArg);
     }
     const bin = this.getBinaryForSite(site);
     const phpProcess = this._spawnPhp(args, site.root, bin);

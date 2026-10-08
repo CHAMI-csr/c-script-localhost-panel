@@ -788,6 +788,8 @@ function setupAppUpdater() {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.allowPrerelease = false;
+    // Bypass code signature verification for open-source releases without a paid certificate
+    autoUpdater.verifyUpdateCodeSignature = () => Promise.resolve(null);
     const report = (status, details = {}) => mainWindow?.webContents.send('updater:status', { status, ...details });
     autoUpdater.on('checking-for-update', () => report('checking'));
     autoUpdater.on('update-available', info => {

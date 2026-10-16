@@ -12,8 +12,9 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --enable-logging",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "check:updater": "node scripts/check-update-config.js",
+    "pack": "npm run check:updater && electron-builder --dir",
+    "dist": "npm run check:updater && electron-builder"
   },
   "build": {
     "appId": "com.cscript.localhostpanel",
@@ -30,6 +31,7 @@
         "portable"
       ],
       "icon": "assets/icon.png",
+      "publisherName": null,
       "verifyUpdateCodeSignature": false,
       "requestedExecutionLevel": "asInvoker"
     },

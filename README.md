@@ -19,14 +19,6 @@
 
 ---
 
-## Updating from v1.2.4
-
-Version 1.2.4 was configured to require a digitally signed updater, while the project's public Windows installers are currently unsigned. Windows therefore cannot apply v1.2.5 automatically from v1.2.4.
-
-For this one update, download **C-Script-LocalHost-Panel-Setup-1.2.5.exe** from the [v1.2.5 release](https://github.com/CHAMI-csr/c-script-localhost-panel/releases/tag/v1.2.5), close the app, and run Setup over the existing installation. App settings and projects are preserved. Releases built from v1.2.5 onward disable the mismatched signature requirement, so later updates can use the in-app updater.
-
-> Only download installers from this repository's official Releases page. Windows may show a SmartScreen warning because the installer does not yet have a trusted code-signing certificate.
-
 ## 📄 License & Terms of Use
 
 Copyright © 2026 **C.S. Ranasinha (Chamika Sandeepa)**. All Rights Reserved.

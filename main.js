@@ -55,25 +55,6 @@ let nginxInstaller = null;
 let mysqlInstaller = null;
 let autoUpdater = null;
 let updaterCheckInFlight = false;
-let latestUpdaterRelease = null;
-
-function isUpdateSignatureError(error) {
-  const message = String(error?.message || error || '');
-  return error?.code === 'ERR_UPDATER_INVALID_SIGNATURE' ||
-    /not signed by the application owner|not digitally signed/i.test(message);
-}
-
-function getManualUpdateDetails(error) {
-  const version = latestUpdaterRelease?.version || '';
-  return {
-    message: 'This unsigned release cannot be installed automatically by older versions. Download and run Setup once; future updates will work normally.',
-    technicalMessage: error?.message || String(error),
-    version,
-    releaseUrl: latestUpdaterRelease?.releaseUrl || (version
-      ? `https://github.com/CHAMI-csr/c-script-localhost-panel/releases/tag/v${version}`
-      : 'https://github.com/CHAMI-csr/c-script-localhost-panel/releases/latest')
-  };
-}
 
 // ─── Config Paths ───────────────────────────────────────────────────────────
 let CONFIG_DIR = path.join(os.homedir(), '.c-script');
@@ -813,8 +794,6 @@ function setupAppUpdater() {
     autoUpdater.on('checking-for-update', () => report('checking'));
     autoUpdater.on('update-available', info => {
       updaterCheckInFlight = false;
-      const relUrl = `https://github.com/CHAMI-csr/c-script-localhost-panel/releases/tag/v${info.version}`;
-      latestUpdaterRelease = { version: info.version, releaseUrl: relUrl };
       if (mainWindow && !mainWindow.isDestroyed()) {
         if (mainWindow.isMinimized()) mainWindow.restore();
         mainWindow.show();
@@ -824,6 +803,7 @@ function setupAppUpdater() {
       if (Array.isArray(notes)) {
         notes = notes.map(n => typeof n === 'string' ? n : (n.note || '')).filter(Boolean).join('\n\n');
       }
+      const relUrl = `https://github.com/CHAMI-csr/c-script-localhost-panel/releases/tag/v${info.version}`;
       report('available', { version: info.version, releaseDate: info.releaseDate, releaseNotes: notes, releaseUrl: relUrl });
     });
     autoUpdater.on('update-not-available', info => { updaterCheckInFlight = false; report('not-available', { version: info.version }); });
@@ -836,14 +816,7 @@ function setupAppUpdater() {
       const relUrl = `https://github.com/CHAMI-csr/c-script-localhost-panel/releases/tag/v${info.version}`;
       report('downloaded', { version: info.version, releaseNotes: notes, releaseUrl: relUrl });
     });
-    autoUpdater.on('error', error => {
-      updaterCheckInFlight = false;
-      if (isUpdateSignatureError(error)) {
-        report('manual-update-required', getManualUpdateDetails(error));
-      } else {
-        report('error', { message: error.message || String(error) });
-      }
-    });
+    autoUpdater.on('error', error => { updaterCheckInFlight = false; report('error', { message: error.message || String(error) }); });
     const firstCheck = setTimeout(() => requestAppUpdateCheck(), 2500);
     firstCheck.unref?.();
     const dailyCheck = setInterval(() => requestAppUpdateCheck(), 24 * 60 * 60 * 1000);
@@ -924,7 +897,6 @@ async function requestAppUpdateCheck() {
     const gh = await checkGitHubReleaseDirect();
     updaterCheckInFlight = false;
     if (gh.success && gh.hasUpdate) {
-      latestUpdaterRelease = { version: gh.version, releaseUrl: gh.releaseUrl };
       if (mainWindow && !mainWindow.isDestroyed()) {
         if (mainWindow.isMinimized()) mainWindow.restore();
       }
@@ -955,15 +927,8 @@ ipcMain.handle('updater:check', async () => {
 });
 ipcMain.handle('updater:download', async () => {
   if (!autoUpdater) return { success: false, error: 'The updater could not be initialized.' };
-  try {
-    await autoUpdater.downloadUpdate();
-    return { success: true };
-  } catch (error) {
-    if (isUpdateSignatureError(error)) {
-      return { success: false, manualUpdateRequired: true, ...getManualUpdateDetails(error) };
-    }
-    return { success: false, error: error.message };
-  }
+  try { await autoUpdater.downloadUpdate(); return { success: true }; }
+  catch (error) { return { success: false, error: error.message }; }
 });
 ipcMain.handle('updater:install', async () => {
   if (!autoUpdater) return { success: false, error: 'The updater could not be initialized.' };

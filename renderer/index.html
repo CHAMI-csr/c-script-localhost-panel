@@ -7679,7 +7679,6 @@ function closeWhatsNewModal(){
 let updaterStatusUnsubscribe=null;
 let updatePopupState='idle';
 let updateProgressPopupDismissed=false;
-let manualUpdateRequired=false;
 async function initUpdaterUI(){
   try{
     const info=await api.updater.version();
@@ -7798,13 +7797,6 @@ function showUpdatePopup(state, message, version = '', releaseNotes = '') {
     if (body) body.textContent = message || 'The update could not be downloaded.';
     if (action) action.textContent = 'Close';
   }
-  if (state === 'manual') {
-    if (title) title.textContent = 'One-time manual update';
-    if (headline) headline.textContent = `Install version ${version ? `v${version}` : 'manually'}`;
-    if (body) body.textContent = message || 'Download and run Setup once. Your settings and projects will be preserved.';
-    if (later) { later.style.display = ''; later.textContent = 'Later'; }
-    if (action) action.textContent = 'Open download page';
-  }
   openModal('modal-app-update');
 }
 function dismissUpdatePopup(){if(updatePopupState==='progress')updateProgressPopupDismissed=true;updatePopupState='idle';closeModal('modal-app-update');}
@@ -7818,9 +7810,6 @@ function runUpdatePopupAction(){
     }
   } else if(updatePopupState==='ready') {
     installAppUpdate();
-  } else if(updatePopupState==='manual' && latestUpdateReleaseUrl) {
-    api.shell.openExternal(latestUpdateReleaseUrl);
-    dismissUpdatePopup();
   } else {
     dismissUpdatePopup();
   }
@@ -7831,11 +7820,10 @@ function handleUpdaterStatus(event){
   const check=document.getElementById('app-update-check'),download=document.getElementById('app-update-download'),install=document.getElementById('app-update-install');
   if(!check)return;
   if(event.status==='checking'){check.disabled=true;check.textContent='Checking…';setAppUpdateStatus('Checking for a newer version…');}
-  if(event.status==='available'){manualUpdateRequired=false;check.disabled=false;check.textContent='Check again';download.style.display='';install.style.display='none';setAppUpdateStatus(`Version ${event.version} is available. Download it, then restart to install.`);showUpdatePopup('available','',event.version,event.releaseNotes || _lastReleaseNotes);}
+  if(event.status==='available'){check.disabled=false;check.textContent='Check again';download.style.display='';install.style.display='none';setAppUpdateStatus(`Version ${event.version} is available. Download it, then restart to install.`);showUpdatePopup('available','',event.version,event.releaseNotes || _lastReleaseNotes);}
   if(event.status==='not-available'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='none';document.getElementById('app-update-releases').style.display='none';document.getElementById('app-update-progress-wrap').style.display='none';const activeVer = window.__currentAppVersion || event.version || '1.2.2';setAppUpdateStatus(`You’re using the latest version (v${activeVer}).`);}
   if(event.status==='progress'){const wrap=document.getElementById('app-update-progress-wrap');wrap.style.display='flex';const percent=Math.max(0,Math.min(100,Number(event.percent)||0));document.getElementById('app-update-progress').style.width=percent+'%';document.getElementById('app-update-progress-label').textContent=Math.round(percent)+'%';document.getElementById('update-popup-progress').style.width=percent+'%';document.getElementById('update-popup-progress-label').textContent=Math.round(percent)+'%';setAppUpdateStatus('Downloading update…');download.disabled=true;if(updatePopupState!=='progress'&&!updateProgressPopupDismissed)showUpdatePopup('progress','The update is downloading. You can hide this window and keep using the app.');}
   if(event.status==='downloaded'){check.disabled=false;check.textContent='Check again';download.style.display='none';install.style.display='';document.getElementById('app-update-progress').style.width='100%';document.getElementById('app-update-progress-label').textContent='100%';setAppUpdateStatus(`Version ${event.version} is ready. Restart the app to finish updating.`);closeModal('modal-app-update');showUpdatePopup('ready','',event.version,event.releaseNotes || _lastReleaseNotes);}
-  if(event.status==='manual-update-required'){manualUpdateRequired=true;check.disabled=false;check.textContent='Check again';download.disabled=false;download.textContent='Open download page';download.style.display='';document.getElementById('app-update-progress-wrap').style.display='none';setAppUpdateStatus(event.message);showUpdatePopup('manual',event.message,event.version);}
   if(event.status==='error'){check.disabled=false;check.textContent='Try again';download.disabled=false;download.textContent='Download update';const noRelease=/no published versions on github/i.test(String(event.message));document.getElementById('app-update-releases').style.display=noRelease?'':'none';setAppUpdateStatus(explainUpdaterError(event.message));if(updatePopupState==='progress')showUpdatePopup('error',event.message);}
 }
 async function checkForAppUpdates(){
@@ -7845,17 +7833,10 @@ async function checkForAppUpdates(){
   else if(result.releaseNotes){_lastReleaseNotes = result.releaseNotes;}
 }
 async function downloadAppUpdate(){
-  if(manualUpdateRequired && latestUpdateReleaseUrl){api.shell.openExternal(latestUpdateReleaseUrl);return;}
   const button=document.getElementById('app-update-download');button.disabled=true;button.textContent='Starting…';
   showUpdatePopup('progress','The update is downloading. You can hide this window and keep using the app.');
   const result=await api.updater.download();
-  if(result.manualUpdateRequired){
-    manualUpdateRequired=true;
-    latestUpdateReleaseUrl=result.releaseUrl||latestUpdateReleaseUrl;
-    button.disabled=false;button.textContent='Open download page';
-    setAppUpdateStatus(result.message);
-    showUpdatePopup('manual',result.message,result.version);
-  }else if(!result.success){button.disabled=false;button.textContent='Download update';setAppUpdateStatus('Download failed: '+result.error);showUpdatePopup('error',result.error);}
+  if(!result.success){button.disabled=false;button.textContent='Download update';setAppUpdateStatus('Download failed: '+result.error);showUpdatePopup('error',result.error);}
 }
 async function installAppUpdate(){
   const result=await api.updater.install();if(!result.success)setAppUpdateStatus('Could not start the installer: '+result.error);

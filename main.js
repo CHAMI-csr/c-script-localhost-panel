@@ -846,8 +846,9 @@ function setupAppUpdater() {
     });
     const firstCheck = setTimeout(() => requestAppUpdateCheck(), 2500);
     firstCheck.unref?.();
-    const dailyCheck = setInterval(() => requestAppUpdateCheck(), 24 * 60 * 60 * 1000);
-    dailyCheck.unref?.();
+    // Check several times a day so security releases are surfaced promptly.
+    const periodicCheck = setInterval(() => requestAppUpdateCheck(), 6 * 60 * 60 * 1000);
+    periodicCheck.unref?.();
   } catch (error) {
     console.warn('[Updater] Could not initialize electron-updater:', error.message);
   }
@@ -1621,6 +1622,12 @@ ipcMain.handle('php:scan-versions', async () => {
 // ─── IPC: Standalone PHP Catalog & Download ──────────────────────────────────
 ipcMain.handle('php:get-catalog', async () => {
   return phpInstaller ? phpInstaller.getVersionCatalog() : { catalog: [] };
+});
+
+ipcMain.handle('php:security-report', async () => {
+  if (!phpInstaller) return { hasWarnings: false, items: [], error: 'PhpInstaller not ready' };
+  const versions = await scanInstalledPhps();
+  return phpInstaller.getSecurityReport(versions);
 });
 
 ipcMain.handle('php:download-version', async (event, version) => {

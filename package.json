@@ -12,6 +12,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --enable-logging",
+    "test": "node --test test/*.test.js",
     "check:updater": "node scripts/check-update-config.js",
     "pack": "npm run check:updater && electron-builder --dir",
     "dist": "npm run check:updater && electron-builder"

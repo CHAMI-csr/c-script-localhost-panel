@@ -1,17 +1,18 @@
 {
   "name": "c-script-localhost-panel",
   "productName": "C-Script LocalHost Panel",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "C-Script LocalHost Panel — local PHP & MySQL development environment",
   "repository": {
     "type": "git",
     "url": "https://github.com/CHAMI-csr/c-script-localhost-panel.git"
   },
-  "author": "Chamika Sandeepa <chamikasandeepa40@gmail.com>",
+  "author": "C.S. Ranasinha (Chamika Sandeepa)",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --enable-logging",
+    "test": "node --test test/*.test.js",
     "check:updater": "node scripts/check-update-config.js",
     "pack": "npm run check:updater && electron-builder --dir",
     "dist": "npm run check:updater && electron-builder"
@@ -72,7 +73,6 @@
     "development",
     "c-script"
   ],
-  "author": "C.S. Ranasinha (Chamika Sandeepa)",
   "license": "SEE LICENSE IN LICENSE",
   "devDependencies": {
     "electron": "^44.4.5",

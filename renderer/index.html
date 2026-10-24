@@ -910,7 +910,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
   <div class="titlebar-logo" onclick="switchPanel('about')" style="cursor:pointer" title="About C-Script LocalHost Panel">
     <img src="../assets/icon.png" alt="C-Script" style="width:22px;height:22px;border-radius:6px;">
     <span>C-Script LocalHost Panel</span>
-    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.5</span>
+    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.6</span>
     <button class="titlebar-whatsnew-btn" onclick="event.stopPropagation();openWhatsNewModal()" title="See What's New in this update">
       <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
       <span>What's New</span>
@@ -1820,6 +1820,16 @@ DESCRIBE tablename;"></textarea>
             <div id="scanned-phps-container" style="display:none;margin-top:10px;background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px"></div>
           </div>
 
+          <div id="php-security-banner" style="display:none;margin-top:16px;padding:12px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.4);border-radius:var(--radius-sm)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+              <div>
+                <div id="php-security-title" style="font-weight:700;font-size:12px;color:var(--yellow)">PHP security warning</div>
+                <div id="php-security-message" style="font-size:11px;color:var(--text2);margin-top:4px;line-height:1.5"></div>
+              </div>
+              <button class="btn btn-sm btn-primary" onclick="updateVulnerablePhp()">Install security update</button>
+            </div>
+          </div>
+
           <!-- Standalone PHP Downloader -->
           <div style="margin-top:16px;padding:14px;background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.25);border-radius:var(--radius-sm)">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -1967,7 +1977,7 @@ DESCRIBE tablename;"></textarea>
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
               <h1 style="font-size:22px;font-weight:700;color:var(--text1);margin:0">C-Script LocalHost Panel</h1>
-              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.5</span>
+              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.6</span>
               <button class="btn btn-xs" onclick="openWhatsNewModal()" style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;font-size:11px;padding:3px 9px;cursor:pointer">
                 <svg class="tab-icon-svg" style="width:11px;height:11px;margin:0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 What's New
@@ -2130,7 +2140,7 @@ DESCRIBE tablename;"></textarea>
         </div>
         <div>
           <h2 class="whatsnew-header-title" id="whatsnew-title">What's New</h2>
-          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.5</div>
+          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.6</div>
         </div>
       </div>
     </div>
@@ -3166,6 +3176,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
   await initUpdaterUI();
   await checkPHPStatus();
+  // Warn once for each vulnerable PHP version and re-check daily while open.
+  setTimeout(() => checkPhpSecurity(true), 1800);
+  setInterval(() => checkPhpSecurity(true), 24 * 60 * 60 * 1000);
   await checkMySQLStatus();
   await checkNginxStatus();
   loadNginxInfo();
@@ -7451,6 +7464,32 @@ function applyTheme(themeName){
 // WHAT'S NEW MODAL & POST-UPDATE ANNOUNCEMENT
 // ══════════════════════════════════════════════════════════
 const WHATS_NEW_DATA = {
+  '1.2.6': [
+    {
+      iconColor: '#ef4444',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="M9 12l2 2 4-4"></path></svg>',
+      title: 'PHP Security Monitoring',
+      desc: 'Detects outdated, unsupported, and end-of-life PHP runtimes with clear startup and Settings warnings.'
+    },
+    {
+      iconColor: '#10b981',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>',
+      title: 'One-Click PHP Security Updates',
+      desc: 'Checks the official Windows PHP catalog and installs the latest security patch or recommended PHP 8.5 upgrade.'
+    },
+    {
+      iconColor: '#38bdf8',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+      title: 'Verified PHP Downloads',
+      desc: 'Validates official PHP packages with SHA-256 when checksums are supplied by the release catalog.'
+    },
+    {
+      iconColor: '#8b5cf6',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
+      title: 'Faster App Update Alerts',
+      desc: 'Checks for new C-Script releases every six hours and immediately after internet connectivity returns.'
+    }
+  ],
   '1.2.5': [
     {
       iconColor: '#10b981',
@@ -7642,7 +7681,7 @@ const WHATS_NEW_DATA = {
 };
 
 function openWhatsNewModal(targetVersion, customItems){
-  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.5';
+  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.6';
   const verClean = String(ver).replace(/^v/i, '').trim();
   const verEl = document.getElementById('whatsnew-version');
   if(verEl) verEl.textContent = `Version ${verClean}`;
@@ -7670,7 +7709,7 @@ function openWhatsNewModal(targetVersion, customItems){
 }
 
 function closeWhatsNewModal(){
-  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.5';
+  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.6';
   const verClean = String(ver).replace(/^v/i, '').trim();
   localStorage.setItem('c_script_last_seen_version', verClean);
   closeModal('modal-whats-new');
@@ -7690,7 +7729,11 @@ async function initUpdaterUI(){
     document.getElementById('about-app-version').textContent=`v${info.version}`;
     setAppUpdateStatus(info.portable?'Portable build · install Setup once to enable app updates.':'Current version · v'+info.version);
     if(!updaterStatusUnsubscribe)updaterStatusUnsubscribe=api.updater.onStatus(handleUpdaterStatus);
-    setTimeout(() => { if(api?.updater?.check) api.updater.check().catch(() => {}); }, 2500);
+    // The main process checks at startup and every six hours. Re-check when connectivity returns.
+    if(!window.__updaterNetworkListenerAdded){
+      window.__updaterNetworkListenerAdded=true;
+      window.addEventListener('online',()=>api?.updater?.check?.().catch(()=>{}));
+    }
 
     // Automatically show "What's New" modal on first run after an update
     const lastSeenVer = (localStorage.getItem('c_script_last_seen_version') || '').replace(/^v/i, '').trim();
@@ -7924,8 +7967,61 @@ async function selectDetectedPhp(path){
 }
 
 // ══════════════════════════════════════════════════════════
-// STANDALONE PHP VERSION DOWNLOADER
+// PHP SECURITY MONITOR & STANDALONE DOWNLOADER
 // ══════════════════════════════════════════════════════════
+let _phpSecurityReport = null;
+
+async function checkPhpSecurity(showToast = false) {
+  try {
+    const report = await api.php.securityReport();
+    _phpSecurityReport = report;
+    const banner = document.getElementById('php-security-banner');
+    const title = document.getElementById('php-security-title');
+    const message = document.getElementById('php-security-message');
+    const risky = (report.items || []).filter(item => item.severity === 'critical' || item.updateAvailable);
+
+    if (!banner) return report;
+    if (!risky.length) {
+      banner.style.display = 'none';
+      return report;
+    }
+
+    const eol = risky.filter(item => item.status === 'eol' || item.status === 'unsupported');
+    banner.style.display = 'block';
+    banner.style.background = eol.length ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)';
+    banner.style.borderColor = eol.length ? 'rgba(239,68,68,0.45)' : 'rgba(245,158,11,0.4)';
+    title.style.color = eol.length ? 'var(--red)' : 'var(--yellow)';
+    title.textContent = eol.length
+      ? `${eol.length} unsupported PHP runtime${eol.length > 1 ? 's' : ''} detected`
+      : `${risky.length} PHP security update${risky.length > 1 ? 's' : ''} available`;
+    message.textContent = risky.map(item => item.message).join(' ');
+
+    const fingerprint = risky.map(item => `${item.path}:${item.version}:${item.status}:${item.latestVersion || ''}`).join('|');
+    if (showToast && localStorage.getItem('c_script_php_security_warning') !== fingerprint) {
+      toast(eol.length
+        ? 'Security warning: an end-of-life PHP version is installed. Open Settings to upgrade.'
+        : 'A PHP security update is available. Open Settings → PHP Environments.', 'warn');
+      localStorage.setItem('c_script_php_security_warning', fingerprint);
+    }
+    return report;
+  } catch (error) {
+    console.warn('PHP security check failed:', error);
+    return null;
+  }
+}
+
+async function updateVulnerablePhp() {
+  const report = _phpSecurityReport || await checkPhpSecurity(false);
+  const risky = (report?.items || []).filter(item => item.severity === 'critical' || item.updateAvailable);
+  if (!risky.length) { toast('Installed PHP runtimes are up to date.', 'success'); return; }
+  const first = risky[0];
+  const targetMajor = first.updateAvailable && first.isAppManaged && first.major
+    ? first.major
+    : (report.recommendedMajor || '8.5');
+  await downloadPhpVersionAction(targetMajor);
+  await checkPhpSecurity(false);
+}
+
 async function loadPhpCatalog() {
   const container = document.getElementById('php-catalog-list');
   if (!container) return;
@@ -7933,24 +8029,37 @@ async function loadPhpCatalog() {
     const res = await api.php.getCatalog();
     if (!res || !res.catalog) return;
 
-    container.innerHTML = res.catalog.map(item => `
-      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg1);padding:8px 12px;border-radius:4px;border:1px solid var(--border)">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-weight:700;font-size:12px;color:var(--text1)">${escHtml(item.label)}</span>
-          ${item.installed
-            ? `<span style="background:rgba(63,207,142,0.15);color:var(--green);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid rgba(63,207,142,0.3)">✓ Installed (Standalone)</span>`
-            : `<span style="color:var(--text3);font-size:10px">Available for download</span>`}
+    container.innerHTML = res.catalog.map(item => {
+      const security = item.security || {};
+      const isEol = security.status === 'eol' || security.status === 'unsupported';
+      const needsPatch = Boolean(item.updateAvailable);
+      const securityBadge = isEol
+        ? '<span style="background:rgba(239,68,68,.14);color:var(--red);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid rgba(239,68,68,.35)">⚠ End of life</span>'
+        : security.status === 'security-only'
+          ? '<span style="background:rgba(245,158,11,.12);color:var(--yellow);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid rgba(245,158,11,.3)">Security fixes only</span>'
+          : '<span style="background:rgba(63,207,142,.12);color:var(--green);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px">Actively supported</span>';
+      return `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg1);padding:8px 12px;border-radius:4px;border:1px solid ${isEol ? 'rgba(239,68,68,.4)' : 'var(--border)'}">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-weight:700;font-size:12px;color:var(--text1)">${escHtml(item.label)}</span>
+            ${item.installed
+              ? `<span style="color:var(--green);font-size:10px;font-weight:700">✓ ${escHtml(item.version || 'Installed')}</span>${securityBadge}`
+              : `<span style="color:var(--text3);font-size:10px">Latest ${escHtml(item.latestVersion || item.major)}</span>${securityBadge}`}
+          </div>
+          ${item.installed && security.message ? `<div style="font-size:10px;color:${isEol ? 'var(--red)' : (needsPatch ? 'var(--yellow)' : 'var(--text3)')};margin-top:4px">${escHtml(security.message)}</div>` : ''}
         </div>
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;gap:6px;flex-shrink:0">
           ${item.installed ? `
             <button class="btn btn-sm btn-primary" onclick="selectDetectedPhp('${escAttr(item.exePath)}')">Use Default</button>
-            <button class="btn btn-sm" onclick="reinstallServiceAction('php')" title="Reinstall or Repair PHP runtime"><svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>Repair</button>
+            <button class="btn btn-sm ${needsPatch ? 'btn-accent' : ''}" id="btn-dl-php-${item.major}" onclick="downloadPhpVersionAction('${item.major}')">${needsPatch ? `Security Update ${escHtml(item.latestVersion)}` : 'Repair'}</button>
           ` : `
             <button class="btn btn-sm btn-accent" id="btn-dl-php-${item.major}" onclick="downloadPhpVersionAction('${item.major}')"><svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Install PHP ${item.major}</button>
           `}
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
+    await checkPhpSecurity(false);
   } catch (e) {
     container.innerHTML = `<div style="color:var(--red);font-size:12px">Could not load catalog: ${escHtml(e.message)}</div>`;
   }
@@ -8596,7 +8705,7 @@ async function sendErrorToDeveloper(specificErrorId = null){
       targetEntries = allEntries.slice(-5);
     }
 
-    const appVer = document.getElementById('titlebar-app-version')?.textContent || 'v1.2.5';
+    const appVer = document.getElementById('titlebar-app-version')?.textContent || 'v1.2.6';
     const osInfo = navigator.userAgent;
     const services = (currentDashboardServices && currentDashboardServices.length > 0)
       ? currentDashboardServices.map(s => `- ${s.name} (${s.type}): ${s.status} [Port: ${s.port || 'N/A'}]`).join('\n')

@@ -98,6 +98,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     listExtensions: () => ipcRenderer.invoke('php:list-extensions'),
     toggleExtension: (name, enable) => ipcRenderer.invoke('php:toggle-extension', { name, enable }),
     getCatalog: () => ipcRenderer.invoke('php:get-catalog'),
+    securityReport: () => ipcRenderer.invoke('php:security-report'),
     downloadVersion: (version) => ipcRenderer.invoke('php:download-version', version),
     onInstallProgress: (callback) => {
       const dlHandler = (event, data) => callback('download', data);

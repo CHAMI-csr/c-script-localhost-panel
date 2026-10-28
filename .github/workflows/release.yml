@@ -39,30 +39,51 @@ jobs:
             exit 1
           }
 
-          # electron-builder 26 can omit latest.yml when --publish=never. Generate
-          # equivalent updater metadata so publishing remains a separate, retryable step.
-          $latest = Join-Path $setup.DirectoryName 'latest.yml'
-          if (-not (Test-Path $latest)) {
-            $stream = [IO.File]::OpenRead($setup.FullName)
-            try {
-              $sha512 = [Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash($stream))
-            } finally {
-              $stream.Dispose()
-            }
-            $releaseDate = [DateTime]::UtcNow.ToString('o')
-            $yaml = @(
-              "version: $version",
-              "files:",
-              "  - url: $($setup.Name)",
-              "    sha512: $sha512",
-              "    size: $($setup.Length)",
-              "path: $($setup.Name)",
-              "sha512: $sha512",
-              "releaseDate: '$releaseDate'"
-            )
-            $yaml | Set-Content -Path $latest -Encoding utf8
-            Write-Host "Generated updater metadata: latest.yml"
+          # electron-builder 26 uses dotted safe artifact names while its update
+          # metadata can reference hyphenated names. Normalize both sides so the
+          # URL in latest.yml always names an asset that is actually uploaded.
+          $originalBlockmap = "$($setup.FullName).blockmap"
+          $canonicalSetup = Join-Path $setup.DirectoryName "C-Script-LocalHost-Panel-Setup-$version.exe"
+          $canonicalPortable = Join-Path $portable.DirectoryName "C-Script-LocalHost-Panel-$version.exe"
+          $canonicalBlockmap = "$canonicalSetup.blockmap"
+          if ($setup.FullName -ne $canonicalSetup) {
+            Move-Item -Path $setup.FullName -Destination $canonicalSetup -Force
           }
+          if ($portable.FullName -ne $canonicalPortable) {
+            Move-Item -Path $portable.FullName -Destination $canonicalPortable -Force
+          }
+          if ((Test-Path $originalBlockmap) -and $originalBlockmap -ne $canonicalBlockmap) {
+            Move-Item -Path $originalBlockmap -Destination $canonicalBlockmap -Force
+          }
+          $setup = Get-Item $canonicalSetup
+
+          # Always regenerate metadata from the final canonical Setup artifact.
+          $latest = Join-Path $setup.DirectoryName 'latest.yml'
+          $stream = [IO.File]::OpenRead($setup.FullName)
+          try {
+            $sha512 = [Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash($stream))
+          } finally {
+            $stream.Dispose()
+          }
+          $releaseDate = [DateTime]::UtcNow.ToString('o')
+          $yaml = @(
+            "version: $version",
+            "files:",
+            "  - url: $($setup.Name)",
+            "    sha512: $sha512",
+            "    size: $($setup.Length)"
+          )
+          if (Test-Path $canonicalBlockmap) {
+            $blockmap = Get-Item $canonicalBlockmap
+            $yaml += "    blockMapSize: $($blockmap.Length)"
+          }
+          $yaml += @(
+            "path: $($setup.Name)",
+            "sha512: $sha512",
+            "releaseDate: '$releaseDate'"
+          )
+          $yaml | Set-Content -Path $latest -Encoding utf8
+          Write-Host "Prepared canonical Setup asset and latest.yml: $($setup.Name)"
       - name: Upload and publish GitHub Release
         shell: pwsh
         run: |

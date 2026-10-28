@@ -25,21 +25,41 @@ jobs:
         # Build first, then upload explicitly so a transient publish failure cannot
         # leave a release without latest.yml or its differential-update blockmap.
         run: npm run dist -- --publish never
-      - name: Verify updater artifacts
+      - name: Prepare and verify updater artifacts
         shell: pwsh
         run: |
+          Get-ChildItem -Path dist -File | ForEach-Object { Write-Host "Built: $($_.Name)" }
           $version = "${{ github.ref_name }}".TrimStart('v')
-          $required = @(
-            "dist/C-Script-LocalHost-Panel-Setup-$version.exe",
-            "dist/C-Script-LocalHost-Panel-Setup-$version.exe.blockmap",
-            "dist/C-Script-LocalHost-Panel-$version.exe",
-            "dist/latest.yml"
-          )
-          foreach ($file in $required) {
-            if (-not (Test-Path $file)) {
-              Write-Error "Required release artifact is missing: $file"
-              exit 1
+          $setup = Get-ChildItem -Path dist -File -Filter "*Setup-$version.exe" | Select-Object -First 1
+          $portable = Get-ChildItem -Path dist -File -Filter "*-$version.exe" |
+            Where-Object { $_.Name -notlike '*Setup*' } | Select-Object -First 1
+          if (-not $setup -or -not $portable) {
+            Write-Error "Setup or portable executable is missing from the Windows build."
+            exit 1
+          }
+
+          # electron-builder 26 can omit latest.yml when --publish=never. Generate
+          # equivalent updater metadata so publishing remains a separate, retryable step.
+          $latest = Join-Path $setup.DirectoryName 'latest.yml'
+          if (-not (Test-Path $latest)) {
+            $stream = [IO.File]::OpenRead($setup.FullName)
+            try {
+              $sha512 = [Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash($stream))
+            } finally {
+              $stream.Dispose()
             }
+            $releaseDate = [DateTime]::UtcNow.ToString('o')
+            @"
+          version: $version
+          files:
+            - url: $($setup.Name)
+              sha512: $sha512
+              size: $($setup.Length)
+          path: $($setup.Name)
+          sha512: $sha512
+          releaseDate: '$releaseDate'
+          "@ | Set-Content -Path $latest -Encoding utf8
+            Write-Host "Generated updater metadata: latest.yml"
           }
       - name: Upload and publish GitHub Release
         shell: pwsh

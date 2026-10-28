@@ -13,20 +13,52 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Build and publish Windows installers
-        # Push a tag matching package.json (for example v1.1.4) to publish the release.
-        run: npm run dist -- --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish GitHub Release (Undraft)
-        run: gh release edit ${{ github.ref_name }} --draft=false
+      - name: Build Windows installers
+        # Build first, then upload explicitly so a transient publish failure cannot
+        # leave a release without latest.yml or its differential-update blockmap.
+        run: npm run dist -- --publish never
+      - name: Verify updater artifacts
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          $required = @(
+            "dist/C-Script-LocalHost-Panel-Setup-$version.exe",
+            "dist/C-Script-LocalHost-Panel-Setup-$version.exe.blockmap",
+            "dist/C-Script-LocalHost-Panel-$version.exe",
+            "dist/latest.yml"
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) {
+              Write-Error "Required release artifact is missing: $file"
+              exit 1
+            }
+          }
+      - name: Upload and publish GitHub Release
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title "C-Script LocalHost Panel $($tag.TrimStart('v'))" --draft
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+          $assets = Get-ChildItem -Path dist -File | Where-Object {
+            $_.Name -eq 'latest.yml' -or $_.Extension -eq '.exe' -or $_.Extension -eq '.blockmap'
+          }
+          foreach ($asset in $assets) {
+            gh release upload $tag $asset.FullName --clobber
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+          gh release edit $tag --draft=false --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

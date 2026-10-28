@@ -13,8 +13,8 @@ const failures = [];
 if (windowsConfig.verifyUpdateCodeSignature !== false) {
   failures.push('build.win.verifyUpdateCodeSignature must be false while Windows releases are unsigned.');
 }
-if (windowsConfig.publisherName !== null) {
-  failures.push('build.win.publisherName must be null so app-update.yml does not require a signer.');
+if (windowsConfig.publisherName != null || windowsConfig.signtoolOptions?.publisherName != null) {
+  failures.push('Windows publisherName must be omitted while releases are unsigned.');
 }
 if (!/autoUpdater\.verifyUpdateCodeSignature\s*=\s*\(\)\s*=>\s*Promise\.resolve\(null\)/.test(mainSource)) {
   failures.push('The runtime unsigned-update override is missing from main.js.');

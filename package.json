@@ -32,7 +32,6 @@
         "portable"
       ],
       "icon": "assets/icon.png",
-      "publisherName": null,
       "verifyUpdateCodeSignature": false,
       "requestedExecutionLevel": "asInvoker"
     },

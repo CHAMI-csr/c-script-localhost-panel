@@ -29,9 +29,10 @@ jobs:
         shell: pwsh
         run: |
           Get-ChildItem -Path dist -File | ForEach-Object { Write-Host "Built: $($_.Name)" }
-          $version = "${{ github.ref_name }}".TrimStart('v')
-          $setup = Get-ChildItem -Path dist -File -Filter "*Setup-$version.exe" | Select-Object -First 1
-          $portable = Get-ChildItem -Path dist -File -Filter "*-$version.exe" |
+          $version = ("${{ github.ref_name }}").TrimStart('v')
+          $setup = Get-ChildItem -Path dist -File -Filter "*.exe" |
+            Where-Object { $_.Name -like '*Setup*' } | Select-Object -First 1
+          $portable = Get-ChildItem -Path dist -File -Filter "*.exe" |
             Where-Object { $_.Name -notlike '*Setup*' } | Select-Object -First 1
           if (-not $setup -or -not $portable) {
             Write-Error "Setup or portable executable is missing from the Windows build."
@@ -49,16 +50,17 @@ jobs:
               $stream.Dispose()
             }
             $releaseDate = [DateTime]::UtcNow.ToString('o')
-            @"
-          version: $version
-          files:
-            - url: $($setup.Name)
-              sha512: $sha512
-              size: $($setup.Length)
-          path: $($setup.Name)
-          sha512: $sha512
-          releaseDate: '$releaseDate'
-          "@ | Set-Content -Path $latest -Encoding utf8
+            $yaml = @(
+              "version: $version",
+              "files:",
+              "  - url: $($setup.Name)",
+              "    sha512: $sha512",
+              "    size: $($setup.Length)",
+              "path: $($setup.Name)",
+              "sha512: $sha512",
+              "releaseDate: '$releaseDate'"
+            )
+            $yaml | Set-Content -Path $latest -Encoding utf8
             Write-Host "Generated updater metadata: latest.yml"
           }
       - name: Upload and publish GitHub Release

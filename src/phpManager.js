@@ -7,12 +7,15 @@ const { spawn, exec, execFile } = require('child_process');
 const net = require('net');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { repairPhpConfigForBinary } = require('./phpErrorRepair');
 
 class PhpManager extends EventEmitter {
   constructor() {
     super();
     this.servers = {}; // siteId -> { process, port, site }
+    this.fastCgiServers = {}; // siteId -> { process, port, site, binary }
+    this.fastCgiPorts = new Set();
     this.phpBinary = 'php';
   }
 
@@ -109,6 +112,34 @@ class PhpManager extends EventEmitter {
     return null;
   }
 
+  getLaravelRouterPath(siteRoot) {
+    const publicDir = path.join(siteRoot, 'public');
+    const rootKey = crypto.createHash('sha256').update(path.resolve(siteRoot).toLowerCase()).digest('hex').slice(0, 24);
+    const userProfile = process.env.USERPROFILE || require('os').homedir() || '';
+    const appData = process.env.APPDATA || path.join(userProfile, 'AppData', 'Roaming');
+    const scriptsDir = path.join(appData, 'c-script-localhost', 'scripts');
+    const routerPath = path.join(scriptsDir, `laravel-router-${rootKey}.php`);
+    const phpQuote = value => `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+    const source = `<?php
+$publicRoot = ${phpQuote(publicDir)};
+$requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$relativePath = ltrim(str_replace(['/', '\\\\'], DIRECTORY_SEPARATOR, rawurldecode($requestPath)), DIRECTORY_SEPARATOR);
+$candidate = $publicRoot . DIRECTORY_SEPARATOR . $relativePath;
+$realPublic = realpath($publicRoot);
+$realCandidate = realpath($candidate);
+if ($relativePath !== '' && $realPublic && $realCandidate && is_file($realCandidate)) {
+    $publicPrefix = rtrim($realPublic, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+    if (stripos($realCandidate, $publicPrefix) === 0) return false;
+}
+require $publicRoot . DIRECTORY_SEPARATOR . 'index.php';
+`;
+    fs.mkdirSync(scriptsDir, { recursive: true });
+    if (!fs.existsSync(routerPath) || fs.readFileSync(routerPath, 'utf8') !== source) {
+      fs.writeFileSync(routerPath, source, 'utf8');
+    }
+    return routerPath;
+  }
+
   _quoteCmdArg(value) {
     const str = String(value);
     if (!/[\s"]/.test(str)) return str;
@@ -148,6 +179,15 @@ class PhpManager extends EventEmitter {
       return requested;
     }
     return this.getEffectiveBinary();
+  }
+
+  _getSiteErrorLogPath(site) {
+    const userProfile = process.env.USERPROFILE || require('os').homedir() || '';
+    const appData = process.env.APPDATA || path.join(userProfile, 'AppData', 'Roaming');
+    const directory = path.join(appData, 'c-script-localhost', 'logs', 'php');
+    fs.mkdirSync(directory, { recursive: true });
+    const safeId = String(site?.id || 'site').replace(/[^a-z0-9_-]/gi, '_');
+    return path.join(directory, `${safeId}.log`);
   }
 
   _needsShell(binary) {
@@ -322,7 +362,12 @@ class PhpManager extends EventEmitter {
     let docRoot = site.root;
     let routerArg = null;
 
-    if (site.entryFile) {
+    const LaravelManager = require('./laravelManager');
+    const isLaravel = LaravelManager.isLaravelProject(site.root);
+    if (isLaravel && fs.existsSync(path.join(site.root, 'public', 'index.php'))) {
+      docRoot = path.join(site.root, 'public');
+      routerArg = this.getLaravelRouterPath(site.root);
+    } else if (site.entryFile) {
       const resolvedEntry = path.isAbsolute(site.entryFile)
         ? site.entryFile
         : path.join(site.root, site.entryFile);
@@ -353,7 +398,8 @@ class PhpManager extends EventEmitter {
       }
     }
 
-    const args = ['-S', `127.0.0.1:${port}`, '-t', docRoot];
+    const errorLog = this._getSiteErrorLogPath(site);
+    const args = ['-d', 'log_errors=On', '-d', `error_log=${errorLog}`, '-S', `127.0.0.1:${port}`, '-t', docRoot];
     if (routerArg) {
       args.push(routerArg);
     }
@@ -435,8 +481,63 @@ class PhpManager extends EventEmitter {
     return result;
   }
 
+  /** Start a per-site PHP-CGI FastCGI worker for NGINX. */
+  async startFastCgi(site) {
+    if (this.fastCgiServers[site.id]) return { success: true, port: this.fastCgiServers[site.id].port, alreadyRunning: true };
+    const phpBinary = this.getBinaryForSite(site);
+    const cgiBinary = path.join(path.dirname(phpBinary), 'php-cgi.exe');
+    if (!path.isAbsolute(phpBinary) || !fs.existsSync(cgiBinary)) {
+      return { success: false, error: `This PHP version does not include php-cgi.exe beside ${phpBinary}. Choose a Windows PHP NTS package with php-cgi.exe to use NGINX FastCGI.` };
+    }
+    let port = 9100;
+    while (port < 10000) {
+      if (this.fastCgiPorts.has(port)) { port++; continue; }
+      this.fastCgiPorts.add(port);
+      if (await this._isPortFree(port)) break;
+      this.fastCgiPorts.delete(port);
+      port++;
+    }
+    if (port >= 10000) return { success: false, error: 'No free per-site FastCGI ports are available (9100–9999).' };
+
+    const errorLog = this._getSiteErrorLogPath(site);
+    const proc = spawn(cgiBinary, ['-d', 'log_errors=On', '-d', `error_log=${errorLog}`, '-b', `127.0.0.1:${port}`], { cwd: path.dirname(cgiBinary), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    this.fastCgiServers[site.id] = { process: proc, port, site, binary: cgiBinary };
+    proc.stderr?.on('data', data => this.emit('log', { siteId: site.id, siteName: site.name, message: data.toString().trim(), type: 'error', timestamp: new Date().toISOString() }));
+    proc.once('exit', (code, signal) => {
+      const wasRunning = !!this.fastCgiServers[site.id];
+      delete this.fastCgiServers[site.id];
+      this.fastCgiPorts.delete(port);
+      if (wasRunning) this.emit('log', { siteId: site.id, siteName: site.name, message: `PHP-CGI FastCGI stopped (exit: ${code ?? signal})`, type: 'warning', timestamp: new Date().toISOString() });
+    });
+    proc.once('error', () => { if (this.fastCgiServers[site.id]?.process === proc) delete this.fastCgiServers[site.id]; this.fastCgiPorts.delete(port); });
+
+    try {
+      await this._waitForListen(port, 5000, proc);
+      return { success: true, port, binary: cgiBinary };
+    } catch (error) {
+      this._killProcess(proc);
+      delete this.fastCgiServers[site.id];
+      this.fastCgiPorts.delete(port);
+      return { success: false, error: `Could not start FastCGI for ${site.name}: ${error.message}` };
+    }
+  }
+
+  getFastCgiPort(id) {
+    return this.fastCgiServers[id]?.port || null;
+  }
+
+  stopFastCgi(id) {
+    const worker = this.fastCgiServers[id];
+    if (!worker) return false;
+    delete this.fastCgiServers[id];
+    this.fastCgiPorts.delete(worker.port);
+    this._killProcess(worker.process);
+    return true;
+  }
+
   /** Stop a PHP server by site ID */
   stop(id) {
+    this.stopFastCgi(id);
     const server = this.servers[id];
     if (server) {
       this._killProcess(server.process);
@@ -449,10 +550,12 @@ class PhpManager extends EventEmitter {
   /** Stop all running PHP servers */
   stopAll() {
     Object.keys(this.servers).forEach(id => this.stop(id));
+    Object.keys(this.fastCgiServers).forEach(id => this.stopFastCgi(id));
   }
 
   async stopAllAndWait(timeoutMs = 5000) {
-    const entries = Object.entries(this.servers);
+    const entries = [...Object.entries(this.servers), ...Object.entries(this.fastCgiServers)];
+    this.fastCgiServers = {};
     for (const [id] of entries) delete this.servers[id];
     await Promise.all(entries.map(([, server]) => new Promise(resolve => {
       const proc = server?.process;

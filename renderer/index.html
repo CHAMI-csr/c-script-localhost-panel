@@ -246,8 +246,15 @@ select option{background-color:var(--bg2);color:var(--text1);padding:5px 8px}
 .sql-toolbar-sep{width:1px;height:20px;background:var(--border);flex-shrink:0}
 .sql-toolbar-right{margin-left:auto;display:flex;gap:6px}
 .sql-editor-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
-#sql-editor{flex:1;background:var(--bg0);color:var(--text1);border:none;resize:none;padding:14px 16px;font-family:var(--font-mono);font-size:13px;line-height:1.6;outline:none;overflow-y:auto}
-#sql-editor::placeholder{color:var(--text3)}
+.sql-editor-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:var(--bg0)}
+.sql-highlight,#sql-editor{position:absolute;inset:0;box-sizing:border-box;margin:0;border:0;padding:14px 16px;font-family:var(--font-mono);font-size:13px;font-weight:400;line-height:1.6;letter-spacing:normal;tab-size:2;white-space:pre-wrap;overflow-wrap:break-word;word-break:normal}
+.sql-highlight{z-index:0;overflow:hidden;pointer-events:none;color:var(--text1)}
+#sql-editor{z-index:1;width:100%;height:100%;background:transparent;color:transparent;-webkit-text-fill-color:transparent;caret-color:var(--text1);resize:none;outline:none;overflow:auto}
+#sql-editor::selection{background:rgba(124,106,247,.38);color:var(--text1);-webkit-text-fill-color:var(--text1)}
+#sql-editor::placeholder{-webkit-text-fill-color:var(--text3);color:var(--text3)}
+.sql-token-keyword{color:#c792ea}.sql-token-function{color:#82aaff}.sql-token-string{color:#c3e88d}.sql-token-number{color:#f78c6c}.sql-token-comment{color:#697386;font-style:italic}.sql-token-identifier{color:#f07178}.sql-token-operator{color:#89ddff}
+.sql-completions{position:absolute;z-index:12;display:none;min-width:240px;max-width:min(360px,calc(100% - 16px));max-height:260px;overflow:auto;background:var(--bg1);border:1px solid var(--border2);border-radius:8px;box-shadow:0 12px 32px rgba(0,0,0,.42);padding:5px;color:var(--text1)}
+.sql-completions.open{display:block}.sql-completion-item{display:flex;align-items:center;gap:9px;width:100%;padding:6px 8px;border:0;border-radius:5px;background:transparent;color:var(--text1);font:12px var(--font-mono);text-align:left;cursor:pointer}.sql-completion-item:hover,.sql-completion-item.active{background:rgba(124,106,247,.16)}.sql-completion-kind{margin-left:auto;color:var(--text3);font:10px Arial,sans-serif;text-transform:uppercase}.sql-completion-icon{width:17px;color:var(--accent);text-align:center}.sql-completion-empty{padding:9px;color:var(--text3);font-size:11px}
 .sql-hint{position:absolute;bottom:8px;right:12px;font-size:10px;color:var(--text3);pointer-events:none;background:var(--bg0);padding:2px 6px;border-radius:3px}
 
 /* Table View */
@@ -689,10 +696,13 @@ body[data-theme="light"] .results-table .row-num{
   border-color:#E2E8F0 !important;
 }
 body[data-theme="light"] #sql-editor{
-  background:#FFFFFF !important;
-  color:#0F172A !important;
+  background:transparent !important;
+  color:transparent !important;
+  -webkit-text-fill-color:transparent !important;
   border-bottom:1px solid #E2E8F0;
 }
+body[data-theme="light"] .sql-highlight{background:#FFFFFF;color:#0F172A}
+body[data-theme="light"] .sql-token-keyword{color:#7c3aed}body[data-theme="light"] .sql-token-function{color:#1d4ed8}body[data-theme="light"] .sql-token-string{color:#15803d}body[data-theme="light"] .sql-token-number{color:#c2410c}body[data-theme="light"] .sql-token-comment{color:#64748b}body[data-theme="light"] .sql-token-identifier{color:#be123c}body[data-theme="light"] .sql-token-operator{color:#0369a1}
 body[data-theme="light"] .er-canvas-viewport{
   background-color:#F8FAFC !important;
   background-image:radial-gradient(rgba(79,70,229,0.18) 1.2px, transparent 1.2px) !important;
@@ -806,6 +816,7 @@ body[data-theme="light"] .port-quick-kill-bar{
 .cmd-item .cmd-title{font-weight:600}
 .cmd-item .cmd-desc{font-size:11px;color:var(--text3);margin-left:6px}
 .cmd-item .cmd-badge{margin-left:auto;font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;background:var(--bg1);padding:2px 6px;border-radius:4px;border:1px solid var(--border)}
+.artisan-output{white-space:pre-wrap;overflow:auto;max-height:42vh;min-height:150px;padding:12px;background:var(--bg0);border:1px solid var(--border);border-radius:6px;color:var(--text2);font:11px/1.55 var(--font-mono)}
 
 /* ── Mail Catcher ── */
 .mail-layout{display:flex;flex:1;overflow:hidden}
@@ -900,10 +911,44 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
 .whatsnew-gotit-btn:hover{background:#1d4ed8;transform:translateY(-1px);box-shadow:0 6px 20px rgba(37,99,235,.45)}
 .titlebar-whatsnew-btn{background:rgba(88,101,242,.14);color:var(--accent);border:1px solid rgba(88,101,242,.28);border-radius:10px;padding:2px 8px;font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;gap:4px;cursor:pointer;transition:all .15s;margin-left:6px}
 .titlebar-whatsnew-btn:hover{background:rgba(88,101,242,.25);color:#ffffff}
+.site-add-modal{width:520px;max-width:calc(100vw - 24px);max-height:calc(100vh - 20px);overflow:hidden}
+.site-add-modal>.modal-header,.site-add-modal>.modal-footer{flex:0 0 auto}
+.site-add-modal>.modal-body{min-height:0;overflow-y:auto;padding:18px 20px;scrollbar-width:thin}
+.site-add-modal .form-group{margin-bottom:13px}
+.site-add-modal .form-hint{line-height:1.4}
+.site-domain-preview{font-size:11px;color:var(--accent);margin-top:3px}.site-domain-preview code{color:var(--text1);font-family:var(--font-mono)}
+.site-add-advanced{margin-top:4px;border:1px solid var(--border);border-radius:7px;background:var(--bg1);overflow:hidden}
+.site-add-advanced>summary{display:flex;align-items:center;gap:8px;list-style:none;padding:11px 12px;cursor:pointer;color:var(--text1);font-size:12px;font-weight:650;user-select:none}
+.site-add-advanced>summary::-webkit-details-marker{display:none}
+.site-add-advanced>summary small{margin-left:auto;color:var(--text3);font-size:10px;font-weight:500}
+.site-add-advanced>summary b{font-size:14px;color:var(--text3);transition:transform .15s}
+.site-add-advanced[open]>summary{border-bottom:1px solid var(--border);background:var(--bg2)}
+.site-add-advanced[open]>summary b{transform:rotate(180deg)}
+.site-add-advanced-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px;padding:13px 12px 2px}
+.site-add-advanced-body>#site-entry-file-group,.site-add-advanced-body>#site-php-mode-group,.site-add-advanced-body>#site-autoindex-group{grid-column:1/-1}
+.site-autoindex-label{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text1)}
+.site-add-footer{justify-content:space-between}.site-add-footer button{min-width:94px}
+.laravel-install-notice{position:fixed;right:22px;bottom:22px;z-index:500;width:min(420px,calc(100vw - 32px));padding:14px;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;box-shadow:0 18px 55px rgba(0,0,0,.38);color:var(--text1)}
+.laravel-install-notice[hidden]{display:none}.laravel-install-head{display:flex;align-items:center;gap:10px}.laravel-install-indicator{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(99,102,241,.14);color:var(--accent);flex:0 0 auto}.laravel-install-indicator svg{width:15px;height:15px;animation:laravel-install-spin 1.2s linear infinite}.laravel-install-notice[data-state="success"] .laravel-install-indicator{background:rgba(34,197,94,.14);color:var(--green)}.laravel-install-notice[data-state="success"] .laravel-install-indicator svg,.laravel-install-notice[data-state="error"] .laravel-install-indicator svg{animation:none}.laravel-install-notice[data-state="error"] .laravel-install-indicator{background:rgba(244,63,94,.14);color:var(--red)}@keyframes laravel-install-spin{to{transform:rotate(360deg)}}
+.laravel-install-copy{flex:1;min-width:0}.laravel-install-title{font-size:12px;font-weight:700}.laravel-install-status{font-size:11px;color:var(--text3);margin-top:3px;overflow-wrap:anywhere}.laravel-install-minimize{width:26px;height:26px;border:0;background:transparent;color:var(--text3);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px}.laravel-install-minimize:hover{background:var(--bg1);color:var(--text1)}.laravel-install-track{height:3px;border-radius:4px;background:var(--bg1);overflow:hidden;margin-top:12px}.laravel-install-track>span{display:block;width:35%;height:100%;background:var(--accent);border-radius:4px;animation:laravel-install-progress 1.5s ease-in-out infinite}.laravel-install-notice[data-state="success"] .laravel-install-track>span{width:100%;animation:none;background:var(--green)}.laravel-install-notice[data-state="error"] .laravel-install-track>span{width:100%;animation:none;background:var(--red)}@keyframes laravel-install-progress{0%{transform:translateX(-110%)}100%{transform:translateX(310%)}}
+.laravel-install-actions{display:flex;align-items:center;gap:3px}.laravel-install-cancel{width:26px;height:26px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.1);color:var(--red);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;cursor:pointer}.laravel-install-cancel:hover{background:rgba(244,63,94,.2)}.laravel-install-cancel:disabled{opacity:.55;cursor:wait}.laravel-install-notice[data-state="success"] .laravel-install-cancel,.laravel-install-notice[data-state="error"] .laravel-install-cancel{display:none}
+.laravel-install-notice.is-minimized{width:min(290px,calc(100vw - 32px));padding:9px 11px;border-radius:10px}.laravel-install-notice.is-minimized .laravel-install-status{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.laravel-install-notice.is-minimized .laravel-install-track,.laravel-install-notice.is-minimized .laravel-install-log{display:none}.laravel-install-notice.is-minimized .laravel-install-indicator{width:25px;height:25px;border-radius:8px}
+.laravel-install-log{margin-top:10px;border-top:1px solid var(--border);padding-top:8px}.laravel-install-log summary{font-size:10px;color:var(--text3);cursor:pointer}.laravel-install-log pre{white-space:pre-wrap;word-break:break-word;max-height:130px;overflow:auto;font:10px/1.45 var(--font-mono);color:var(--text2);margin:7px 0 0}
+@media(max-width:480px){.site-add-modal>.modal-header{padding:14px 16px}.site-add-modal>.modal-body{padding:15px 16px}.site-add-advanced-body{grid-template-columns:minmax(0,1fr);gap:0}.site-add-advanced-body>#site-entry-file-group,.site-add-advanced-body>#site-php-mode-group,.site-add-advanced-body>#site-autoindex-group{grid-column:auto}}
 </style>
 </head>
 <body>
 <div class="app">
+
+<section class="laravel-install-notice" id="laravel-install-notice" role="status" aria-live="polite" data-state="running" hidden>
+  <div class="laravel-install-head">
+    <div class="laravel-install-indicator" id="laravel-install-indicator" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="M20 4v5h-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="laravel-install-copy"><div class="laravel-install-title" id="laravel-install-title">Installing Laravel</div><div class="laravel-install-status" id="laravel-install-status">Preparing the project…</div></div>
+    <div class="laravel-install-actions"><button class="laravel-install-cancel" id="laravel-install-cancel" onclick="cancelLaravelInstallation()" title="Stop installation" aria-label="Stop installation">×</button><button class="laravel-install-minimize" id="laravel-install-minimize" onclick="toggleLaravelInstallNoticeMinimized()" title="Minimize installation status" aria-label="Minimize installation status">−</button></div>
+  </div>
+  <div class="laravel-install-track" aria-hidden="true"><span></span></div>
+  <details class="laravel-install-log"><summary>Installation details</summary><pre id="laravel-install-log"></pre></details>
+</section>
 
 <!-- Titlebar -->
 <div class="titlebar">
@@ -964,7 +1009,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
       <span class="nav-icon">
         <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
       </span>
-      <span class="nav-label">Mail Catcher</span>
+      <span class="nav-label">Mailpit Inbox</span>
       <span id="mail-unread-badge" style="display:none;margin-left:auto;font-size:9px;background:var(--accent);color:#fff;padding:1px 6px;border-radius:10px;font-weight:700">0</span>
     </div>
     <div class="nav-item" data-panel="logs" onclick="switchPanel('logs')">
@@ -1167,6 +1212,11 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
           Database Manager
         </span>
         <div class="panel-actions" id="db-header-actions">
+          <span id="phpmyadmin-status" style="font-size:11px;color:var(--text3);margin-right:4px">Checking phpMyAdmin…</span>
+          <button class="btn btn-sm btn-accent" id="btn-phpmyadmin" onclick="openPhpMyAdmin()" title="Install if needed, then open the local phpMyAdmin database interface">
+            Open phpMyAdmin
+          </button>
+          <button class="btn btn-sm btn-danger" id="btn-stop-phpmyadmin" onclick="stopPhpMyAdmin()" title="Stop the phpMyAdmin local server" style="display:none">Stop</button>
           <button class="btn btn-sm btn-primary" onclick="openSessionModal()" title="Manage or switch database sessions">
             <svg class="tab-icon-svg" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
             + New Session
@@ -1324,7 +1374,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
                 </select>
                 <span class="sql-toolbar-sep"></span>
                 <button class="btn btn-primary btn-sm" onclick="runSQL()">Run</button>
-                <button class="btn btn-sm" onclick="document.getElementById('sql-editor').value=''">Clear</button>
+                <button class="btn btn-sm" onclick="clearSqlEditor()">Clear</button>
                 <button class="btn btn-sm" onclick="formatSQL()">Format</button>
                 <button class="btn btn-sm" onclick="showHistory()">History</button>
                 <button class="btn btn-sm" onclick="openSQLFileInEditor()" title="Open .sql file into Query Editor">Open .sql</button>
@@ -1334,13 +1384,17 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
                 </div>
               </div>
               <div class="sql-editor-wrap">
-                <textarea id="sql-editor" placeholder="-- Write your SQL here...
+                <div class="sql-editor-stage" id="sql-editor-stage">
+                <pre class="sql-highlight" id="sql-highlight" aria-hidden="true"></pre>
+                <textarea id="sql-editor" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="-- Write your SQL here...
 -- Ctrl+Enter to run
 
 SELECT * FROM users LIMIT 10;
 SHOW TABLES;
 DESCRIBE tablename;"></textarea>
-                <div class="sql-hint">Ctrl+Enter to run</div>
+                <div class="sql-completions" id="sql-completions" role="listbox" aria-label="SQL suggestions"></div>
+                </div>
+                <div class="sql-hint">Ctrl+Space suggestions · Ctrl+Enter run</div>
               </div>
             </div>
 
@@ -1584,7 +1638,7 @@ DESCRIBE tablename;"></textarea>
       <div class="panel-header">
         <span class="panel-title">
           <svg class="panel-title-icon" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-          Mail Catcher (Local SMTP)
+          Mailpit Inbox (Local SMTP)
         </span>
         <div class="panel-actions">
           <span class="status-pill"><div class="status-dot green" id="mail-status-dot"></div><span id="mail-status-text">Port 1025 Active</span></span>
@@ -1620,6 +1674,9 @@ DESCRIBE tablename;"></textarea>
             <option value="">All Sources</option>
             <option value="Application Error">Application Errors</option>
             <option value="PHP">PHP</option>
+            <option value="NGINX">NGINX Error</option>
+            <option value="NGINX Access">NGINX Access</option>
+            <option value="MariaDB">MariaDB</option>
             <option value="NGINX">NGINX</option>
             <option value="MySQL">MySQL</option>
             <option value="Sites">Sites</option>
@@ -1734,6 +1791,15 @@ DESCRIBE tablename;"></textarea>
               </div>
             </div>
           </div>
+          <div style="margin-top:14px;padding:13px;background:var(--bg1);border:1px solid var(--border);border-radius:8px">
+            <div style="font-weight:700;color:var(--text1);margin-bottom:4px">Local domains through V2Ray / system proxy</div>
+            <div class="form-hint" style="margin-bottom:9px">Add localhost and <code>*.test</code> to this Windows user’s proxy bypass list so Chrome and other browsers connect directly to local sites.</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-sm btn-primary" id="local-proxy-bypass-button" onclick="applyLocalProxyBypass()">Fix local proxy bypass</button>
+              <span id="local-proxy-bypass-status" class="settings-inline-result" aria-live="polite">Checking Windows proxy settings…</span>
+            </div>
+            <div class="form-hint" style="margin-top:7px">If V2Ray uses TUN or transparent routing, add a direct route for local domains in V2Ray too; Windows proxy bypass rules do not control that mode.</div>
+          </div>
           <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
             <label class="form-label" style="margin-bottom:6px">Developer Directory Indexing (Autoindex)</label>
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -1785,9 +1851,9 @@ DESCRIBE tablename;"></textarea>
           </div>
         </div>
 
-        <!-- Mail Catcher (SMTP) -->
+        <!-- Embedded Mailpit-compatible SMTP inbox -->
         <div class="settings-section">
-          <div class="settings-section-title">Mail Catcher (Local SMTP Server)</div>
+          <div class="settings-section-title">Mailpit Inbox (Local SMTP Server)</div>
           <div class="settings-row">
             <div class="form-group" style="flex:1">
               <label class="form-label">SMTP Port</label>
@@ -1799,7 +1865,7 @@ DESCRIBE tablename;"></textarea>
               <div style="margin-top:8px">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
                   <input type="checkbox" id="s-mail-autostart" checked>
-                  <span>Start Mail Catcher automatically when app opens</span>
+                  <span>Start the local email inbox automatically when the app opens</span>
                 </label>
               </div>
             </div>
@@ -1892,19 +1958,54 @@ DESCRIBE tablename;"></textarea>
                 <div id="nginx-dl-bar" style="height:100%;width:0%;background:var(--green);transition:width .2s"></div>
               </div>
             </div>
+            <div style="margin-top:12px;padding:12px;background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-size:12px;font-weight:700;color:var(--text1)">Trusted local HTTPS for .test domains</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Uses mkcert and adds its local CA to the current Windows user’s trusted certificates.</div></div>
+              <button class="btn btn-sm btn-primary" onclick="setupTrustedLocalSsl()">Create trusted certificate</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- phpMyAdmin local database UI -->
+        <div class="settings-section">
+          <div class="settings-section-title">phpMyAdmin</div>
+          <div class="settings-row" style="align-items:flex-end">
+            <div class="form-group" style="flex:1">
+              <label class="form-label" for="s-phpmyadmin-version">Stable Version</label>
+              <select class="input select" id="s-phpmyadmin-version">
+                <option value="5.2.3">5.2.3 — Latest stable (Recommended)</option>
+                <option value="5.2.2">5.2.2 — Previous stable</option>
+              </select>
+              <div class="form-hint">Installed on first use. phpMyAdmin 5.2.x needs PHP 7.2–8.3; choose a compatible PHP runtime in PHP Settings.</div>
+            </div>
+          </div>
+          <div class="settings-row" style="align-items:center;margin-top:8px">
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Database Connection</label>
+              <div class="form-hint" id="phpmyadmin-db-settings-summary">phpMyAdmin uses the MySQL host and port below. Enter a database account when you sign in.</div>
+            </div>
+            <button class="btn btn-sm" onclick="goToPhpMyAdminDatabaseSettings()">Edit Connection Settings</button>
+          </div>
+          <div style="margin-top:8px;padding:11px 12px;background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius-sm)">
+            <div style="font-size:11px;font-weight:700;color:var(--text1);margin-bottom:5px">Configuration File</div>
+            <div id="phpmyadmin-config-path" style="font:11px var(--font-mono);color:var(--text3);word-break:break-all">Loading path…</div>
+            <div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap">
+              <button class="btn btn-sm" onclick="openPhpMyAdminFolder()">Open phpMyAdmin Folder</button>
+              <button class="btn btn-sm" id="btn-open-phpmyadmin-config" onclick="openPhpMyAdminConfig()">Open config.inc.php</button>
+            </div>
+            <div class="form-hint" style="margin-top:7px">Host and port are synchronized from MySQL Default Connection. Other configuration options can be edited in config.inc.php.</div>
           </div>
         </div>
 
         <!-- MySQL Connection & Standalone Server Manager -->
-        <div class="settings-section">
+        <div class="settings-section" id="settings-mysql-section">
           <div class="settings-section-title">MySQL Default Connection &amp; Server Manager</div>
           <div class="settings-row">
-            <div class="form-group"><label class="form-label">Host</label><input class="input" id="s-mysql-host" placeholder="127.0.0.1"></div>
-            <div class="form-group"><label class="form-label">Port</label><input class="input" id="s-mysql-port" type="number" placeholder="3306"></div>
+            <div class="form-group"><label class="form-label">Host</label><input class="input" id="s-mysql-host" placeholder="127.0.0.1" oninput="updatePhpMyAdminDatabaseSummary()"></div>
+            <div class="form-group"><label class="form-label">Port</label><input class="input" id="s-mysql-port" type="number" placeholder="3306" oninput="updatePhpMyAdminDatabaseSummary()"></div>
           </div>
           <div class="settings-row">
-            <div class="form-group"><label class="form-label">Username</label><input class="input" id="s-mysql-user" placeholder="root"></div>
-            <div class="form-group"><label class="form-label">Password</label><input class="input" id="s-mysql-pass" type="password"></div>
+            <div class="form-group"><label class="form-label">Username</label><input class="input" id="s-mysql-user" placeholder="root" oninput="updatePhpMyAdminDatabaseSummary()"></div>
+            <div class="form-group"><label class="form-label">Password</label><input class="input" id="s-mysql-pass" type="password" oninput="updatePhpMyAdminDatabaseSummary()"></div>
           </div>
 
           <!-- Standalone MySQL / MariaDB Server Downloader & Manager -->
@@ -2361,6 +2462,18 @@ DESCRIBE tablename;"></textarea>
   </div>
 </div>
 
+<!-- Public tunnel provider picker -->
+<div class="modal-overlay" id="modal-tunnel-provider" onclick="if(event.target===this)finishTunnelProvider(false)" role="dialog" aria-modal="true" aria-labelledby="tunnel-provider-title">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header"><span id="tunnel-provider-title">Share local site</span><button class="btn-icon" onclick="finishTunnelProvider(false)" aria-label="Close">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label" for="tunnel-provider-select">Tunnel provider</label><select class="input select" id="tunnel-provider-select" onchange="updateTunnelProviderFields()"><option value="auto">Automatic (recommended)</option><option value="cloudflare">Cloudflare Tunnel</option><option value="ngrok">Ngrok</option></select><div class="form-hint">Automatic mode uses the configured SSH/Cloudflare fallback.</div></div>
+      <div class="form-group" id="tunnel-ngrok-token-wrap" style="display:none"><label class="form-label" for="tunnel-ngrok-token">Ngrok authtoken</label><input class="input" id="tunnel-ngrok-token" type="password" autocomplete="off" placeholder="Optional if NGROK_AUTHTOKEN is set"><div class="form-hint">The token is used for this launch and is not saved in app settings.</div></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="finishTunnelProvider(false)">Cancel</button><button class="btn btn-primary" onclick="finishTunnelProvider(true)">Start sharing</button></div>
+  </div>
+</div>
+
 <!-- Service Details Modal -->
 <div class="modal-overlay" id="modal-service-details">
   <div class="modal" style="width:520px">
@@ -2487,16 +2600,16 @@ DESCRIBE tablename;"></textarea>
 
 <!-- Add Site Modal -->
 <div class="modal-overlay" id="modal-add-site">
-  <div class="modal">
+  <div class="modal site-add-modal">
     <div class="modal-header">
-      <span>Add PHP Site</span>
-      <button class="btn-icon" onclick="closeModal('modal-add-site')">✕</button>
+      <div><span class="modal-title-main" id="site-add-title">Add Site</span><div class="modal-subtitle">Create a local site or connect an existing project.</div></div>
+      <button class="btn-icon" onclick="closeAddSiteModal()">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
         <label class="form-label">Site Name</label>
         <input class="input" id="site-name" placeholder="My Site" oninput="onSiteNameInput(this.value)">
-        <div style="font-size:11px;color:var(--accent);margin-top:4px" id="add-site-domain-preview">→ Local Domain: <code>my-site.dev</code></div>
+        <div class="site-domain-preview" id="add-site-domain-preview">Local address: <code>my-site.test</code></div>
       </div>
       <div class="form-group">
         <label class="form-label">Project Template / Framework</label>
@@ -2504,47 +2617,54 @@ DESCRIBE tablename;"></textarea>
           <option value="none">Existing Project / Empty Directory</option>
           <option value="vanilla">Vanilla PHP Modern Starter (Dashboard + DB Test)</option>
           <option value="wordpress">WordPress Setup (with DB preset)</option>
-          <option value="laravel">Laravel 11 Ready (public/ routing)</option>
+          <option value="laravel">Laravel Project (Composer install)</option>
           <option value="codeigniter">CodeIgniter 4 Ready</option>
         </select>
-        <div class="form-hint" id="site-framework-hint">Scaffolds clean starting code into the chosen directory.</div>
+        <div class="form-hint" id="site-framework-hint">Use an existing project, or choose a template to create one.</div>
       </div>
       <div class="form-group">
-        <label class="form-label">Document Root (Folder)</label>
+        <label class="form-label">Project Folder</label>
         <div style="display:flex;gap:6px">
           <input class="input" id="site-root" placeholder="C:\path\to\project" style="flex:1" oninput="onSiteRootInput(this.value)">
           <button class="btn btn-sm" onclick="browseSiteFolder()">Browse…</button>
         </div>
-        <div class="form-hint">The root folder of your PHP project</div>
+        <div class="form-hint" id="site-root-hint">Choose the folder containing your project files.</div>
       </div>
-      <div class="form-group" id="site-entry-file-group">
-        <label class="form-label">Entry Point / Router File <span style="color:var(--text3);font-size:10px;font-weight:400">(optional)</span></label>
-        <div style="display:flex;gap:6px">
-          <input class="input" id="site-entry-file" placeholder="Leave empty to use folder index.php automatically" style="flex:1" readonly>
-          <button class="btn btn-sm" onclick="browseEntryFile()">Select File…</button>
-          <button class="btn btn-sm" onclick="clearSiteEntryFile()" title="Use the folder's default index.php">Clear</button>
+      <div id="site-folder-validation" role="status" aria-live="polite" style="display:none;white-space:pre-wrap;word-break:break-word;max-height:150px;overflow:auto;font-size:11px;padding:9px 11px;border-radius:6px;margin:-4px 0 12px;border:1px solid var(--border);color:var(--text2)"></div>
+      <details class="site-add-advanced" id="site-add-advanced">
+        <summary><span>Runtime &amp; routing</span><small>Optional settings</small><b aria-hidden="true">⌄</b></summary>
+        <div class="site-add-advanced-body">
+          <div class="form-group" id="site-entry-file-group">
+            <label class="form-label" id="site-entry-file-label">Entry Point / Router File <span style="color:var(--text3);font-size:10px;font-weight:400">(optional)</span></label>
+            <div style="display:flex;gap:6px">
+              <input class="input" id="site-entry-file" placeholder="Use the folder's index.php automatically" style="flex:1" readonly>
+              <span id="site-entry-file-actions" style="display:flex;gap:6px"><button class="btn btn-sm" onclick="browseEntryFile()">Select File…</button>
+              <button class="btn btn-sm" onclick="clearSiteEntryFile()" title="Use the folder's default index.php">Clear</button></span>
+            </div>
+            <div class="form-hint">For PHP projects with a custom router file.</div>
+          </div>
+          <div class="form-group"><label class="form-label">Port</label><input class="input" id="site-port" value="0" type="number" min="0" max="65535"><div class="form-hint">0 assigns an available port automatically.</div></div>
+          <div class="form-group">
+            <label class="form-label" for="site-php">PHP Version</label>
+            <select class="input select" id="site-php">
+              <option value="">Default (From App Settings)</option>
+            </select>
+            <div class="form-hint">Choose a PHP version for this site.</div>
+          </div>
+          <div class="form-group" id="site-php-mode-group"><label class="form-label" for="site-php-mode">PHP Request Handler</label><select class="input select" id="site-php-mode"><option value="builtin">PHP built-in server (compatible default)</option><option value="fastcgi">NGINX FastCGI (requires php-cgi.exe)</option></select><div class="form-hint">FastCGI runs this site behind NGINX with its own PHP worker.</div></div>
+          <div class="form-group" id="site-autoindex-group">
+            <label class="site-autoindex-label">
+              <input type="checkbox" id="site-autoindex" checked>
+              <span>Developer Directory Indexing</span>
+            </label>
+            <div class="form-hint">Show a file browser when the folder has no <code>index.php</code>.</div>
+          </div>
         </div>
-        <div class="form-hint">Choose a PHP file from inside the selected site folder. Leave it clear to use the folder default.</div>
-      </div>
-      <div class="form-group"><label class="form-label">Port (0 = auto)</label><input class="input" id="site-port" value="0" type="number" min="0" max="65535"></div>
-      <div class="form-group">
-        <label class="form-label" for="site-php">PHP Version</label>
-        <select class="input select" id="site-php">
-          <option value="">Default (From App Settings)</option>
-        </select>
-        <div class="form-hint">Choose a specific PHP runtime version for this site.</div>
-      </div>
-      <div class="form-group">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text1)">
-          <input type="checkbox" id="site-autoindex" checked>
-          <span>Developer Directory Indexing (Autoindex)</span>
-        </label>
-        <div class="form-hint">Show file browser and click-to-run buttons when <code>index.php</code> is missing.</div>
-      </div>
+      </details>
     </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-add-site')">Cancel</button>
-      <button class="btn btn-primary" onclick="addSite()">Add Site</button>
+    <div class="modal-footer site-add-footer">
+      <button class="btn" id="site-add-cancel" onclick="closeAddSiteModal()">Cancel</button>
+      <button class="btn btn-primary" id="site-add-submit" onclick="addSite()">Add Site</button>
     </div>
   </div>
 </div>
@@ -2569,6 +2689,7 @@ DESCRIBE tablename;"></textarea>
         </select>
         <div class="form-hint">Select which PHP executable runs this site.</div>
       </div>
+      <div class="form-group"><label class="form-label" for="edit-site-php-mode">PHP Request Handler</label><select class="input select" id="edit-site-php-mode"><option value="builtin">PHP built-in server (compatible default)</option><option value="fastcgi">NGINX FastCGI (requires php-cgi.exe)</option></select><div class="form-hint">FastCGI runs this site’s selected PHP version behind NGINX on its own local worker port.</div></div>
       <div class="form-group">
         <label class="form-label">PHP file to run</label>
         <div style="display:flex;gap:6px">
@@ -2793,6 +2914,26 @@ DESCRIBE tablename;"></textarea>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-php-checker')">Close</button>
     </div>
+  </div>
+</div>
+
+<!-- Laravel Artisan Modal -->
+<div class="modal-overlay" id="modal-laravel-tools" onclick="if(event.target===this)closeModal('modal-laravel-tools')">
+  <div class="modal" style="width:720px;max-width:94vw">
+    <div class="modal-header"><span>Laravel Artisan <span id="artisan-site-name" style="color:var(--text3);font-size:11px"></span></span><button class="btn-icon" onclick="closeModal('modal-laravel-tools')">✕</button></div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Runs the selected Artisan task in this site's folder using its configured PHP binary.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn btn-sm btn-primary" onclick="runLaravelAction('migrate')">Run migrations</button>
+        <button class="btn btn-sm" onclick="runLaravelAction('seed')">Seed database</button>
+        <button class="btn btn-sm" onclick="runLaravelAction('cacheClear')">Clear cache</button>
+        <button class="btn btn-sm btn-success" onclick="runLaravelAction('queueWork')">Start queue worker</button>
+        <button class="btn btn-sm btn-danger" id="artisan-stop-worker" style="display:none" onclick="stopLaravelWorker()">Stop queue worker</button>
+      </div>
+      <pre class="artisan-output" id="artisan-output" aria-live="polite">Choose an Artisan task to run.</pre>
+      <div id="artisan-status" style="font-size:11px;color:var(--text3);margin-top:8px" aria-live="polite"></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('modal-laravel-tools')">Close</button></div>
   </div>
 </div>
 
@@ -3183,6 +3324,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   await checkNginxStatus();
   loadNginxInfo();
   loadMysqlInstallerInfo();
+  loadPhpMyAdminStatus();
+  api.on('phpmyadmin:progress', data => {
+    const status = document.getElementById('phpmyadmin-status');
+    if (status && data?.text) status.textContent = data.text;
+  });
   await loadSites();
   await loadDashboardServices();
   // Startup service health check
@@ -3194,6 +3340,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('sql-editor').addEventListener('keydown', e => {
     if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); runSQL(); }
   });
+  initSqlEditor();
   const mainTabsBar = document.querySelector('.db-main-tabs');
   if (mainTabsBar) {
     mainTabsBar.addEventListener('wheel', e => {
@@ -3222,9 +3369,12 @@ async function loadConfig() {
       } else {
         initSessions();
       }
+      updatePhpMyAdminDatabaseSummary(c.mysql || {});
       renderSessionList();
       populateSessionForm(getActiveSession());
       if(c.php) document.getElementById('s-php-binary').value = c.php.binary||'php';
+      if(document.getElementById('s-phpmyadmin-version')) document.getElementById('s-phpmyadmin-version').value = c.phpmyadmin?.version || '5.2.3';
+      await loadPhpMyAdminSettingsInfo();
       if(r.configDir) document.getElementById('config-dir-display').textContent = r.configDir;
 
       // Extended settings
@@ -3281,6 +3431,7 @@ async function saveSettings() {
       password: document.getElementById('s-mysql-pass')?.value || ''
     },
     php: { binary: document.getElementById('s-php-binary')?.value || 'php' },
+    phpmyadmin: { version: document.getElementById('s-phpmyadmin-version')?.value || '5.2.3' },
     app: {
       theme: themeInput,
       tld: tldInput,
@@ -3308,6 +3459,7 @@ async function saveSettings() {
     applyTheme(config.theme);
     toast('Settings saved successfully!','success');
     await checkPHPStatus();
+    await loadPhpMyAdminSettingsInfo();
     if(document.getElementById('panel-php').classList.contains('active')) await loadPHPInfo();
   }
   else toast('Save failed: '+r.error,'error');
@@ -3335,8 +3487,8 @@ function switchPanel(panel) {
   document.getElementById('panel-'+panel)?.classList.add('active');
   document.querySelector(`[data-panel="${panel}"]`)?.classList.add('active');
   if(panel==='php') { loadPHPInfo(); loadPhpCatalog(); }
-  if(panel==='settings') { loadPhpCatalog(); loadNginxInfo(); loadMysqlInstallerInfo(); }
-  if(panel==='databases') { loadMysqlInstallerInfo(); }
+  if(panel==='settings') { loadPhpCatalog(); loadNginxInfo(); loadMysqlInstallerInfo(); loadLocalProxyBypassStatus(); loadPhpMyAdminSettingsInfo(); }
+  if(panel==='databases') { loadMysqlInstallerInfo(); loadPhpMyAdminStatus(); }
   if(panel==='dashboard') loadDashboardServices();
   if(panel==='mail') loadMailInbox();
   if(panel==='logs') loadServerLogs();
@@ -3796,7 +3948,8 @@ function showServiceInfo(id) {
     : '<span class="badge badge-stopped">Stopped</span>';
 
   document.getElementById('modal-svc-type').textContent = (svc.type || 'system').toUpperCase();
-  document.getElementById('modal-svc-port').textContent = svc.port ? `Port :${svc.port} (${svc.portActive ? 'Listening' : 'Inactive'})` : 'No Port Assigned';
+  const portState = svc.portActive ? 'Listening (this service)' : (svc.portOccupied ? 'In use (owner not confirmed)' : 'Inactive');
+  document.getElementById('modal-svc-port').textContent = svc.port ? `Port :${svc.port} (${portState})` : 'No Port Assigned';
   document.getElementById('modal-svc-pids').textContent = (svc.pids && svc.pids.length > 0) ? svc.pids.join(', ') : 'None (Process inactive)';
 
   const pathWrap = document.getElementById('modal-svc-path-wrap');
@@ -4094,6 +4247,8 @@ function renderTree() {
 async function selectDatabase(dbName, forceExpand = true) {
   if (!dbName) return;
   DB.activeDB = dbName;
+  sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
+  refreshSqlSchema(dbName);
 
   // 1. Highlight clicked row in tree
   document.querySelectorAll('.tree-db-row').forEach(r => r.classList.remove('active-db'));
@@ -4392,6 +4547,7 @@ function updateSQLDBSelect(){
     o.value=db.name; o.textContent='['+db.name+']';
     sel.appendChild(o);
   });
+  refreshSqlSchema(sel.value || DB.activeDB);
 }
 
 function onSQLDBChange(db){
@@ -4401,6 +4557,8 @@ function onSQLDBChange(db){
   DB.activeDB = db;
   const erSel = document.getElementById('er-db-select');
   if(erSel) erSel.value = db;
+  sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
+  refreshSqlSchema(db);
   selectDatabase(db);
 }
 
@@ -4453,7 +4611,279 @@ function switchTableTab(tab){
 // ══════════════════════════════════════════════════════════
 // SQL EDITOR
 // ══════════════════════════════════════════════════════════
+const SQL_KEYWORDS = 'SELECT FROM WHERE AND OR NOT IN IS NULL LIKE BETWEEN EXISTS AS DISTINCT ALL ANY CASE WHEN THEN ELSE END IF JOIN INNER LEFT RIGHT FULL OUTER CROSS ON USING GROUP BY HAVING ORDER ASC DESC LIMIT OFFSET UNION UNION ALL INSERT INTO VALUES UPDATE SET DELETE CREATE ALTER DROP TABLE DATABASE INDEX VIEW PRIMARY KEY FOREIGN REFERENCES CONSTRAINT UNIQUE DEFAULT AUTO_INCREMENT ENGINE CHARSET COLLATE SHOW DATABASES TABLES COLUMNS DESCRIBE EXPLAIN USE TRUNCATE BEGIN COMMIT ROLLBACK START TRANSACTION GRANT REVOKE WITH RECURSIVE PROCEDURE FUNCTION TRIGGER IFNULL COALESCE'.split(' ');
+const SQL_FUNCTIONS = 'COUNT SUM AVG MIN MAX NOW CURDATE CURTIME CURRENT_DATE CURRENT_TIMESTAMP DATE DATE_ADD DATE_SUB DATE_FORMAT YEAR MONTH DAY CONCAT CONCAT_WS SUBSTRING LENGTH CHAR_LENGTH LOWER UPPER TRIM REPLACE ROUND FLOOR CEIL ABS IFNULL COALESCE NULLIF CAST CONVERT JSON_EXTRACT JSON_OBJECT JSON_ARRAY GROUP_CONCAT LAST_INSERT_ID UUID'.split(' ');
+let sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
+let sqlCompletionItems = [];
+let sqlCompletionIndex = 0;
+let sqlCompletionRequest = 0;
+
+function initSqlEditor() {
+  const editor = document.getElementById('sql-editor');
+  const stage = document.getElementById('sql-editor-stage');
+  if (!editor || !stage || editor.dataset.enhanced === 'true') return;
+  editor.dataset.enhanced = 'true';
+  editor.addEventListener('input', () => { updateSqlHighlight(); updateSqlCompletions(false); });
+  editor.addEventListener('scroll', syncSqlHighlightScroll);
+  editor.addEventListener('click', () => updateSqlCompletions(false));
+  editor.addEventListener('keyup', event => {
+    if (['ArrowLeft','ArrowRight','Home','End','PageUp','PageDown'].includes(event.key)) updateSqlCompletions(false);
+  });
+  editor.addEventListener('keydown', handleSqlEditorKeydown);
+  stage.addEventListener('mousedown', event => {
+    const item = event.target.closest('[data-sql-completion]');
+    if (!item) return;
+    event.preventDefault();
+    acceptSqlCompletion(Number(item.dataset.sqlCompletion));
+  });
+  document.addEventListener('mousedown', event => {
+    if (!stage.contains(event.target)) hideSqlCompletions();
+  });
+  updateSqlHighlight();
+}
+
+function escapeSqlHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
+}
+
+function renderSqlHighlight(sql) {
+  const tokenPattern = /--[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|\\.|[^'])*'|"(?:""|\\.|[^"])*"|`(?:``|[^`])*`|\b\d+(?:\.\d+)?\b|@[\w$]+|\b[a-z_$][\w$]*\b|<>|!=|<=|>=|:=|[=<>+\-*\/%]/gi;
+  const keywords = new Set(SQL_KEYWORDS);
+  const functions = new Set(SQL_FUNCTIONS);
+  let html = '';
+  let cursor = 0;
+  for (const match of sql.matchAll(tokenPattern)) {
+    html += escapeSqlHtml(sql.slice(cursor, match.index));
+    const token = match[0];
+    let kind = '';
+    if (/^(--|\/\*)/.test(token)) kind = 'comment';
+    else if (/^['"]/.test(token)) kind = 'string';
+    else if (/^`/.test(token) || /^@/.test(token)) kind = 'identifier';
+    else if (/^\d/.test(token)) kind = 'number';
+    else if (/^(<>|!=|<=|>=|:=|[=<>+\-*\/%])$/.test(token)) kind = 'operator';
+    else if (keywords.has(token.toUpperCase())) kind = 'keyword';
+    else if (functions.has(token.toUpperCase())) kind = 'function';
+    else if (/^[a-z_$][\w$]*$/i.test(token)) {
+      const next = sql.slice(match.index + token.length).match(/^\s*\(/);
+      kind = next ? 'function' : 'identifier';
+    }
+    html += kind ? `<span class="sql-token-${kind}">${escapeSqlHtml(token)}</span>` : escapeSqlHtml(token);
+    cursor = match.index + token.length;
+  }
+  html += escapeSqlHtml(sql.slice(cursor));
+  return html + (sql.endsWith('\n') ? '&#8203;' : '');
+}
+
+function updateSqlHighlight() {
+  const editor = document.getElementById('sql-editor');
+  const highlight = document.getElementById('sql-highlight');
+  if (!editor || !highlight) return;
+  highlight.innerHTML = renderSqlHighlight(editor.value);
+  syncSqlHighlightScroll();
+}
+
+function syncSqlHighlightScroll() {
+  const editor = document.getElementById('sql-editor');
+  const highlight = document.getElementById('sql-highlight');
+  if (!editor || !highlight) return;
+  highlight.style.transform = `translate(${-editor.scrollLeft}px, ${-editor.scrollTop}px)`;
+}
+
+function clearSqlEditor() {
+  const editor = document.getElementById('sql-editor');
+  editor.value = '';
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+  editor.focus();
+}
+
+function sqlEditorDatabase() {
+  return document.getElementById('sql-db-select')?.value || DB.activeDB || '';
+}
+
+async function refreshSqlSchema(database = sqlEditorDatabase()) {
+  if (!database || !DB.connected) { sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false }; return; }
+  if (sqlSchemaCache.database === database && sqlSchemaCache.loaded) return;
+  const request = ++sqlCompletionRequest;
+  try {
+    const result = await api.mysql.tables(database);
+    if (request !== sqlCompletionRequest) return;
+    if (!result?.success) {
+      sqlSchemaCache = { database, tables: [], columns: new Map(), loaded: true };
+      return;
+    }
+    sqlSchemaCache = {
+      database,
+      tables: (result.tables || []).map(item => typeof item === 'string' ? item : item.name).filter(Boolean),
+      columns: new Map(),
+      loaded: true
+    };
+    const active = DB.activeDB === database ? DB.activeTable : '';
+    if (active) loadSqlTableColumns(database, active);
+  } catch (_) {}
+}
+
+async function loadSqlTableColumns(database, table) {
+  if (!database || !table || sqlSchemaCache.database !== database) return [];
+  if (sqlSchemaCache.columns.has(table)) return sqlSchemaCache.columns.get(table);
+  const pending = api.mysql.tableStructure(database, table).then(result => {
+    const columns = result?.success ? (result.columns || []).map(column => column.field).filter(Boolean) : [];
+    sqlSchemaCache.columns.set(table, columns);
+    return columns;
+  }).catch(() => []);
+  sqlSchemaCache.columns.set(table, pending);
+  return pending;
+}
+
+function resolveSqlTableName(name, sql) {
+  const clean = String(name || '').replace(/^[`"]|[`"]$/g, '');
+  if (sqlSchemaCache.tables.includes(clean)) return clean;
+  const aliases = /\b(?:FROM|JOIN|UPDATE|INTO)\s+[`"]?([\w$]+)[`"]?(?:\s+(?:AS\s+)?[`"]?([\w$]+)[`"]?)?/gi;
+  const reserved = new Set([...SQL_KEYWORDS, 'WHERE','ON','SET','VALUES','GROUP','ORDER','LIMIT','LEFT','RIGHT','INNER','OUTER','CROSS','JOIN']);
+  for (const match of sql.matchAll(aliases)) {
+    const table = match[1];
+    const alias = match[2];
+    if (alias && alias.toLowerCase() === clean.toLowerCase() && !reserved.has(alias.toUpperCase())) return table;
+  }
+  return clean;
+}
+
+function getSqlCompletionContext(editor) {
+  const cursor = editor.selectionStart;
+  const before = editor.value.slice(0, cursor);
+  const token = before.match(/[\w$]*$/)?.[0] || '';
+  const tokenStart = cursor - token.length;
+  const qualified = before.slice(0, tokenStart).match(/(?:`([^`]+)`|"([^"]+)"|([\w$]+))\.$/);
+  const tableClause = /\b(?:FROM|JOIN|UPDATE|INTO)\s+(?:`[^`]*`|"[^"]*"|[\w$]*)$/i.test(before);
+  return { before, token, tokenStart, qualifiedName: qualified?.[1] || qualified?.[2] || qualified?.[3] || '', tableClause };
+}
+
+function positionSqlCompletions(editor, popup) {
+  const stage = document.getElementById('sql-editor-stage');
+  if (!stage) return;
+  const computed = getComputedStyle(editor);
+  const mirror = document.createElement('div');
+  for (const property of ['fontFamily','fontSize','fontWeight','fontStyle','lineHeight','letterSpacing','padding','border','boxSizing','whiteSpace','overflowWrap','wordBreak','tabSize']) mirror.style[property] = computed[property];
+  mirror.style.position = 'absolute';
+  mirror.style.visibility = 'hidden';
+  mirror.style.width = `${editor.clientWidth}px`;
+  mirror.style.height = 'auto';
+  mirror.style.overflow = 'hidden';
+  mirror.textContent = editor.value.slice(0, editor.selectionStart);
+  const marker = document.createElement('span');
+  marker.textContent = '\u200b';
+  mirror.appendChild(marker);
+  stage.appendChild(mirror);
+  const lineHeight = parseFloat(computed.lineHeight) || 21;
+  const stageRect = stage.getBoundingClientRect();
+  const markerRect = marker.getBoundingClientRect();
+  let left = markerRect.left - stageRect.left - editor.scrollLeft;
+  let top = markerRect.top - stageRect.top - editor.scrollTop + lineHeight;
+  mirror.remove();
+  const popupWidth = Math.min(340, stage.clientWidth - 16);
+  left = Math.max(8, Math.min(left, stage.clientWidth - popupWidth - 8));
+  if (top + 260 > stage.clientHeight) top = Math.max(8, top - 260 - lineHeight);
+  popup.style.left = `${left}px`;
+  popup.style.top = `${Math.max(8, top)}px`;
+}
+
+async function updateSqlCompletions(force = false) {
+  const editor = document.getElementById('sql-editor');
+  const popup = document.getElementById('sql-completions');
+  if (!editor || !popup || document.activeElement !== editor) return hideSqlCompletions();
+  const database = sqlEditorDatabase();
+  const valueSnapshot = editor.value;
+  const cursorSnapshot = editor.selectionStart;
+  if (database && (sqlSchemaCache.database !== database || !sqlSchemaCache.loaded)) await refreshSqlSchema(database);
+  if (editor.value !== valueSnapshot || editor.selectionStart !== cursorSnapshot) return updateSqlCompletions(force);
+  const context = getSqlCompletionContext(editor);
+  const prefix = context.token.toLowerCase();
+  const afterDot = Boolean(context.qualifiedName);
+  if (!force && !prefix && !afterDot && !context.tableClause) return hideSqlCompletions();
+
+  let suggestions = [];
+  if (afterDot && database) {
+    const table = resolveSqlTableName(context.qualifiedName, context.before);
+    const columns = await loadSqlTableColumns(database, table);
+    if (editor.value !== valueSnapshot || editor.selectionStart !== cursorSnapshot || database !== sqlEditorDatabase()) return updateSqlCompletions(force);
+    suggestions = columns.map(label => ({ label, kind: 'Column', icon: '◫' }));
+  } else if (context.tableClause) {
+    suggestions = sqlSchemaCache.tables.map(label => ({ label, kind: 'Table', icon: '▤' }));
+  } else {
+    suggestions = [
+      ...SQL_KEYWORDS.map(label => ({ label, kind: 'Keyword', icon: 'K' })),
+      ...SQL_FUNCTIONS.map(label => ({ label: `${label}()`, match: label, kind: 'Function', icon: 'ƒ' })),
+      ...sqlSchemaCache.tables.map(label => ({ label, kind: 'Table', icon: '▤' })),
+      ...(DB.allDatabases || []).map(item => ({ label: item.name, kind: 'Database', icon: '◈' }))
+    ];
+    if (database && DB.activeDB === database && DB.activeTable) {
+      const columns = await loadSqlTableColumns(database, DB.activeTable);
+      if (editor.value !== valueSnapshot || editor.selectionStart !== cursorSnapshot || database !== sqlEditorDatabase()) return updateSqlCompletions(force);
+      suggestions.push(...columns.map(label => ({ label, kind: 'Column', icon: '◫' })));
+    }
+  }
+  const needle = prefix;
+  const seen = new Set();
+  sqlCompletionItems = suggestions.filter(item => {
+    const matchText = (item.match || item.label).toLowerCase();
+    const key = `${item.kind}:${item.label.toLowerCase()}`;
+    if ((!force && needle && !matchText.startsWith(needle)) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 80);
+  if (!sqlCompletionItems.length) return hideSqlCompletions();
+  if (document.activeElement !== editor) return hideSqlCompletions();
+  sqlCompletionIndex = 0;
+  popup.innerHTML = sqlCompletionItems.map((item, index) => `<button type="button" class="sql-completion-item${index === 0 ? ' active' : ''}" role="option" aria-selected="${index === 0}" data-sql-completion="${index}"><span class="sql-completion-icon">${escapeSqlHtml(item.icon)}</span><span>${escapeSqlHtml(item.label)}</span><span class="sql-completion-kind">${escapeSqlHtml(item.kind)}</span></button>`).join('');
+  popup.classList.add('open');
+  positionSqlCompletions(editor, popup);
+}
+
+function hideSqlCompletions() {
+  const popup = document.getElementById('sql-completions');
+  if (popup) popup.classList.remove('open');
+  sqlCompletionItems = [];
+}
+
+function setSqlCompletionIndex(index) {
+  if (!sqlCompletionItems.length) return;
+  sqlCompletionIndex = (index + sqlCompletionItems.length) % sqlCompletionItems.length;
+  document.querySelectorAll('#sql-completions .sql-completion-item').forEach((item, itemIndex) => {
+    item.classList.toggle('active', itemIndex === sqlCompletionIndex);
+    item.setAttribute('aria-selected', itemIndex === sqlCompletionIndex ? 'true' : 'false');
+  });
+  document.querySelector(`#sql-completions [data-sql-completion="${sqlCompletionIndex}"]`)?.scrollIntoView({ block: 'nearest' });
+}
+
+function acceptSqlCompletion(index = sqlCompletionIndex) {
+  const editor = document.getElementById('sql-editor');
+  const item = sqlCompletionItems[index];
+  if (!editor || !item) return hideSqlCompletions();
+  const context = getSqlCompletionContext(editor);
+  const insertion = item.kind === 'Function' ? `${item.match}()` : item.label;
+  editor.setRangeText(insertion, context.tokenStart, editor.selectionEnd, 'end');
+  hideSqlCompletions();
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+  if (item.kind === 'Function') editor.setSelectionRange(editor.selectionStart - 1, editor.selectionStart - 1);
+  editor.focus();
+}
+
+function handleSqlEditorKeydown(event) {
+  const popup = document.getElementById('sql-completions');
+  const open = popup?.classList.contains('open');
+  if ((event.ctrlKey || event.metaKey) && event.code === 'Space') {
+    event.preventDefault();
+    updateSqlCompletions(true);
+    return;
+  }
+  if (!open) return;
+  if (event.key === 'ArrowDown') { event.preventDefault(); setSqlCompletionIndex(sqlCompletionIndex + 1); }
+  else if (event.key === 'ArrowUp') { event.preventDefault(); setSqlCompletionIndex(sqlCompletionIndex - 1); }
+  else if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); acceptSqlCompletion(); }
+  else if (event.key === 'Escape') { event.preventDefault(); hideSqlCompletions(); }
+}
+
 async function runSQL(){
+  hideSqlCompletions();
   const sql = document.getElementById('sql-editor').value.trim();
   if(!sql){ toast('Enter a SQL query first','info'); return; }
   const db = document.getElementById('sql-db-select').value;
@@ -4498,6 +4928,7 @@ function formatSQL(){
   keywords.forEach(kw=>{ sql = sql.replace(new RegExp('\\b'+kw+'\\b','gi'), '\n'+kw+'\n'); });
   sql = sql.split('\n').map(l=>l.trim()).filter(Boolean).join('\n');
   el.value = sql;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 function showHistory(){
@@ -4512,7 +4943,9 @@ function showHistory(){
 }
 
 function useHistory(i){
-  document.getElementById('sql-editor').value = DB.queryHistory[i];
+  const editor = document.getElementById('sql-editor');
+  editor.value = DB.queryHistory[i];
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
   closeHistory();
 }
 
@@ -4525,6 +4958,7 @@ function closeHistory(){
 // ══════════════════════════════════════════════════════════
 async function openTable(db, table){
   DB.activeDB = db; DB.activeTable = table; DB.page=1; DB.tableTab='data';
+  refreshSqlSchema(db);
   DB.rowSearch='';
   const rowFilter=document.getElementById('table-row-filter');
   if(rowFilter) rowFilter.value='';
@@ -6247,6 +6681,7 @@ async function openSQLFileInEditor(){
     const editor = document.getElementById('sql-editor');
     if(editor){
       editor.value = res.content;
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
       toast(`Loaded ${res.fileName} (${(res.content.length/1024).toFixed(1)} KB)`, 'success');
       if(DB.mainView !== 'sql') switchDBMainView('sql');
     }
@@ -6585,7 +7020,7 @@ async function loadSites(){
         <div style="display:flex;align-items:center;gap:6px">
           <span class="site-git-badge" id="git-badge-${s.id}"></span>
           ${phpLabel ? `<span class="site-php-badge">${escHtml(phpLabel)}</span>` : ''}
-          <span class="site-status ${s.status}">${s.status}</span>
+          <span class="site-status ${s.status}">${s.isLaravel && !s.laravelReady ? 'install required' : s.status}</span>
         </div>
       </div>
       <div class="site-url">${isRunning
@@ -6604,14 +7039,18 @@ async function loadSites(){
         ${isRunning
           ?`<button class="btn btn-sm btn-danger" onclick="stopSite('${s.id}')"><svg class="tab-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>Stop</button>
             <button class="btn btn-sm btn-success" onclick="openRealBrowser('${testUrl}')" title="Open ${testUrl} (Port 80)"><svg class="tab-icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>Open</button>
+            <button class="btn btn-sm" onclick="openRealBrowser('${localhostUrl}')" title="Open directly through localhost and bypass domain proxy routing">Direct :${s.port}</button>
             ${httpsUrl ? `<button class="btn btn-sm btn-ssl" onclick="openRealBrowser('${httpsUrl}')" title="Open with HTTPS"><svg class="tab-icon-svg" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>HTTPS</button>` : ''}
             <button class="btn btn-sm btn-primary" onclick="browserGo('${testUrl}')" title="View website in internal Web View"><svg class="tab-icon-svg" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>Web View</button>`
-          :`<button class="btn btn-sm btn-primary" onclick="startSite('${s.id}')"><svg class="tab-icon-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Start</button>`}
+          :s.isLaravel && !s.laravelReady
+            ?`<button class="btn btn-sm" disabled title="Install Laravel Composer dependencies before starting this site">Install Required</button>`
+            :`<button class="btn btn-sm btn-primary" onclick="startSite('${s.id}')"><svg class="tab-icon-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>Start</button>`}
         ${(isRunning || _activeTunnels[s.id]) ? `<button class="btn btn-sm btn-share ${_activeTunnels[s.id] ? 'active' : ''}" id="btn-share-${s.id}" onclick="toggleShareSite('${s.id}')" title="${_activeTunnels[s.id] ? 'Stop Public Tunnel for this site' : 'Share to Public Web (Tunnel)'}">${_activeTunnels[s.id] ? '<svg class="tab-icon-svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>Stop Sharing' : '<svg class="tab-icon-svg" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>Share'}</button>` : ''}
         <button class="btn btn-sm btn-vscode" onclick="openCodeById('${s.id}')" title="Open in VS Code"><svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M16 3l5 3v12l-5 3-9-9 9-9z"></path><path d="M3 8l6 4-6 4"></path></svg>VS Code</button>
         <button class="btn btn-sm btn-terminal" onclick="openTerminalById('${s.id}')" title="Open in Terminal"><svg class="tab-icon-svg" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>Terminal</button>
         <button class="btn btn-sm" onclick="openFolderById('${s.id}')"><svg class="tab-icon-svg" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>Folder</button>
         <button class="btn btn-sm" onclick="editSiteEntryFile('${s.id}')"><svg class="tab-icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>Settings</button>
+        ${s.isLaravel ? `<button class="btn btn-sm" onclick="openLaravelTools('${s.id}')" title="Run common Artisan tasks"><svg class="tab-icon-svg" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>Artisan</button>` : ''}
         <button class="btn btn-sm" onclick="checkSiteFolder('${s.id}')"><svg class="tab-icon-svg" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>Check PHP</button>
         <button class="btn btn-sm btn-danger" onclick="removeSite('${s.id}')" title="Remove Site"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
       </div>
@@ -6650,6 +7089,61 @@ async function loadSites(){
   });
 }
 
+let _artisanSiteId = null;
+let _artisanWorkerJobId = null;
+
+function openLaravelTools(siteId){
+  const site = _sitesMap[siteId];
+  if(!site?.isLaravel) return;
+  _artisanSiteId = siteId;
+  _artisanWorkerJobId = null;
+  document.getElementById('artisan-site-name').textContent = `— ${site.name}`;
+  document.getElementById('artisan-output').textContent = 'Choose an Artisan task to run.';
+  document.getElementById('artisan-status').textContent = '';
+  document.getElementById('artisan-stop-worker').style.display = 'none';
+  openModal('modal-laravel-tools');
+}
+
+async function runLaravelAction(action){
+  if(!_artisanSiteId) return;
+  const status = document.getElementById('artisan-status');
+  status.textContent = 'Starting Artisan command…';
+  try {
+    const result = await api.laravel.run(_artisanSiteId, action);
+    if(!result?.success){ status.textContent = result?.error || 'Could not start command.'; return; }
+    if(action === 'queueWork'){
+      _artisanWorkerJobId = result.jobId;
+      document.getElementById('artisan-stop-worker').style.display = '';
+      status.textContent = 'Queue worker running. Output streams below.';
+    } else {
+      status.textContent = 'Command started. Output streams below.';
+    }
+  } catch(error) { status.textContent = error.message || 'Could not start command.'; }
+}
+
+async function stopLaravelWorker(){
+  if(!_artisanWorkerJobId) return;
+  const result = await api.laravel.stop(_artisanWorkerJobId);
+  if(result?.success){
+    document.getElementById('artisan-status').textContent = 'Stopping queue worker…';
+    document.getElementById('artisan-stop-worker').style.display = 'none';
+    _artisanWorkerJobId = null;
+  }
+}
+
+api.on('laravel:output', data => {
+  if(!data || data.siteId !== _artisanSiteId) return;
+  const output = document.getElementById('artisan-output');
+  if(output){ output.textContent += data.output || ''; output.scrollTop = output.scrollHeight; }
+  if(data.done){
+    document.getElementById('artisan-status').textContent = data.code === 0 ? 'Command completed.' : `Command exited with code ${data.code}.`;
+    if(data.action === 'queueWork'){
+      _artisanWorkerJobId = null;
+      document.getElementById('artisan-stop-worker').style.display = 'none';
+    }
+  }
+});
+
 function openCodeById(siteId){
   const site = _sitesMap[siteId];
   if(site){
@@ -6668,6 +7162,37 @@ function openTerminalById(siteId){
 
 // ─── Public Web Tunnel (Share to Web) ─────────────────────────────────────────
 let _activeTunnels = {};
+let _tunnelProviderResolve = null;
+
+function updateTunnelProviderFields() {
+  const provider = document.getElementById('tunnel-provider-select')?.value;
+  const tokenWrap = document.getElementById('tunnel-ngrok-token-wrap');
+  if (tokenWrap) tokenWrap.style.display = provider === 'ngrok' ? 'block' : 'none';
+}
+
+function chooseTunnelProvider() {
+  return new Promise(resolve => {
+    _tunnelProviderResolve = resolve;
+    const provider = document.getElementById('tunnel-provider-select');
+    const token = document.getElementById('tunnel-ngrok-token');
+    if (provider) provider.value = 'auto';
+    if (token) token.value = '';
+    updateTunnelProviderFields();
+    document.getElementById('modal-tunnel-provider')?.classList.add('open');
+  });
+}
+
+function finishTunnelProvider(confirmed) {
+  const modal = document.getElementById('modal-tunnel-provider');
+  modal?.classList.remove('open');
+  if (!_tunnelProviderResolve) return;
+  const resolve = _tunnelProviderResolve;
+  _tunnelProviderResolve = null;
+  resolve(confirmed ? {
+    provider: document.getElementById('tunnel-provider-select')?.value || 'auto',
+    authToken: document.getElementById('tunnel-ngrok-token')?.value?.trim() || ''
+  } : null);
+}
 
 function renderActiveTunnelUI(siteId, url, provider = 'Live Tunnel') {
   const btn = document.getElementById(`btn-share-${siteId}`);
@@ -6718,6 +7243,9 @@ async function toggleShareSite(siteId) {
     return;
   }
 
+  const tunnelConfig = await chooseTunnelProvider();
+  if (!tunnelConfig) return;
+
   toast(`Creating Public Web Tunnel for ${site.name}...`, 'info');
   if (btn) {
     btn.disabled = true;
@@ -6725,7 +7253,7 @@ async function toggleShareSite(siteId) {
   }
 
   try {
-    const res = await api.tunnel.start(siteId, site.port, { provider: 'auto' });
+    const res = await api.tunnel.start(siteId, site.port, tunnelConfig);
     if (res.success && res.url) {
       _activeTunnels[siteId] = { url: res.url, provider: res.provider || 'Public Tunnel' };
       if (btn) btn.disabled = false;
@@ -6808,19 +7336,51 @@ function applyAutoSiteNameFromFolder(folderPath){
 
 function onSiteRootInput(val){
   applyAutoSiteNameFromFolder(val);
+  if(_autoSelectedFramework){
+    const frameworkSelect = document.getElementById('site-framework');
+    if(frameworkSelect?.value === _autoSelectedFramework){
+      frameworkSelect.value = 'none';
+      onFrameworkSelectChange('none', true);
+    }
+    _autoSelectedFramework = '';
+  }
+  _detectedExistingProject = null;
+  const entryInput = document.getElementById('site-entry-file');
+  if(entryInput && _autoDetectedEntryFile && entryInput.value === _autoDetectedEntryFile){
+    entryInput.value = '';
+    _autoDetectedEntryFile = '';
+  }
+  clearTimeout(_projectDetectTimer);
+  _projectDetectTimer = setTimeout(() => detectProjectFrameworkForFolder(val), 350);
 }
 
 async function openAddSiteModal(){
+  if(_siteInstallBusy){
+    toast('Laravel installation is continuing in the background. You can use the rest of the app while it finishes.', 'info');
+    return;
+  }
+  _siteInstallBusy = false;
   _siteNameManuallyEdited = false;
+  _autoDetectedEntryFile = '';
+  _autoSelectedFramework = '';
+  _detectedExistingProject = null;
+  document.getElementById('site-framework').value = 'none';
+  onFrameworkSelectChange('none');
+  document.getElementById('site-add-advanced').open = false;
   const nameInput = document.getElementById('site-name');
   if (nameInput) nameInput.value = '';
   const rootInput = document.getElementById('site-root');
   if (rootInput) rootInput.value = '';
+  const entryInput = document.getElementById('site-entry-file');
+  if (entryInput) entryInput.value = '';
+  setLaravelFolderStatus('', '');
+  setSiteAddBusy(false);
   updateAddSiteDomainPreview('');
 
   await populatePhpVersionSelects(true);
   const phpSelect = document.getElementById('site-php');
   if (phpSelect) phpSelect.value = '';
+  if (document.getElementById('site-php-mode')) document.getElementById('site-php-mode').value = 'builtin';
   const autoindexDefault = document.getElementById('s-app-autoindex') ? document.getElementById('s-app-autoindex').checked : true;
   if (document.getElementById('site-autoindex')) document.getElementById('site-autoindex').checked = autoindexDefault;
 
@@ -6843,6 +7403,16 @@ async function browseSiteFolder(){
   if(p){
     document.getElementById('site-root').value = p;
     applyAutoSiteNameFromFolder(p);
+    if(_autoSelectedFramework){
+      const frameworkSelect = document.getElementById('site-framework');
+      if(frameworkSelect?.value === _autoSelectedFramework){ frameworkSelect.value = 'none'; onFrameworkSelectChange('none', true); }
+      _autoSelectedFramework = '';
+    }
+    _detectedExistingProject = null;
+    const entryInput = document.getElementById('site-entry-file');
+    if(entryInput && _autoDetectedEntryFile && entryInput.value === _autoDetectedEntryFile) entryInput.value = '';
+    _autoDetectedEntryFile = '';
+    await detectProjectFrameworkForFolder(p);
   }
 }
 
@@ -6858,6 +7428,7 @@ async function editSiteEntryFile(siteId){
   document.getElementById('edit-site-entry-file').value=site.entryFile||'';
   document.getElementById('edit-site-port').value=site.port||0;
   if(document.getElementById('edit-site-php')) document.getElementById('edit-site-php').value=site.php||'';
+  if(document.getElementById('edit-site-php-mode')) document.getElementById('edit-site-php-mode').value=site.phpMode||'builtin';
   if(document.getElementById('edit-site-autoindex')) document.getElementById('edit-site-autoindex').checked = site.autoindex !== false;
   openModal('modal-edit-site-entry');
 }
@@ -6878,6 +7449,7 @@ async function saveSiteEntryFile(){
   const entryFile=document.getElementById('edit-site-entry-file').value.trim()||null;
   const port=Number(document.getElementById('edit-site-port').value);
   const php=document.getElementById('edit-site-php')?.value || null;
+  const phpMode=document.getElementById('edit-site-php-mode')?.value || 'builtin';
   const autoindex=document.getElementById('edit-site-autoindex') ? document.getElementById('edit-site-autoindex').checked : true;
   if(!Number.isInteger(port)||port<0||port>65535){toast('Enter a port from 0 to 65535','error');return;}
   if(port > 0){
@@ -6889,7 +7461,7 @@ async function saveSiteEntryFile(){
   }
   const wasRunning=site.status==='running';
   if(wasRunning) await api.sites.stop(site.id);
-  const result=await api.sites.update(site.id,{entryFile,port:port||null,php,autoindex});
+  const result=await api.sites.update(site.id,{entryFile,port:port||null,php,phpMode,autoindex});
   if(!result?.success){
     if(wasRunning) await api.sites.start(site.id);
     toast('Could not save site settings: '+(result?.error||'Unknown error'),'error');
@@ -6911,36 +7483,328 @@ function updateAddSiteDomainPreview(name){
   if(preview) preview.innerHTML = `→ Local Domain: <code>${clean}.${tld}</code>`;
 }
 
-function onFrameworkSelectChange(framework){
+function onFrameworkSelectChange(framework, automatic = false){
+  if(!automatic){
+    _autoSelectedFramework = '';
+    _detectedExistingProject = null;
+  }
   const hint = document.getElementById('site-framework-hint');
   const entryInput = document.getElementById('site-entry-file');
+  const entryGroup = document.getElementById('site-entry-file-group');
+  const autoindexGroup = document.getElementById('site-autoindex-group');
+  const title = document.getElementById('site-add-title');
+  const rootHint = document.getElementById('site-root-hint');
+  const isLaravel = framework === 'laravel';
+  const root = document.getElementById('site-root')?.value.trim() || '';
+  const detectedExisting = _detectedExistingProject && _detectedExistingProject.framework === framework && normalizeProjectFolderPath(_detectedExistingProject.root) === normalizeProjectFolderPath(root);
+  if(entryGroup) entryGroup.hidden = !isLaravel;
+  if(autoindexGroup) autoindexGroup.hidden = isLaravel;
+  if(title) title.textContent = isLaravel ? 'Add Laravel Site' : 'Add Site';
   if(framework === 'laravel'){
-    if(hint) hint.textContent = 'Creates Laravel 11 structure with public/index.php entry point.';
-    if(entryInput && !entryInput.value) entryInput.value = 'public\\index.php';
+    if(hint) hint.textContent = detectedExisting ? 'Existing Laravel project detected. Composer dependencies will be checked before adding the site.' : 'Empty folders are installed automatically. Existing folders must contain a Laravel project.';
+    if(rootHint) rootHint.textContent = 'Choose an empty folder or the root folder of an existing Laravel project.';
+    if(entryInput && _autoDetectedEntryFile && entryInput.value === _autoDetectedEntryFile) entryInput.value = '';
+    _autoDetectedEntryFile = '';
   } else if(framework === 'codeigniter'){
-    if(hint) hint.textContent = 'Creates CodeIgniter 4 structure with public/index.php entry point.';
-    if(entryInput && !entryInput.value) entryInput.value = 'public\\index.php';
+    if(hint) hint.textContent = detectedExisting ? 'Existing CodeIgniter 4 project detected. Its files will be used without scaffolding.' : 'Creates CodeIgniter 4 structure with public/index.php entry point.';
+    if(rootHint) rootHint.textContent = detectedExisting ? 'CodeIgniter 4 project found in this folder.' : 'Choose an empty folder or the root folder for the new project.';
+    if(entryInput && (entryInput.value === 'public\\index.php' || entryInput.value === 'public/index.php')) entryInput.value = '';
   } else if(framework === 'wordpress'){
-    if(hint) hint.textContent = 'Creates WordPress index.php and wp-config.php with local MySQL database presets.';
+    if(hint) hint.textContent = detectedExisting ? 'Existing WordPress project detected. Its files will be used without scaffolding.' : 'Creates WordPress index.php and wp-config.php with local MySQL database presets.';
+    if(rootHint) rootHint.textContent = detectedExisting ? 'WordPress project found in this folder.' : 'Choose an empty folder or the folder where WordPress should be prepared.';
     if(entryInput && (entryInput.value === 'public\\index.php' || entryInput.value === 'public/index.php')) entryInput.value = '';
   } else if(framework === 'vanilla'){
     if(hint) hint.textContent = 'Creates modern responsive PHP starter with DB connection test and system dashboard.';
+    if(rootHint) rootHint.textContent = 'Choose an empty folder or the folder where the PHP starter should be created.';
     if(entryInput && (entryInput.value === 'public\\index.php' || entryInput.value === 'public/index.php')) entryInput.value = '';
   } else {
-    if(hint) hint.textContent = 'Uses existing project files in the chosen directory.';
+    if(hint) hint.textContent = 'Uses the selected project as-is. No template files are created.';
+    if(rootHint) rootHint.textContent = 'Choose the folder containing your project files.';
     if(entryInput && (entryInput.value === 'public\\index.php' || entryInput.value === 'public/index.php')) entryInput.value = '';
+  }
+  if(framework !== 'laravel' && !detectedExisting) setLaravelFolderStatus('', '');
+  if(framework === 'wordpress') refreshWordPressFolderStatus();
+  else refreshLaravelFolderStatus();
+}
+
+let _siteInstallBusy = false;
+let _autoDetectedEntryFile = '';
+let _autoSelectedFramework = '';
+let _detectedExistingProject = null;
+let _projectDetectRequestId = 0;
+let _projectDetectTimer = null;
+let _activeLaravelInstallRoot = null;
+let _laravelInstallCancelRequested = false;
+let _laravelInstallDismissedByCancel = false;
+let _laravelFolderCheckId = 0;
+let _wordpressFolderCheckId = 0;
+let _laravelInstallLog = '';
+
+function normalizeProjectFolderPath(value){
+  return String(value || '').trim().replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase();
+}
+
+async function detectProjectFrameworkForFolder(folderPath){
+  const root = String(folderPath || '').trim();
+  const requestId = ++_projectDetectRequestId;
+  if(!root) return null;
+  try {
+    const result = await api.frameworks.inspectProjectTarget(root);
+    if(requestId !== _projectDetectRequestId || normalizeProjectFolderPath(document.getElementById('site-root')?.value) !== normalizeProjectFolderPath(root)) return null;
+    if(!result?.success){
+      if(_autoSelectedFramework){
+        const select = document.getElementById('site-framework');
+        if(select?.value === _autoSelectedFramework){ select.value = 'none'; onFrameworkSelectChange('none', true); }
+        _autoSelectedFramework = '';
+      }
+      _detectedExistingProject = null;
+      if(document.getElementById('site-framework')?.value === 'wordpress') await refreshWordPressFolderStatus();
+      return result;
+    }
+
+    const select = document.getElementById('site-framework');
+    const detected = result.framework || 'none';
+    const current = select?.value || 'none';
+    if(detected !== 'none' && (current === 'none' || current === detected || current === _autoSelectedFramework)){
+      _detectedExistingProject = { root: result.root || root, framework: detected };
+      _autoSelectedFramework = detected;
+      if(select) select.value = detected;
+      onFrameworkSelectChange(detected, true);
+      if(detected === 'wordpress' || detected === 'codeigniter'){
+        const label = detected === 'wordpress' ? 'WordPress' : 'CodeIgniter 4';
+        if(detected === 'codeigniter' && !result.codeigniterCoreComplete){
+          setLaravelFolderStatus('CodeIgniter project files are incomplete. Restore its missing source files before adding this site.', 'error');
+          setSiteAddBusy(false, 'CodeIgniter Project Incomplete');
+          document.getElementById('site-add-submit').disabled = true;
+        } else if(detected === 'codeigniter' && !result.dependenciesInstalled){
+          setLaravelFolderStatus('CodeIgniter project found, but Composer dependencies are missing. They can be restored before adding the site.', 'info');
+          setSiteAddBusy(false, 'Repair Dependencies & Add Site');
+        } else {
+          setLaravelFolderStatus(`${label} project detected. Existing project files will be used without scaffolding.`, 'success');
+          setSiteAddBusy(false, 'Add Site');
+        }
+      }
+    } else if(detected === 'none'){
+      if(_autoSelectedFramework && current === _autoSelectedFramework){
+        if(select) select.value = 'none';
+        _autoSelectedFramework = '';
+        _detectedExistingProject = null;
+        onFrameworkSelectChange('none', true);
+      } else {
+        _detectedExistingProject = null;
+      }
+      if(document.getElementById('site-framework')?.value === 'wordpress') await refreshWordPressFolderStatus();
+    } else if(current === 'wordpress'){
+      await refreshWordPressFolderStatus();
+    }
+    return result;
+  } catch(error){
+    return { success: false, error: error.message || 'Could not inspect this project folder.' };
+  }
+}
+
+async function refreshWordPressFolderStatus(){
+  const requestId = ++_wordpressFolderCheckId;
+  const root = document.getElementById('site-root')?.value.trim();
+  if(document.getElementById('site-framework')?.value !== 'wordpress') return null;
+  if(!root){
+    setLaravelFolderStatus('', '');
+    setSiteAddBusy(false, 'Add Site');
+    return null;
+  }
+  setSiteAddBusy(true, 'Checking WordPress…');
+  setLaravelFolderStatus('Checking selected folder for WordPress…', 'info');
+  try {
+    const result = await api.frameworks.inspectProjectTarget(root);
+    if(requestId !== _wordpressFolderCheckId || normalizeProjectFolderPath(document.getElementById('site-root')?.value) !== normalizeProjectFolderPath(root) || document.getElementById('site-framework')?.value !== 'wordpress') return null;
+    if(!result?.success){
+      setLaravelFolderStatus(result?.error || 'Could not inspect this folder.', 'error');
+      setSiteAddBusy(false, 'WordPress Folder Unavailable');
+      document.getElementById('site-add-submit').disabled = true;
+      return result;
+    }
+    if(result.framework === 'wordpress'){
+      _detectedExistingProject = { root: result.root || root, framework: 'wordpress' };
+      if(result.wordpressSetupRecognized && !result.wordpressSetupComplete){
+        const issues = [...(result.wordpressSetupMissing || []).map(file => `missing ${file}`), ...(result.wordpressSetupCorrupt || []).map(file => `damaged ${file}`)];
+        const detail = issues.length ? ` Detected: ${issues.join(', ')}.` : '';
+        setLaravelFolderStatus(`Incomplete C-Script WordPress setup detected.${detail} Damaged files will be backed up before repair.`, 'info');
+        setSiteAddBusy(false, 'Repair WordPress Setup & Add Site');
+      } else {
+        setLaravelFolderStatus('Existing WordPress project found. Its files will be used without running the setup template.', 'success');
+        setSiteAddBusy(false, 'Add Site');
+      }
+    } else if(result.empty){
+      _detectedExistingProject = null;
+      setLaravelFolderStatus('This folder is empty. WordPress setup files will be installed when you add the site.', 'info');
+      setSiteAddBusy(false, 'Install WordPress & Add Site');
+    } else {
+      _detectedExistingProject = null;
+      setLaravelFolderStatus('No WordPress project was found, and this folder is not empty. Choose an empty folder or an existing WordPress project.', 'error');
+      setSiteAddBusy(false, 'WordPress Project Not Found');
+      document.getElementById('site-add-submit').disabled = true;
+    }
+    return result;
+  } catch(error){
+    if(requestId === _wordpressFolderCheckId){
+      setLaravelFolderStatus(error.message || 'Could not inspect this folder.', 'error');
+      setSiteAddBusy(false, 'WordPress Folder Unavailable');
+      document.getElementById('site-add-submit').disabled = true;
+    }
+    return null;
+  }
+}
+
+function setLaravelFolderStatus(message, kind){
+  const box = document.getElementById('site-folder-validation');
+  if(!box) return;
+  if(!message){ box.style.display = 'none'; box.textContent = ''; return; }
+  box.style.display = 'block';
+  box.textContent = message;
+  const colors = kind === 'error'
+    ? ['rgba(244,63,94,.12)', 'rgba(244,63,94,.35)', 'var(--red)']
+    : kind === 'success'
+      ? ['rgba(63,207,142,.1)', 'rgba(63,207,142,.3)', 'var(--green)']
+      : ['rgba(124,106,247,.1)', 'rgba(124,106,247,.3)', 'var(--accent)'];
+  box.style.background = colors[0];
+  box.style.borderColor = colors[1];
+  box.style.color = colors[2];
+}
+
+function updateLaravelInstallNotice(status, state = 'running', log = ''){
+  const notice = document.getElementById('laravel-install-notice');
+  if(!notice) return;
+  const previousState = notice.dataset.state;
+  notice.dataset.state = state;
+  notice.hidden = false;
+  if(state === 'running' && previousState !== 'running'){
+    notice.classList.remove('is-minimized');
+    const minimizeButton = document.getElementById('laravel-install-minimize');
+    if(minimizeButton){ minimizeButton.textContent = '−'; minimizeButton.title = 'Minimize installation status'; minimizeButton.setAttribute('aria-label', minimizeButton.title); }
+  }
+  const title = document.getElementById('laravel-install-title');
+  const statusNode = document.getElementById('laravel-install-status');
+  const logNode = document.getElementById('laravel-install-log');
+  const cancelButton = document.getElementById('laravel-install-cancel');
+  const actionButton = document.getElementById('laravel-install-minimize');
+  if(cancelButton){ cancelButton.hidden = state !== 'running'; cancelButton.disabled = _laravelInstallCancelRequested; }
+  if(actionButton){
+    const isRunning = state === 'running';
+    actionButton.textContent = isRunning ? (notice.classList.contains('is-minimized') ? '+' : '−') : '×';
+    actionButton.title = isRunning ? (notice.classList.contains('is-minimized') ? 'Expand installation status' : 'Minimize installation status') : 'Close notification';
+    actionButton.setAttribute('aria-label', actionButton.title);
+  }
+  if(title) title.textContent = state === 'success' ? 'Laravel is ready' : state === 'error' ? 'Laravel setup needs attention' : 'Setting up Laravel';
+  if(statusNode) statusNode.textContent = String(status || '').trim() || 'Working…';
+  if(logNode && log) logNode.textContent = log.slice(-4000);
+  if(_laravelInstallDismissedByCancel && state !== 'running') notice.hidden = true;
+}
+
+async function cancelLaravelInstallation(){
+  const root = _activeLaravelInstallRoot;
+  if(!root || _laravelInstallCancelRequested) return;
+  if(!confirm('Do you want to stop the Laravel installation and close this notification?')) return;
+  _laravelInstallCancelRequested = true;
+  updateLaravelInstallNotice('Stopping Laravel installation…', 'running', _laravelInstallLog);
+  try {
+    const result = await api.frameworks.cancelInstallation(root);
+    if(!result?.success && !String(result?.error || '').includes('There is no active project setup operation')) {
+      throw new Error(result?.error || 'Could not stop the Laravel installation.');
+    }
+    _laravelInstallDismissedByCancel = true;
+    const notice = document.getElementById('laravel-install-notice');
+    if(notice){ notice.dataset.state = 'error'; notice.hidden = true; }
+    closeModal('modal-add-site');
+  } catch(error){
+    updateLaravelInstallNotice(error.message || 'Could not stop the Laravel installation.', 'error', _laravelInstallLog);
+  }
+}
+
+function toggleLaravelInstallNoticeMinimized(){
+  const notice = document.getElementById('laravel-install-notice');
+  if(!notice) return;
+  if(notice.dataset.state !== 'running'){
+    notice.hidden = true;
+    return;
+  }
+  const minimized = notice.classList.toggle('is-minimized');
+  const button = document.getElementById('laravel-install-minimize');
+  if(button){
+    button.textContent = minimized ? '+' : '−';
+    button.title = minimized ? 'Expand installation status' : 'Minimize installation status';
+    button.setAttribute('aria-label', button.title);
+  }
+}
+
+function setSiteAddBusy(busy, label){
+  const button = document.getElementById('site-add-submit');
+  const cancel = document.getElementById('site-add-cancel');
+  if(button){ button.disabled = !!busy; button.textContent = label || 'Add Site'; }
+  if(cancel){ cancel.disabled = false; cancel.textContent = busy ? 'Run in Background' : 'Cancel'; }
+  ['site-name', 'site-framework', 'site-root', 'site-port', 'site-php', 'site-php-mode', 'site-autoindex']
+    .forEach(id => { const control = document.getElementById(id); if(control) control.disabled = !!busy; });
+  document.querySelectorAll('#modal-add-site .modal-body button').forEach(control => { control.disabled = !!busy; });
+}
+
+function closeAddSiteModal(){
+  if(_siteInstallBusy) updateLaravelInstallNotice('Installation will continue in the background.');
+  closeModal('modal-add-site');
+}
+
+async function refreshLaravelFolderStatus(){
+  const requestId = ++_laravelFolderCheckId;
+  const framework = document.getElementById('site-framework')?.value;
+  const root = document.getElementById('site-root')?.value.trim();
+  if(!root){
+    if(!_siteInstallBusy){ setLaravelFolderStatus('', ''); setSiteAddBusy(false, 'Add Site'); }
+    return null;
+  }
+  if(framework === 'laravel' && !_siteInstallBusy) setSiteAddBusy(true, 'Checking Laravel…');
+  if(framework === 'laravel') setLaravelFolderStatus('Checking folder…', 'info');
+  try {
+    const result = await api.frameworks.inspectLaravelTarget(root);
+    if(requestId !== _laravelFolderCheckId) return null;
+    if(!result?.success){
+      if(framework === 'laravel') { setLaravelFolderStatus(result?.error || 'Could not inspect this folder.', 'error'); setSiteAddBusy(false, 'Add Laravel Site'); }
+      return result;
+    }
+    const entryInput = document.getElementById('site-entry-file');
+    if(framework === 'laravel' && entryInput){
+      const detectedEntry = result.isLaravel ? (result.entryFile || '') : '';
+      entryInput.value = detectedEntry;
+      _autoDetectedEntryFile = detectedEntry;
+    }
+    if(framework !== 'laravel') return result;
+    if(result.isLaravel){
+      if(result.dependenciesInstalled && result.entryFile){ setLaravelFolderStatus('Laravel project found. Entry Point selected automatically: public/index.php. Ready to add.', 'success'); setSiteAddBusy(false, 'Add Laravel Site'); }
+      else if(result.dependenciesInstalled){ setLaravelFolderStatus('Laravel project found, but public/index.php is missing. Add the entry point before adding this site.', 'error'); setSiteAddBusy(false, 'Entry Point Missing'); document.getElementById('site-add-submit').disabled = true; }
+      else { setLaravelFolderStatus('Laravel project found. Composer dependencies will be installed before the site is added.', 'info'); setSiteAddBusy(false, 'Install Dependencies & Add Site'); }
+    } else if(result.empty){
+      setLaravelFolderStatus('This folder is empty. Laravel will be installed when you add the site. Composer and an internet connection are required.', 'info');
+      setSiteAddBusy(false, 'Install Laravel & Add Site');
+    } else {
+      setLaravelFolderStatus('No Laravel project was found, and this folder is not empty. Choose an empty folder or an existing Laravel project.', 'error');
+      setSiteAddBusy(false, 'Laravel Project Not Found');
+      document.getElementById('site-add-submit').disabled = true;
+    }
+    return result;
+  } catch(error){
+    if(requestId === _laravelFolderCheckId){ setLaravelFolderStatus(error.message || 'Could not inspect this folder.', 'error'); setSiteAddBusy(false, 'Add Site'); }
+    return null;
   }
 }
 
 async function addSite(){
   const name=document.getElementById('site-name').value.trim();
   const root=document.getElementById('site-root').value.trim();
-  const entryFile=document.getElementById('site-entry-file').value.trim();
+  let entryFile=document.getElementById('site-entry-file').value.trim();
   const port=parseInt(document.getElementById('site-port').value)||0;
   const php=document.getElementById('site-php')?.value || null;
+  const phpMode=document.getElementById('site-php-mode')?.value || 'builtin';
   const framework=document.getElementById('site-framework')?.value || 'none';
   const autoindex=document.getElementById('site-autoindex') ? document.getElementById('site-autoindex').checked : true;
   if(!name||!root){ toast('Name and root required','error'); return; }
+  if(_siteInstallBusy) return;
 
   if(port > 0){
     const conflict = Object.values(_sitesMap).find(s => s.port && parseInt(s.port, 10) === port);
@@ -6950,23 +7814,227 @@ async function addSite(){
     }
   }
 
-  // Scaffolding if framework selected
-  if(framework && framework !== 'none'){
-    toast(`Scaffolding ${framework} starter files...`,'info');
+  let createdLaravel = false;
+  if(framework === 'laravel'){
+    _siteInstallBusy = true;
+    _activeLaravelInstallRoot = root;
+    _laravelInstallCancelRequested = false;
+    _laravelInstallDismissedByCancel = false;
+    setSiteAddBusy(true, 'Installing Laravel…');
+    _laravelInstallLog = '';
+    updateLaravelInstallNotice('Checking the selected folder…', 'running');
+    let pendingProgressText = '';
+    let progressRenderTimer = null;
+    const unsubscribe = api.on('frameworks:progress', data => {
+      const normalizePath = value => String(value || '').replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase();
+      if(!data || normalizePath(data.targetDir) !== normalizePath(root)) return;
+      _laravelInstallLog = (_laravelInstallLog + String(data.output || '')).slice(-5000);
+      pendingProgressText = data.stream === 'status'
+        ? String(data.output || '').trim()
+        : data.stream === 'download'
+          ? `Downloading Composer… ${Math.round(Number(data.percent) || 0)}%`
+          : 'Installing with Composer…';
+      if(progressRenderTimer) return;
+      progressRenderTimer = setTimeout(() => {
+        progressRenderTimer = null;
+        setLaravelFolderStatus(`${pendingProgressText}\n\n${_laravelInstallLog}`.trim(), 'info');
+        updateLaravelInstallNotice(pendingProgressText, 'running', _laravelInstallLog);
+      }, 120);
+    });
+    let installReady = false;
+    let invalidLaravelFolder = false;
     try {
-      const scafRes = await api.frameworks.scaffold(framework, root, { name });
-      if(!scafRes.success){
-        toast('Scaffolding warning: ' + (scafRes.error || 'Failed to write templates'), 'warn');
-      } else {
-        toast(`Scaffolded ${framework} starter into ${root}`, 'success');
+      const folder = await api.frameworks.inspectLaravelTarget(root);
+      if(_laravelInstallCancelRequested){ updateLaravelInstallNotice('Laravel installation was stopped.', 'error', _laravelInstallLog); return; }
+      if(!folder?.success){ setLaravelFolderStatus(folder?.error || 'Could not inspect this folder.', 'error'); return; }
+      if(!folder.isLaravel && !folder.empty){
+        invalidLaravelFolder = true;
+        const error = 'No Laravel project was found, and this folder is not empty. Choose an empty folder or an existing Laravel project.';
+        setLaravelFolderStatus(error, 'error');
+        updateLaravelInstallNotice(error, 'error', _laravelInstallLog);
+        return;
       }
-    } catch(err){
-      console.warn('Scaffolding error:', err);
+      if(!folder.isLaravel || !folder.dependenciesInstalled){
+        updateLaravelInstallNotice(folder.isLaravel ? 'Installing Composer dependencies…' : 'Installing Laravel into the selected folder…', 'running');
+        const scafRes = await api.frameworks.scaffold('laravel', root, { name, php });
+        if(_laravelInstallCancelRequested){ updateLaravelInstallNotice('Laravel installation was stopped.', 'error', _laravelInstallLog); return; }
+        if(!scafRes?.success){
+          const error = scafRes?.error || 'Laravel installation failed.';
+          setLaravelFolderStatus(error, 'error');
+          updateLaravelInstallNotice(error, 'error', _laravelInstallLog);
+          toast(error, 'error');
+          return;
+        }
+        createdLaravel = !folder.isLaravel;
+      }
+      const verified = await api.frameworks.inspectLaravelTarget(root);
+      if(_laravelInstallCancelRequested){ updateLaravelInstallNotice('Laravel installation was stopped.', 'error', _laravelInstallLog); return; }
+      if(!verified?.success || !verified.isLaravel || !verified.dependenciesInstalled){
+        const message = verified?.error || 'Laravel installation could not be verified.';
+        setLaravelFolderStatus(message, 'error');
+        toast(message, 'error');
+        return;
+      }
+      if(!verified.entryFile){
+        const message = 'Laravel is installed, but public/index.php was not found. No entry point was selected, so the site was not added.';
+        setLaravelFolderStatus(message, 'error');
+        updateLaravelInstallNotice(message, 'error', _laravelInstallLog);
+        toast(message, 'error');
+        return;
+      }
+      entryFile = verified.entryFile;
+      document.getElementById('site-entry-file').value = entryFile;
+      _autoDetectedEntryFile = entryFile;
+      setLaravelFolderStatus('Laravel installation finished. Adding the site…', 'success');
+      installReady = true;
+    } catch(error){
+      setLaravelFolderStatus(error.message || 'Laravel installation failed.', 'error');
+      updateLaravelInstallNotice(error.message || 'Laravel installation failed.', 'error', _laravelInstallLog);
+      toast(error.message || 'Laravel installation failed.', 'error');
+      return;
+    } finally {
+      unsubscribe?.();
+      if(progressRenderTimer){ clearTimeout(progressRenderTimer); progressRenderTimer = null; }
+      _activeLaravelInstallRoot = null;
+      _laravelInstallCancelRequested = false;
+      if(installReady) setSiteAddBusy(true, 'Adding Laravel Site…');
+      else {
+        _siteInstallBusy = false;
+        setSiteAddBusy(false, invalidLaravelFolder ? 'Laravel Project Not Found' : 'Install Laravel & Add Site');
+        if(invalidLaravelFolder) document.getElementById('site-add-submit').disabled = true;
+        const notice = document.getElementById('laravel-install-notice');
+        if(notice?.dataset.state === 'running') updateLaravelInstallNotice('Installation did not complete. Review the details and try again.', 'error', _laravelInstallLog);
+      }
+    }
+  } else if(framework === 'wordpress'){
+    const folder = await api.frameworks.inspectProjectTarget(root);
+    if(!folder?.success){
+      setLaravelFolderStatus(folder?.error || 'Could not inspect this folder.', 'error');
+      toast(folder?.error || 'Could not inspect this folder.', 'error');
+      return;
+    }
+    if(folder.framework === 'wordpress'){
+      _detectedExistingProject = { root: folder.root || root, framework: 'wordpress' };
+      if(folder.wordpressSetupRecognized && !folder.wordpressSetupComplete){
+        setSiteAddBusy(true, 'Repairing WordPress Setup…');
+        try {
+          const repaired = await api.frameworks.scaffold('wordpress', root, { name });
+          if(!repaired?.success || !repaired.setupFilesReady) throw new Error(repaired?.error || 'WordPress setup repair did not finish.');
+          entryFile = repaired.entryFile;
+          setLaravelFolderStatus('WordPress setup files were repaired. Adding the site…', 'success');
+        } catch(error){
+          setSiteAddBusy(false, 'Repair WordPress Setup & Add Site');
+          setLaravelFolderStatus(error.message || 'WordPress setup repair failed.', 'error');
+          toast(error.message || 'WordPress setup repair failed.', 'error');
+          return;
+        }
+        setSiteAddBusy(false, 'Add Site');
+      }
+    } else if(!folder.empty){
+      const error = 'No WordPress project was found, and this folder is not empty. Choose an empty folder or an existing WordPress project.';
+      setLaravelFolderStatus(error, 'error');
+      toast(error, 'error');
+      return;
+    } else {
+      setSiteAddBusy(true, 'Installing WordPress Setup…');
+      setLaravelFolderStatus('Creating the WordPress setup files…', 'info');
+      try {
+        const result = await api.frameworks.scaffold('wordpress', root, { name });
+        if(!result?.success) throw new Error(result?.error || 'WordPress setup failed.');
+        if(!result.entryFile || !result.setupFilesReady) throw new Error('WordPress setup did not finish creating its required files.');
+        entryFile = result.entryFile;
+        setLaravelFolderStatus('WordPress setup files are ready. Adding the site…', 'success');
+      } catch(error){
+        setSiteAddBusy(false, 'Install WordPress & Add Site');
+        setLaravelFolderStatus(error.message || 'WordPress setup failed.', 'error');
+        toast(error.message || 'WordPress setup failed.', 'error');
+        return;
+      }
+      setSiteAddBusy(false, 'Add Site');
+    }
+  } else if(framework && framework !== 'none'){
+    const detectedExisting = _detectedExistingProject && _detectedExistingProject.framework === framework && normalizeProjectFolderPath(_detectedExistingProject.root) === normalizeProjectFolderPath(root);
+    if(detectedExisting){
+      if(framework === 'codeigniter'){
+        const folder = await api.frameworks.inspectProjectTarget(root);
+        if(!folder?.success || !folder.codeigniterCoreComplete){
+          const error = folder?.error || 'CodeIgniter project files are incomplete. Restore its missing source files before adding this site.';
+          setLaravelFolderStatus(error, 'error');
+          toast(error, 'error');
+          return;
+        }
+        if(!folder.dependenciesInstalled){
+          setSiteAddBusy(true, 'Repairing Dependencies…');
+          setLaravelFolderStatus('Installing the missing CodeIgniter Composer dependencies…', 'info');
+          try {
+            const repair = await api.frameworks.installProjectDependencies(root, php);
+            if(!repair?.success) throw new Error(repair?.error || 'Composer dependency repair failed.');
+            const verified = await api.frameworks.inspectProjectTarget(root);
+            if(!verified?.success || !verified.dependenciesInstalled) throw new Error('Composer finished, but the CodeIgniter dependencies are still incomplete.');
+            setLaravelFolderStatus('CodeIgniter dependencies are ready. Adding the site…', 'success');
+          } catch(error){
+            setSiteAddBusy(false, 'Repair Dependencies & Add Site');
+            setLaravelFolderStatus(error.message || 'Composer dependency repair failed.', 'error');
+            toast(error.message || 'Composer dependency repair failed.', 'error');
+            return;
+          }
+          setSiteAddBusy(false, 'Add Site');
+        } else {
+          toast(`Existing ${framework} project detected. Adding it without changing its files.`, 'info');
+        }
+      } else {
+        toast(`Existing ${framework} project detected. Adding it without changing its files.`, 'info');
+      }
+    } else {
+      toast(`Scaffolding ${framework} starter files...`,'info');
+      try {
+        const scafRes = await api.frameworks.scaffold(framework, root, { name });
+        if(!scafRes?.success){
+          toast('Scaffolding failed: ' + (scafRes?.error || 'Failed to write templates'), 'error');
+          return;
+        }
+        toast(`Scaffolded ${framework} starter into ${root}`, 'success');
+      } catch(err){
+        toast('Scaffolding failed: ' + (err.message || 'Unknown error'), 'error');
+        return;
+      }
     }
   }
 
-  const result=await api.sites.add({name, root, port, entryFile: entryFile||null, php, autoindex});
-  if(!result?.success){ toast('Could not add site: '+(result?.error||'Unknown error'),'error'); return; }
+  if(framework === 'laravel' && !entryFile){
+    const error = 'Laravel public/index.php was not found. The site was not added.';
+    toast(error, 'error');
+    updateLaravelInstallNotice(error, 'error', _laravelInstallLog);
+    _siteInstallBusy = false;
+    setSiteAddBusy(false, 'Entry Point Missing');
+    return;
+  }
+  if(framework === 'laravel' && _laravelInstallCancelRequested){
+    _siteInstallBusy = false;
+    setSiteAddBusy(false, 'Install Laravel & Add Site');
+    updateLaravelInstallNotice('Laravel installation was stopped. The site was not added.', 'error', _laravelInstallLog);
+    return;
+  }
+
+  let result;
+  try {
+    result=await api.sites.add({name, root, port, entryFile: entryFile||null, php, phpMode, autoindex, framework});
+  } catch(error){
+    _siteInstallBusy = false;
+    setSiteAddBusy(false, 'Add Site');
+    if(framework === 'laravel') updateLaravelInstallNotice(error?.message || 'Could not add the Laravel site.', 'error', _laravelInstallLog);
+    toast('Could not add site: '+(error?.message||'Unknown error'),'error');
+    return;
+  }
+  if(!result?.success){
+    _siteInstallBusy = false;
+    setSiteAddBusy(false, framework === 'laravel' ? 'Install Laravel & Add Site' : 'Add Site');
+    if(framework === 'laravel') updateLaravelInstallNotice(result?.error || 'Could not add the Laravel site.', 'error', _laravelInstallLog);
+    toast('Could not add site: '+(result?.error||'Unknown error'),'error');
+    return;
+  }
+  _siteInstallBusy = false;
+  if(framework === 'laravel') updateLaravelInstallNotice('All Laravel files and Composer dependencies are ready. The site has been added.', 'success', _laravelInstallLog);
   closeModal('modal-add-site');
   // Reset form
   _siteNameManuallyEdited = false;
@@ -6975,11 +8043,13 @@ async function addSite(){
   document.getElementById('site-entry-file').value='';
   document.getElementById('site-port').value='0';
   if(document.getElementById('site-framework')) document.getElementById('site-framework').value='none';
+  setLaravelFolderStatus('', '');
+  if(document.getElementById('site-php-mode')) document.getElementById('site-php-mode').value='builtin';
   if(document.getElementById('site-autoindex')) {
     const autoindexDefault = document.getElementById('s-app-autoindex') ? document.getElementById('s-app-autoindex').checked : true;
     document.getElementById('site-autoindex').checked = autoindexDefault;
   }
-  toast('Site "'+name+'" added!','success');
+  toast(createdLaravel ? 'Laravel installed and site added.' : 'Site "'+name+'" added!','success');
   await loadSites();
 }
 
@@ -6987,10 +8057,10 @@ async function browseEntryFile(){
   const root=document.getElementById('site-root').value.trim();
   const result=await api.php.browseEntryFile(root);
   if(!result.success){toast(result.error,'error');return;}
-  if(result.path) document.getElementById('site-entry-file').value=result.path;
+  if(result.path){ document.getElementById('site-entry-file').value=result.path; _autoDetectedEntryFile = ''; }
 }
 
-function clearSiteEntryFile(){document.getElementById('site-entry-file').value='';}
+function clearSiteEntryFile(){document.getElementById('site-entry-file').value='';_autoDetectedEntryFile='';}
 
 async function startSite(id){
   toast('Starting server...','info');
@@ -7907,6 +8977,47 @@ async function installAppUpdate(){
 // ══════════════════════════════════════════════════════════
 // VIRTUAL HOSTS & WINDOWS HOSTS SYNC (.dev)
 // ══════════════════════════════════════════════════════════
+async function loadLocalProxyBypassStatus(){
+  const statusEl = document.getElementById('local-proxy-bypass-status');
+  const button = document.getElementById('local-proxy-bypass-button');
+  if(!statusEl) return;
+  try {
+    const result = await api.networkProxy.localBypassStatus();
+    if(!result.supported){
+      statusEl.textContent = 'Available on Windows only.';
+      if(button) button.disabled = true;
+    } else if(result.applied){
+      statusEl.textContent = result.proxyEnabled ? 'Local bypass is configured; system proxy is enabled.' : 'Local bypass is configured and ready for system proxy use.';
+      statusEl.className = 'settings-inline-result success';
+    } else {
+      statusEl.textContent = result.error ? `Could not read proxy settings: ${result.error}` : 'Local bypass rules are not configured yet.';
+      statusEl.className = result.error ? 'settings-inline-result error' : 'settings-inline-result';
+    }
+  } catch(error){
+    statusEl.textContent = `Could not read proxy settings: ${error.message}`;
+    statusEl.className = 'settings-inline-result error';
+  }
+}
+
+async function applyLocalProxyBypass(){
+  const button = document.getElementById('local-proxy-bypass-button');
+  const statusEl = document.getElementById('local-proxy-bypass-status');
+  if(button){ button.disabled = true; button.textContent = 'Applying…'; }
+  try {
+    const result = await api.networkProxy.applyLocalBypass();
+    if(result.success){
+      toast('Local sites will bypass the Windows system proxy. Restart V2Ray if it overwrites proxy settings.', 'success');
+    } else if(!result.canceled){
+      toast(result.error || 'Could not update the Windows proxy bypass list.', 'error');
+    }
+  } catch(error){
+    toast(`Could not update proxy bypass: ${error.message}`, 'error');
+  } finally {
+    if(button){ button.disabled = false; button.textContent = 'Fix local proxy bypass'; }
+    await loadLocalProxyBypassStatus();
+  }
+}
+
 async function syncVhostsAction(){
   toast('Updating Windows hosts file with .dev domains...','info');
   try {
@@ -8207,6 +9318,19 @@ async function reloadNginxAction() {
   }
 }
 
+async function setupTrustedLocalSsl() {
+  if (!confirm('mkcert will add its local CA certificate to the current Windows user’s Trusted Root store. Continue?')) return;
+  toast('Creating a trusted certificate for .test domains…', 'info');
+  try {
+    const result = await api.ssl.ensureTrusted();
+    if (!result?.success) return toast(result?.error || 'Could not create the trusted certificate.', 'error');
+    toast('Trusted .test certificate created. Restart NGINX to apply it.', 'success');
+    await reloadNginxAction();
+  } catch (error) {
+    toast(`SSL setup failed: ${error.message}`, 'error');
+  }
+}
+
 async function restartNginxAction() {
   toast('Restarting Standalone NGINX...', 'info');
   try {
@@ -8218,6 +9342,134 @@ async function restartNginxAction() {
     await loadNginxInfo();
   } catch (e) {
     toast(`Restart error: ${e.message}`, 'error');
+  }
+}
+
+async function loadPhpMyAdminStatus() {
+  const status = document.getElementById('phpmyadmin-status');
+  const button = document.getElementById('btn-phpmyadmin');
+  if (!status || !button || !api.phpMyAdmin) return;
+  try {
+    const result = await api.phpMyAdmin.status();
+    if (!result?.success) throw new Error(result?.error || 'Could not read phpMyAdmin status.');
+    if (result.running) {
+      status.textContent = `Running · ${result.runningVersion} · ${result.domain || 'phpmyadmin.test'}`;
+      status.style.color = 'var(--green)';
+      button.textContent = 'Open phpMyAdmin';
+      const stopButton = document.getElementById('btn-stop-phpmyadmin');
+      if (stopButton) stopButton.style.display = 'inline-flex';
+    } else if (result.installed) {
+      status.textContent = `Installed · ${result.version}`;
+      status.style.color = 'var(--text3)';
+      button.textContent = 'Open phpMyAdmin';
+      const stopButton = document.getElementById('btn-stop-phpmyadmin');
+      if (stopButton) stopButton.style.display = 'none';
+    } else {
+      status.textContent = `Not installed · ${result.version}`;
+      status.style.color = 'var(--text3)';
+      button.textContent = 'Install & Open phpMyAdmin';
+      const stopButton = document.getElementById('btn-stop-phpmyadmin');
+      if (stopButton) stopButton.style.display = 'none';
+    }
+  } catch (error) {
+    status.textContent = 'phpMyAdmin status unavailable';
+    status.style.color = 'var(--red)';
+    button.textContent = 'Install & Open phpMyAdmin';
+    const stopButton = document.getElementById('btn-stop-phpmyadmin');
+    if (stopButton) stopButton.style.display = 'none';
+  }
+}
+
+function updatePhpMyAdminDatabaseSummary(fallback = {}) {
+  const summary = document.getElementById('phpmyadmin-db-settings-summary');
+  if (!summary) return;
+  const host = document.getElementById('s-mysql-host')?.value || fallback.host || '127.0.0.1';
+  const port = document.getElementById('s-mysql-port')?.value || fallback.port || 3306;
+  const user = document.getElementById('s-mysql-user')?.value || fallback.user || 'root';
+  summary.textContent = `MySQL server: ${host}:${port}. App default account: ${user}. phpMyAdmin asks for the database credentials at sign-in; the password is not copied into config.inc.php.`;
+}
+
+async function loadPhpMyAdminSettingsInfo() {
+  const pathEl = document.getElementById('phpmyadmin-config-path');
+  const configButton = document.getElementById('btn-open-phpmyadmin-config');
+  if (!pathEl || !api.phpMyAdmin?.paths) return;
+  try {
+    const paths = await api.phpMyAdmin.paths();
+    if (!paths?.success) throw new Error(paths?.error || 'Could not read phpMyAdmin paths.');
+    pathEl.textContent = paths.configExists
+      ? paths.configPath
+      : `${paths.versionDir}\\config.inc.php (created after phpMyAdmin is installed)`;
+    if (configButton) {
+      configButton.disabled = !paths.installed || !paths.configExists;
+      configButton.title = configButton.disabled ? 'Install and open phpMyAdmin once to create this file.' : paths.configPath;
+    }
+  } catch (error) {
+    pathEl.textContent = error.message || 'phpMyAdmin path is unavailable.';
+    if (configButton) configButton.disabled = true;
+  }
+}
+
+function goToPhpMyAdminDatabaseSettings() {
+  const section = document.getElementById('settings-mysql-section');
+  section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => document.getElementById('s-mysql-host')?.focus(), 250);
+}
+
+async function openPhpMyAdminFolder() {
+  try {
+    const result = await api.phpMyAdmin.openFolder();
+    if (!result?.success) throw new Error(result?.error || 'Could not open the phpMyAdmin folder.');
+  } catch (error) { toast(error.message || 'Could not open the phpMyAdmin folder.', 'error'); }
+}
+
+async function openPhpMyAdminConfig() {
+  try {
+    const result = await api.phpMyAdmin.openConfig();
+    if (!result?.success) throw new Error(result?.error || 'Could not open config.inc.php.');
+  } catch (error) { toast(error.message || 'Could not open config.inc.php.', 'error'); }
+}
+
+async function openPhpMyAdmin() {
+  const button = document.getElementById('btn-phpmyadmin');
+  const status = document.getElementById('phpmyadmin-status');
+  if (!button || !api.phpMyAdmin) return;
+  button.disabled = true;
+  button.textContent = 'Starting phpMyAdmin…';
+  if (status) { status.textContent = 'Checking PHP and preparing local server…'; status.style.color = 'var(--text3)'; }
+  try {
+    const result = await api.phpMyAdmin.open();
+    if (!result?.success) throw new Error(result?.error || 'Could not start phpMyAdmin.');
+    if (!result.url) throw new Error('phpMyAdmin started, but no browser URL was returned.');
+    const opened = await api.shell.openExternal(result.url);
+    if (!opened?.success) throw new Error(opened?.error || `Could not open ${result.url} in your browser.`);
+    toast(`Opened ${result.url} in your browser.`, 'success');
+    await loadPhpMyAdminStatus();
+  } catch (error) {
+    toast(error.message || 'Could not open phpMyAdmin.', 'error');
+    if (status) { status.textContent = 'Could not start'; status.style.color = 'var(--red)'; }
+  } finally {
+    button.disabled = false;
+    if (button.textContent === 'Starting phpMyAdmin…') await loadPhpMyAdminStatus();
+  }
+}
+
+async function stopPhpMyAdmin() {
+  const button = document.getElementById('btn-stop-phpmyadmin');
+  const openButton = document.getElementById('btn-phpmyadmin');
+  if (!button || !api.phpMyAdmin) return;
+  button.disabled = true;
+  button.textContent = 'Stopping…';
+  try {
+    const result = await api.phpMyAdmin.stop();
+    if (result?.success === false) throw new Error(result.error || 'Could not stop phpMyAdmin.');
+    toast(result.warning ? `phpMyAdmin stopped. ${result.warning}` : 'phpMyAdmin stopped.', result.warning ? 'warn' : 'success');
+  } catch (error) {
+    toast(error.message || 'Could not stop phpMyAdmin.', 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Stop';
+    if (openButton) openButton.disabled = false;
+    await loadPhpMyAdminStatus();
   }
 }
 

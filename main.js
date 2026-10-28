@@ -13,7 +13,8 @@ const {
   shell,
   nativeTheme,
   Menu,
-  Tray
+  Tray,
+  session
 } = require('electron');
 
 // Ensure only a single instance of the application runs to prevent cache locking conflicts
@@ -42,17 +43,23 @@ const VhostsManager = require('./src/vhostsManager');
 const FrameworkManager = require('./src/frameworkManager');
 const MailCatcher = require('./src/mailCatcher');
 const LogManager = require('./src/logManager');
+const LiveLogStreamer = require('./src/liveLogStreamer');
 const PortManager = require('./src/portManager');
 const TunnelManager = require('./src/tunnelManager');
 const PhpInstaller = require('./src/phpInstaller');
+const PhpMyAdminManager = require('./src/phpMyAdminManager');
 const NginxInstaller = require('./src/nginxInstaller');
 const MysqlInstaller = require('./src/mysqlInstaller');
+const LaravelManager = require('./src/laravelManager');
+const LocalProxyBypass = require('./src/localProxyBypass');
 
 let portManager;
 let tunnelManager = new TunnelManager();
 let phpInstaller = null;
+let phpMyAdminManager = null;
 let nginxInstaller = null;
 let mysqlInstaller = null;
+let liveLogStreamer = null;
 let autoUpdater = null;
 let updaterCheckInFlight = false;
 let latestUpdaterRelease = null;
@@ -96,6 +103,7 @@ function ensureConfigDir() {
 const DEFAULT_CONFIG = {
   mysql: { host: '127.0.0.1', port: 3306, user: 'root', password: '' },
   php: { binary: 'php', defaultVersion: '' },
+  phpmyadmin: { version: '5.2.3' },
   app: {
     theme: 'dark',
     autoConnectMySQL: false,
@@ -134,6 +142,11 @@ let siteManager = null;
 let serviceManager = null;
 let shutdownPromise = null;
 let shutdownComplete = false;
+let closeInstallPromptOpen = false;
+let laravelManager = null;
+let viteProxyTimer = null;
+let viteProxySyncInFlight = false;
+const localProxyBypass = new LocalProxyBypass();
 
 async function stopAppRuntime() {
   if (shutdownPromise) return shutdownPromise;
@@ -146,6 +159,16 @@ async function stopAppRuntime() {
       } catch (error) { failures.push(`${label}: ${error.message}`); }
     };
     await attempt('Public tunnels', () => tunnelManager?.stopAll());
+    await attempt('Artisan processes', () => laravelManager?.stopAll());
+    await attempt('Framework installations', () => frameworkManager?.stopAll());
+    await attempt('phpMyAdmin domain route', () => removePhpMyAdminDomainRoute());
+    await attempt('phpMyAdmin local server', () => phpMyAdminManager?.stopAll());
+    if (viteProxyTimer) clearInterval(viteProxyTimer);
+    viteProxyTimer = null;
+    await attempt('Laravel Vite proxy', () => {
+      vhostsManager?.restoreLaravelViteHotFiles(siteManager?.getSites() || []);
+      return { success: true };
+    });
     await attempt('PHP site servers', () => phpManager?.stopAllAndWait());
     await attempt('NGINX', async () => {
       if (nginxInstaller?.ownedProcess && nginxInstaller.ownedProcess.exitCode === null) return nginxInstaller.stop();
@@ -158,6 +181,7 @@ async function stopAppRuntime() {
     });
     await attempt('Managed services', () => serviceManager?.stopOwnedServices());
     await attempt('Mail catcher', () => mailCatcher?.stop());
+    if (liveLogStreamer) liveLogStreamer.stop();
     if (failures.length) console.warn('[Shutdown] Some app-owned services reported errors:', failures);
     return { success: failures.length === 0, failures };
   })();
@@ -168,6 +192,39 @@ async function stopAllSiteSharing() {
   if (tunnelManager) await tunnelManager.stopAll();
 }
 
+function requestAppQuit(onKeepRunning) {
+  if (!frameworkManager?.hasActiveInstallations?.()) {
+    isQuitting = true;
+    app.quit();
+    return;
+  }
+  if (closeInstallPromptOpen) return;
+  closeInstallPromptOpen = true;
+  const options = {
+    type: 'warning',
+    title: 'Installation in Progress',
+    message: 'A project installation or repair is still running.',
+    detail: 'Choose whether to keep the installation running in the background or stop it and close C-Script. Stopping may leave the selected project folder incomplete.',
+    buttons: ['Keep Running in Background', 'Stop Installation & Close'],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true
+  };
+  const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+  (parent ? dialog.showMessageBox(parent, options) : dialog.showMessageBox(options)).then(({ response }) => {
+    closeInstallPromptOpen = false;
+    if (response === 1) {
+      isQuitting = true;
+      app.quit();
+    } else if (typeof onKeepRunning === 'function') {
+      onKeepRunning();
+    }
+  }).catch(error => {
+    closeInstallPromptOpen = false;
+    console.warn('[Window] Could not show installation close confirmation:', error.message);
+  });
+}
+
 function createTray() {
   if (tray) return;
   const iconPath = path.join(__dirname, 'assets', 'icon.png');
@@ -175,43 +232,49 @@ function createTray() {
 
   try {
     tray = new Tray(iconPath);
-    const contextMenu = Menu.buildFromTemplate([
-      {
-        label: 'Show C-Script Panel',
-        click: () => {
-          if (mainWindow) {
-            mainWindow.show();
-            mainWindow.focus();
-          } else {
-            createWindow();
-          }
-        }
-      },
-      { type: 'separator' },
-      {
-        label: 'Start All Services',
-        click: async () => {
-          if (serviceManager) await serviceManager.startAllServices(siteManager, phpManager, mysqlManager);
-        }
-      },
-      {
-        label: 'Stop All Services',
-        click: async () => {
-          await stopAllSiteSharing();
-          if (serviceManager) await serviceManager.stopAllServices(siteManager, phpManager, mysqlManager);
-        }
-      },
-      { type: 'separator' },
-      {
-        label: 'Quit C-Script Panel',
-        click: () => {
-          isQuitting = true;
-          app.quit();
-        }
-      }
-    ]);
+    const showWindow = () => {
+      if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
+      else createWindow();
+    };
+    const buildTrayMenu = async () => {
+      const sites = siteManager?.getSites?.() || [];
+      const runningSites = sites.filter(site => phpManager?.isRunning?.(site.id));
+      let serviceStates = new Map();
+      try { serviceStates = new Map((await serviceManager?.getServices?.(siteManager, phpManager) || []).map(item => [item.id, item.status === 'running'])); } catch (_) {}
+      return Menu.buildFromTemplate([
+        { label: 'Show C-Script Panel', click: showWindow },
+        { type: 'separator' },
+        ...[
+          { id: 'webserver', label: 'NGINX' },
+          { id: 'mysql', label: 'MariaDB / MySQL' },
+          { id: 'php', label: 'PHP Runtime' }
+        ].map(service => ({
+          label: `${service.label} (${serviceStates.get(service.id) ? 'Running' : 'Stopped'})`,
+          submenu: [
+            { label: `Start ${service.label}`, enabled: !serviceStates.get(service.id), click: async () => { const result = await serviceManager?.startService(service.id, siteManager, phpManager, mysqlManager); if (result?.success === false) logManager?.log('Tray', result.error || `Could not start ${service.label}`, 'error'); } },
+            { label: `Stop ${service.label}`, enabled: !!serviceStates.get(service.id), click: async () => { const result = await serviceManager?.stopService(service.id, siteManager, phpManager, mysqlManager); if (result?.success === false) logManager?.log('Tray', result.error || `Could not stop ${service.label}`, 'error'); } }
+          ]
+        })),
+        { label: 'Start All Services', click: async () => { if (serviceManager) await serviceManager.startAllServices(siteManager, phpManager, mysqlManager); } },
+        { label: 'Stop All Services', click: async () => { await stopAllSiteSharing(); if (serviceManager) await serviceManager.stopAllServices(siteManager, phpManager, mysqlManager); } },
+        { type: 'separator' },
+        { label: 'Active virtual hosts', enabled: runningSites.length > 0, submenu: runningSites.length
+          ? runningSites.map(site => {
+            const domain = site.domain || vhostsManager?.getDomain(site.name);
+            return { label: domain, click: () => shell.openExternal(`http://${domain}`) };
+          })
+          : [{ label: 'No active sites', enabled: false }] },
+        { label: 'Open error logs', click: () => {
+          showWindow();
+          setTimeout(() => mainWindow?.webContents.executeJavaScript("switchPanel('logs')").catch(() => {}), 150);
+        } },
+        { type: 'separator' },
+        { label: 'Quit C-Script Panel', click: () => requestAppQuit() }
+      ]);
+    };
+    buildTrayMenu().then(menu => tray?.setContextMenu(menu)).catch(() => {});
+    tray.on('right-click', () => buildTrayMenu().then(menu => tray?.setContextMenu(menu)).catch(() => {}));
     tray.setToolTip('C-Script LocalHost Panel');
-    tray.setContextMenu(contextMenu);
     tray.on('double-click', () => {
       if (mainWindow) {
         mainWindow.show();
@@ -267,6 +330,14 @@ function createWindow() {
     try { cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch (e) {}
     const minimizeToTray = cfg?.app?.minimizeToTray ?? cfg?.minimizeToTray ?? true;
 
+    if (!isQuitting && frameworkManager?.hasActiveInstallations?.()) {
+      event.preventDefault();
+      requestAppQuit(() => {
+        if (minimizeToTray && tray && mainWindow) mainWindow.hide();
+      });
+      return;
+    }
+
     if (!isQuitting && minimizeToTray && tray) {
       event.preventDefault();
       mainWindow.hide();
@@ -293,6 +364,11 @@ app.on('second-instance', () => {
 
 app.on('before-quit', (event) => {
   if (shutdownComplete) return;
+  if (!isQuitting && frameworkManager?.hasActiveInstallations?.()) {
+    event.preventDefault();
+    requestAppQuit();
+    return;
+  }
   event.preventDefault();
   isQuitting = true;
   stopAppRuntime().finally(() => {
@@ -310,6 +386,16 @@ let logManager = null;
 app.whenReady().then(async () => {
   app.setName('C-Script LocalHost Panel');
   ensureConfigDir();
+
+  // Keep in-app webviews on the OS proxy, but route loopback and local dev TLDs directly.
+  try {
+    await session.defaultSession.setProxy({
+      mode: 'system',
+      proxyBypassRules: '<local>,*.test,*.localhost,localhost,127.0.0.1,::1'
+    });
+  } catch (error) {
+    console.warn('[LocalProxyBypass] Could not configure Electron local bypass rules:', error.message);
+  }
 
   // Auto-provision bundled stack (PHP 8.4, NGINX, MySQL) on fresh install
   try {
@@ -329,9 +415,19 @@ app.whenReady().then(async () => {
   mysqlInstaller = new MysqlInstaller();
 
   phpManager = new PhpManager();
+  const userProfile = process.env.USERPROFILE || os.homedir();
+  const appData = process.env.APPDATA || path.join(userProfile, 'AppData', 'Roaming');
+  phpMyAdminManager = new PhpMyAdminManager({
+    baseDir: path.join(appData, 'c-script-localhost', 'phpmyadmin'),
+    phpManager,
+    phpInstaller
+  });
+  phpMyAdminManager.on('progress', data => mainWindow?.webContents.send('phpmyadmin:progress', data));
   mysqlManager = new MySQLManager();
   siteManager = new SiteManager(SITES_FILE);
   serviceManager = new ServiceManager();
+  laravelManager = new LaravelManager();
+  laravelManager.on('output', data => mainWindow?.webContents.send('laravel:output', data));
 
   let cfg = {};
   try {
@@ -341,8 +437,33 @@ app.whenReady().then(async () => {
 
   const tld = cfg?.app?.tld || cfg?.tld || 'test';
   vhostsManager = new VhostsManager(tld);
+  viteProxyTimer = setInterval(async () => {
+    if (!vhostsManager || !siteManager || viteProxySyncInFlight) return;
+    const proxySites = siteManager.getSites().map(site => ({
+      ...site,
+      domain: site.domain || vhostsManager.getDomain(site.name, vhostsManager.defaultTld),
+      status: phpManager.isRunning(site.id) ? 'running' : 'stopped',
+      port: phpManager.getPort(site.id) || site.port,
+      fastCgiPort: phpManager.getFastCgiPort(site.id)
+    }));
+    try {
+      if (!vhostsManager.refreshLaravelVite(proxySites)) return;
+      viteProxySyncInFlight = true;
+      await vhostsManager.syncReverseProxy(proxySites);
+    } catch (error) {
+      console.warn('[Laravel Vite] Could not refresh the NGINX proxy:', error.message);
+    } finally {
+      viteProxySyncInFlight = false;
+    }
+  }, 2000);
+  viteProxyTimer.unref?.();
   frameworkManager = new FrameworkManager();
+  frameworkManager.on('progress', data => mainWindow?.webContents.send('frameworks:progress', data));
   logManager = new LogManager();
+  liveLogStreamer = new LiveLogStreamer({
+    onLine: entry => logManager?.log(entry.source, entry.message, entry.level)
+  });
+  liveLogStreamer.start();
   mailCatcher = new MailCatcher(cfg?.app?.mailCatcherPort || cfg?.mail?.port || 1025);
   portManager = new PortManager();
 
@@ -464,17 +585,44 @@ ipcMain.handle('sites:list', () => {
     else if (cfg?.tld) tld = cfg.tld;
   } catch (e) {}
 
-  return sites.map(site => ({
-    ...site,
-    domain: site.domain || vhostsManager.getDomain(site.name, tld),
-    status: phpManager.isRunning(site.id) ? 'running' : 'stopped',
-    port: phpManager.getPort(site.id) || site.port
-  }));
+  return sites.map(site => {
+    const isLaravel = LaravelManager.isLaravelProject(site.root);
+    return {
+      ...site,
+      domain: site.domain || vhostsManager.getDomain(site.name, tld),
+      status: phpManager.isRunning(site.id) ? 'running' : 'stopped',
+      port: phpManager.getPort(site.id) || site.port,
+      fastCgiPort: phpManager.getFastCgiPort(site.id),
+      isLaravel,
+      laravelReady: !isLaravel || fs.existsSync(path.join(site.root, 'vendor', 'autoload.php'))
+    };
+  });
 });
 
 ipcMain.handle('sites:add', async (event, siteData) => {
-  if (siteData?.entryFile && !isPhpFileInsideFolder(siteData.root, siteData.entryFile)) {
-    return { success: false, error: 'Choose a PHP run file from inside the selected site folder.' };
+  let rootIsDirectory = false;
+  try { rootIsDirectory = typeof siteData?.root === 'string' && fs.statSync(siteData.root).isDirectory(); } catch (_) {}
+  if (!rootIsDirectory) {
+    return { success: false, error: 'Choose an existing site folder.' };
+  }
+  const isLaravelSite = LaravelManager.isLaravelProject(siteData.root);
+  if (isLaravelSite && !fs.existsSync(path.join(siteData.root, 'vendor', 'autoload.php'))) {
+    return { success: false, error: 'Laravel dependencies are not installed yet. Select “Laravel Project (Composer install)” to install them before adding this site.' };
+  }
+  const laravelEntryFile = path.join(siteData.root, 'public', 'index.php');
+  if (isLaravelSite && !fs.existsSync(laravelEntryFile)) {
+    return { success: false, error: 'Laravel was found, but public/index.php is missing. No entry point was selected.' };
+  }
+  if (siteData.framework === 'laravel' &&
+      (!isLaravelSite || !fs.existsSync(path.join(siteData.root, 'vendor', 'autoload.php')))) {
+    return { success: false, error: 'Laravel is not fully installed in this folder yet. Finish the installation before adding or starting the site.' };
+  }
+  if (isLaravelSite && !siteData.entryFile) siteData.entryFile = laravelEntryFile;
+  if (siteData.entryFile) {
+    if (!path.isAbsolute(siteData.entryFile)) siteData.entryFile = path.resolve(siteData.root, siteData.entryFile);
+    if (!isPhpFileInsideFolder(siteData.root, siteData.entryFile)) {
+      return { success: false, error: 'Choose a PHP run file from inside the selected site folder.' };
+    }
   }
 
   // Validate requested port or assign a dedicated free port
@@ -530,6 +678,12 @@ ipcMain.handle('sites:remove', async (event, id) => {
 ipcMain.handle('sites:start', async (event, id) => {
   const site = siteManager.getSite(id);
   if (!site) return { success: false, error: 'Site not found' };
+  if (LaravelManager.isLaravelProject(site.root) && !fs.existsSync(path.join(site.root, 'vendor', 'autoload.php'))) {
+    return { success: false, error: 'Laravel dependencies are still missing. Finish Composer installation before starting this site.' };
+  }
+  if (LaravelManager.isLaravelProject(site.root) && !fs.existsSync(path.join(site.root, 'public', 'index.php'))) {
+    return { success: false, error: 'Laravel public/index.php was not found. The site was not started because no entry point is available.' };
+  }
 
   // Load PHP binary from current config
   try {
@@ -546,12 +700,21 @@ ipcMain.handle('sites:start', async (event, id) => {
     };
   }
 
-  // Ensure PHP service runtime is active
-  await serviceManager.startService('php', siteManager, phpManager);
+  // FastCGI sites start their own selected PHP-CGI worker below; other sites
+  // may use the shared runtime service for their built-in PHP server.
+  if (site.phpMode !== 'fastcgi') await serviceManager.startService('php', siteManager, phpManager);
 
   // Reserve all ports of other sites (stopped and running)
   const reservedPorts = siteManager.getAllAssignedPorts(site.id);
+  if (site.phpMode === 'fastcgi') {
+    if (!vhostsManager?.getNginxInfo()?.exePath) {
+      return { success: false, error: 'NGINX FastCGI mode requires the app-managed NGINX server. Install NGINX in Settings, then start this site again.' };
+    }
+    const fastCgi = await phpManager.startFastCgi(site);
+    if (!fastCgi.success) return fastCgi;
+  }
   const result = await phpManager.start(site, reservedPorts);
+  if (!result.success && site.phpMode === 'fastcgi') phpManager.stopFastCgi(site.id);
   if (result.success) {
     siteManager.updateSite(id, { status: 'running', port: result.port });
     // Sync hosts and reverse proxy so site is accessible on port 80 without entering any port number!
@@ -560,21 +723,25 @@ ipcMain.handle('sites:start', async (event, id) => {
         ...s,
         domain: s.domain || vhostsManager.getDomain(s.name, vhostsManager.defaultTld),
         status: phpManager.isRunning(s.id) ? 'running' : 'stopped',
-        port: phpManager.getPort(s.id) || s.port
+        port: phpManager.getPort(s.id) || s.port,
+        fastCgiPort: phpManager.getFastCgiPort(s.id)
       }));
       const domains = allSites.map(s => s.domain);
       vhostsManager.syncHosts(domains).catch(() => {});
-      await vhostsManager.syncReverseProxy(allSites).catch(() => {});
+      const proxyResult = await vhostsManager.syncReverseProxy(allSites).catch(() => null);
+      if (proxyResult?.method === 'nginx' && proxyResult.ssl === false) {
+        result.warning = `HTTP is available, but HTTPS is not configured: ${proxyResult.sslError || 'A complete local certificate and private key are required.'}`;
+      }
     }
 
     // Automatically ensure NGINX Web Server is started so custom domains (*.test on port 80/443) load in the browser!
     try {
       const nginxRes = await serviceManager.startService('webserver', siteManager, phpManager);
       if (nginxRes && !nginxRes.success) {
-        result.warning = `Site started on port ${result.port}, but NGINX could not start: ${nginxRes.error}`;
+        result.warning = [result.warning, `NGINX could not start: ${nginxRes.error}`].filter(Boolean).join(' ');
       }
     } catch (nginxErr) {
-      result.warning = `Site started on port ${result.port}, but NGINX could not start: ${nginxErr.message}`;
+      result.warning = [result.warning, `NGINX could not start: ${nginxErr.message}`].filter(Boolean).join(' ');
       console.warn('[Sites:Start] Auto-start NGINX error:', nginxErr.message);
     }
   }
@@ -590,7 +757,8 @@ ipcMain.handle('sites:stop', async (event, id) => {
       ...s,
       domain: s.domain || vhostsManager.getDomain(s.name, vhostsManager.defaultTld),
       status: phpManager.isRunning(s.id) ? 'running' : 'stopped',
-      port: phpManager.getPort(s.id) || s.port
+      port: phpManager.getPort(s.id) || s.port,
+      fastCgiPort: phpManager.getFastCgiPort(s.id)
     }));
     vhostsManager.syncReverseProxy(allSites).catch(() => {});
   }
@@ -616,6 +784,9 @@ ipcMain.handle('sites:update', (event, { id, data }) => {
   }
   if (Object.prototype.hasOwnProperty.call(data || {}, 'autoindex')) {
     data.autoindex = !!data.autoindex;
+  }
+  if (Object.prototype.hasOwnProperty.call(data || {}, 'phpMode')) {
+    if (!['builtin', 'fastcgi'].includes(data.phpMode)) return { success: false, error: 'Choose a supported PHP request handler.' };
   }
   return siteManager.updateSite(id, data);
 });
@@ -1334,7 +1505,8 @@ ipcMain.handle('php:toggle-extension', async (event, { name, enable }) => {
           ...s,
           domain: s.domain || vhostsManager.getDomain(s.name, vhostsManager.defaultTld),
           status: phpManager.isRunning(s.id) ? 'running' : 'stopped',
-          port: phpManager.getPort(s.id) || s.port
+          port: phpManager.getPort(s.id) || s.port,
+          fastCgiPort: phpManager.getFastCgiPort(s.id)
         }));
         vhostsManager.syncReverseProxy(allSites).catch(() => {});
       }
@@ -1365,6 +1537,28 @@ ipcMain.handle('ssl:ensure', async () => {
     return { success: false, error: 'SSL manager not initialized' };
   }
   return await vhostsManager.sslManager.ensureWildcardCert();
+});
+
+ipcMain.handle('ssl:ensure-trusted', async () => {
+  if (!vhostsManager?.sslManager) return { success: false, error: 'SSL manager not initialized' };
+  const domains = siteManager.getSites().map(site => site.domain || vhostsManager.getDomain(site.name, vhostsManager.defaultTld));
+  const result = await vhostsManager.sslManager.ensureTrustedWildcardCert(domains);
+  if (result.success) {
+    logManager?.log('SSL', 'Generated a trusted .test wildcard certificate with mkcert.', 'success');
+    if (vhostsManager) {
+      const allSites = siteManager.getSites().map(site => ({
+        ...site,
+        domain: site.domain || vhostsManager.getDomain(site.name, vhostsManager.defaultTld),
+        status: phpManager.isRunning(site.id) ? 'running' : 'stopped',
+        port: phpManager.getPort(site.id) || site.port,
+        fastCgiPort: phpManager.getFastCgiPort(site.id)
+      }));
+      await vhostsManager.syncReverseProxy(allSites);
+    }
+  } else {
+    logManager?.log('SSL', result.error || 'Could not create trusted SSL certificate.', 'error');
+  }
+  return result;
 });
 
 ipcMain.handle('php:browse-binary', async () => {
@@ -1525,6 +1719,11 @@ ipcMain.handle('config:save', (event, config) => {
       },
       mysql: { ...DEFAULT_CONFIG.mysql, ...existing.mysql, ...config?.mysql },
       php: { ...DEFAULT_CONFIG.php, ...existing.php, ...config?.php },
+      phpmyadmin: {
+        version: PhpMyAdminManager.SUPPORTED_VERSIONS.includes(String(config?.phpmyadmin?.version || existing.phpmyadmin?.version || DEFAULT_CONFIG.phpmyadmin.version))
+          ? String(config?.phpmyadmin?.version || existing.phpmyadmin?.version || DEFAULT_CONFIG.phpmyadmin.version)
+          : DEFAULT_CONFIG.phpmyadmin.version
+      },
       app: {
         ...DEFAULT_CONFIG.app,
         ...existing.app,
@@ -1551,6 +1750,32 @@ ipcMain.handle('config:load', () => {
   } catch (err) {
     return { success: true, config: DEFAULT_CONFIG, configDir: CONFIG_DIR };
   }
+});
+
+// ─── IPC: Windows local-domain system proxy bypass ───────────────────────────
+ipcMain.handle('network-proxy:local-bypass-status', () => localProxyBypass.status());
+ipcMain.handle('network-proxy:apply-local-bypass', async () => {
+  if (process.platform !== 'win32') return { success: false, error: 'This action is available on Windows only.' };
+  const confirmation = await dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    title: 'Bypass proxy for local development sites?',
+    message: 'Add local addresses and your registered local site domains to this Windows user’s system proxy bypass list?',
+    detail: 'This preserves existing entries and changes only the current user’s Internet proxy override. V2Ray TUN or transparent routing modes may need a direct route in the V2Ray client as well.',
+    buttons: ['Apply bypass rules', 'Cancel'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true
+  });
+  if (confirmation.response !== 0) return { success: false, canceled: true };
+  const domains = (siteManager?.getSites?.() || []).map(site =>
+    site.domain || vhostsManager?.getDomain(site.name, vhostsManager.defaultTld) || ''
+  );
+  const result = await localProxyBypass.apply(domains);
+  if (result.success) {
+    try { await session.defaultSession.closeAllConnections(); } catch (_) {}
+    logManager?.log('Network', 'Added local development domains to the Windows proxy bypass list.', 'success');
+  }
+  return result;
 });
 
 // ─── Helpers: PHP Versions Scanner ───────────────────────────────────────────
@@ -1752,13 +1977,209 @@ ipcMain.handle('vhosts:get-domain', (event, { siteName, tld }) => {
 });
 
 // ─── IPC: Frameworks ──────────────────────────────────────────────────────────
-ipcMain.handle('frameworks:scaffold', async (event, { framework, targetDir, options }) => {
+ipcMain.handle('frameworks:inspect-laravel-target', (_event, targetDir) => {
+  if (!frameworkManager) return { success: false, error: 'Framework manager is not ready.' };
+  return frameworkManager.inspectLaravelTarget(targetDir);
+});
+
+ipcMain.handle('frameworks:inspect-project-target', (_event, targetDir) => {
+  if (!frameworkManager) return { success: false, error: 'Framework manager is not ready.' };
+  return frameworkManager.inspectProjectTarget(targetDir);
+});
+
+ipcMain.handle('frameworks:install-project-dependencies', async (_event, { targetDir, php } = {}) => {
+  if (!frameworkManager) return { success: false, error: 'Framework manager is not ready.' };
+  const phpBinary = phpManager?.getBinaryForSite({ php }) || 'php';
+  return frameworkManager.installProjectDependencies(targetDir, phpBinary);
+});
+
+ipcMain.handle('frameworks:cancel-installation', async (_event, targetDir) => {
+  if (!frameworkManager) return { success: false, error: 'Framework manager is not ready.' };
+  return frameworkManager.cancelInstallation(targetDir);
+});
+
+ipcMain.handle('frameworks:scaffold', async (event, { framework, targetDir, options } = {}) => {
   if (!frameworkManager) return { success: false, error: 'FrameworkManager not ready' };
-  const res = await frameworkManager.scaffold(framework, targetDir, options);
+  const safeOptions = { ...(options || {}) };
+  if (framework === 'laravel') safeOptions.phpBinary = phpManager?.getBinaryForSite({ php: safeOptions.php }) || 'php';
+  const res = await frameworkManager.scaffold(framework, targetDir, safeOptions);
   if (logManager) {
     logManager.log('Framework', `Scaffolded ${framework} in ${targetDir}`, res.success ? 'success' : 'error');
   }
   return res;
+});
+
+// ─── IPC: Local phpMyAdmin ──────────────────────────────────────────────────
+const PHPMYADMIN_DOMAIN = 'phpmyadmin.test';
+const PHPMYADMIN_PROXY_MARKER = '# Managed by C-Script LocalHost Panel: phpMyAdmin proxy route.';
+
+function getConfiguredPhpMyAdminVersion() {
+  let config = {};
+  try { config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch (_) {}
+  return PhpMyAdminManager.SUPPORTED_VERSIONS.includes(String(config.phpmyadmin?.version))
+    ? String(config.phpmyadmin.version)
+    : DEFAULT_CONFIG.phpmyadmin.version;
+}
+
+ipcMain.handle('phpmyadmin:paths', () => phpMyAdminManager
+  ? phpMyAdminManager.paths(getConfiguredPhpMyAdminVersion())
+  : { success: false, error: 'phpMyAdmin manager is not ready.' });
+
+ipcMain.handle('phpmyadmin:open-folder', async () => {
+  if (!phpMyAdminManager) return { success: false, error: 'phpMyAdmin manager is not ready.' };
+  const paths = phpMyAdminManager.paths(getConfiguredPhpMyAdminVersion());
+  try {
+    const folderPath = paths.installed ? paths.versionDir : paths.baseDir;
+    fs.mkdirSync(folderPath, { recursive: true });
+    const error = await shell.openPath(folderPath);
+    return error ? { success: false, error } : { success: true, path: folderPath };
+  } catch (error) { return { success: false, error: error.message }; }
+});
+
+ipcMain.handle('phpmyadmin:open-config', async () => {
+  if (!phpMyAdminManager) return { success: false, error: 'phpMyAdmin manager is not ready.' };
+  const paths = phpMyAdminManager.paths(getConfiguredPhpMyAdminVersion());
+  if (!paths.installed || !paths.configExists) {
+    return { success: false, error: 'Install and open phpMyAdmin once to create its configuration file.' };
+  }
+  try {
+    const error = await shell.openPath(paths.configPath);
+    return error ? { success: false, error } : { success: true, path: paths.configPath };
+  } catch (error) { return { success: false, error: error.message }; }
+});
+
+function getRunningProxySites() {
+  return (siteManager?.getSites?.() || []).map(site => ({
+    ...site,
+    domain: site.domain || vhostsManager?.getDomain(site.name, vhostsManager.defaultTld),
+    status: phpManager?.isRunning(site.id) ? 'running' : 'stopped',
+    port: phpManager?.getPort(site.id) || site.port,
+    fastCgiPort: phpManager?.getFastCgiPort(site.id)
+  }));
+}
+
+async function configurePhpMyAdminDomain(port) {
+  if (!vhostsManager || !serviceManager) return { success: false, error: 'Local domain routing is not ready.' };
+  const sites = getRunningProxySites();
+  if (sites.some(site => String(site.domain || '').toLowerCase() === PHPMYADMIN_DOMAIN)) {
+    return { success: false, error: `${PHPMYADMIN_DOMAIN} is already assigned to another site. Change that site’s domain first.` };
+  }
+
+  const siteDomains = (siteManager?.getSites?.() || [])
+    .map(site => site.domain || vhostsManager.getDomain(site.name, vhostsManager.defaultTld));
+  const hostsResult = await vhostsManager.syncHosts([...siteDomains, PHPMYADMIN_DOMAIN]);
+  if (!hostsResult?.success) {
+    return { success: false, error: `Could not register ${PHPMYADMIN_DOMAIN} in the Windows hosts file. ${hostsResult?.error || ''}`.trim() };
+  }
+
+  const nginxInfo = vhostsManager.getNginxInfo();
+  if (!nginxInfo && await serviceManager.checkPort(80) && !vhostsManager.isInternalProxyRunning()) {
+    return { success: false, error: 'Port 80 is already in use, so phpmyadmin.test cannot be routed. Stop the other web server or free port 80.' };
+  }
+
+  const proxySite = {
+    id: 'cscript-phpmyadmin',
+    name: 'phpMyAdmin',
+    domain: PHPMYADMIN_DOMAIN,
+    status: 'running',
+    port: Number(port),
+    phpMode: 'proxy',
+    root: ''
+  };
+  const proxyResult = await vhostsManager.syncReverseProxy([...sites, proxySite]);
+  if (!proxyResult?.success) return { success: false, error: proxyResult?.error || 'Could not configure the phpMyAdmin local domain.' };
+
+  if (proxyResult.method === 'nginx') {
+    const generatedConfig = path.join(nginxInfo.vhostsDir, `${PHPMYADMIN_DOMAIN}.conf`);
+    if (!fs.existsSync(generatedConfig) || !fs.readFileSync(generatedConfig, 'utf8').includes(PHPMYADMIN_PROXY_MARKER)) {
+      return { success: false, error: `NGINX did not create the ${PHPMYADMIN_DOMAIN} proxy configuration.` };
+    }
+    const nginxResult = await serviceManager.startService('webserver', siteManager, phpManager, mysqlManager);
+    if (!nginxResult?.success) {
+      await removePhpMyAdminDomainRoute();
+      return { success: false, error: `Could not start NGINX for ${PHPMYADMIN_DOMAIN}: ${nginxResult?.error || 'unknown error'}` };
+    }
+  } else if (!vhostsManager.isInternalProxyRunning()) {
+    await removePhpMyAdminDomainRoute();
+    return { success: false, error: `Could not start the local proxy for ${PHPMYADMIN_DOMAIN}. Check whether port 80 is available.` };
+  }
+  return { success: true, domain: PHPMYADMIN_DOMAIN, url: `http://${PHPMYADMIN_DOMAIN}/`, method: proxyResult.method };
+}
+
+async function removePhpMyAdminDomainRoute() {
+  const nginxInfo = vhostsManager?.getNginxInfo?.();
+  let removedProxy = false;
+  if (nginxInfo?.vhostsDir) {
+    const configPath = path.join(nginxInfo.vhostsDir, `${PHPMYADMIN_DOMAIN}.conf`);
+    try {
+      if (fs.existsSync(configPath) && fs.readFileSync(configPath, 'utf8').includes(PHPMYADMIN_PROXY_MARKER)) {
+        fs.unlinkSync(configPath);
+        removedProxy = true;
+      }
+    } catch (error) {
+      return { success: false, error: `Could not remove the phpMyAdmin NGINX route: ${error.message}` };
+    }
+  }
+  const activeSites = getRunningProxySites();
+  if ((removedProxy && nginxInfo) || vhostsManager?.isInternalProxyRunning()) {
+    await vhostsManager.syncReverseProxy(activeSites);
+  }
+  return { success: true };
+}
+
+ipcMain.handle('phpmyadmin:status', () => {
+  let config = {};
+  try { config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch (_) {}
+  if (!phpMyAdminManager) return { success: false, error: 'phpMyAdmin manager is not ready.' };
+  const status = phpMyAdminManager.status(config.phpmyadmin?.version || DEFAULT_CONFIG.phpmyadmin.version);
+  return { ...status, url: status.running ? `http://${PHPMYADMIN_DOMAIN}/` : null, domain: PHPMYADMIN_DOMAIN };
+});
+
+ipcMain.handle('phpmyadmin:open', async () => {
+  if (!phpMyAdminManager) return { success: false, error: 'phpMyAdmin manager is not ready.' };
+  let config = {};
+  try { config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch (_) {}
+  const selectedVersion = PhpMyAdminManager.SUPPORTED_VERSIONS.includes(String(config.phpmyadmin?.version))
+    ? String(config.phpmyadmin.version)
+    : DEFAULT_CONFIG.phpmyadmin.version;
+  const result = await phpMyAdminManager.open(
+    selectedVersion,
+    config.mysql || DEFAULT_CONFIG.mysql
+  );
+  if (result.success && result.port) {
+    const route = await configurePhpMyAdminDomain(result.port);
+    if (!route.success) {
+      await phpMyAdminManager.stop();
+      return route;
+    }
+    result.localUrl = result.url;
+    result.url = route.url;
+  }
+  return result;
+});
+
+ipcMain.handle('phpmyadmin:stop', async () => {
+  if (!phpMyAdminManager) return { success: true, stopped: false };
+  const stopped = await phpMyAdminManager.stop();
+  const route = await removePhpMyAdminDomainRoute();
+  if (logManager) logManager.log('phpMyAdmin', route.success ? 'phpMyAdmin stopped' : `phpMyAdmin stopped, but route cleanup failed: ${route.error}`, route.success ? 'info' : 'warn');
+  return { ...stopped, success: stopped.success !== false, domain: PHPMYADMIN_DOMAIN, warning: route.success ? null : route.error };
+});
+
+// ─── IPC: Guarded Laravel Artisan tasks ──────────────────────────────────────
+ipcMain.handle('laravel:run', async (_event, { siteId, action } = {}) => {
+  if (!siteManager || !laravelManager) return { success: false, error: 'Laravel tools are not ready.' };
+  const site = siteManager.getSite(siteId);
+  if (!site) return { success: false, error: 'Site not found.' };
+  const result = await laravelManager.run(site, action, phpManager);
+  if (logManager) {
+    logManager.log('Laravel', `${action} for ${site.name}${result.success ? ' started' : ` failed: ${result.error}`}`, result.success ? 'info' : 'error');
+  }
+  return result;
+});
+
+ipcMain.handle('laravel:stop', (_event, jobId) => {
+  return laravelManager ? laravelManager.stop(jobId) : { success: false, error: 'Laravel tools are not ready.' };
 });
 
 // ─── IPC: Mail Catcher ────────────────────────────────────────────────────────
@@ -1785,6 +2206,7 @@ ipcMain.handle('mail:stop', () => {
 ipcMain.handle('logs:list', (event, source) => {
   return logManager ? logManager.getEntries(source) : [];
 });
+ipcMain.handle('logs:streams', () => liveLogStreamer ? liveLogStreamer.list() : []);
 ipcMain.handle('logs:clear', () => {
   return logManager ? logManager.clear() : { success: true };
 });
@@ -1889,9 +2311,15 @@ ipcMain.handle('port:kill-pid', async (event, { pid, processName, port }) => {
 });
 
 // ─── IPC: Shell ───────────────────────────────────────────────────────────────
-ipcMain.handle('shell:open-external', (event, url) => {
-  shell.openExternal(url);
-  return { success: true };
+ipcMain.handle('shell:open-external', async (_event, url) => {
+  try {
+    const parsed = new URL(String(url || ''));
+    if (!['http:', 'https:'].includes(parsed.protocol)) return { success: false, error: 'Only HTTP and HTTPS links can be opened externally.' };
+    await shell.openExternal(parsed.toString());
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message || 'Could not open the link in your browser.' };
+  }
 });
 
 ipcMain.handle('shell:open-path', (event, filePath) => {

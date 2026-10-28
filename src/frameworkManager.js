@@ -5,10 +5,343 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const crypto = require('crypto');
+const https = require('https');
+const { EventEmitter } = require('events');
 const { spawn, exec } = require('child_process');
 
-class FrameworkManager {
-  constructor() {}
+class FrameworkManager extends EventEmitter {
+  constructor() {
+    super();
+    this.children = new Set();
+    this.installingRoots = new Set();
+    this.cancelledRoots = new Set();
+    this.installations = new Set();
+    this.downloadRequests = new Set();
+  }
+
+  inspectLaravelTarget(targetDir) {
+    try {
+      if (typeof targetDir !== 'string' || !targetDir.trim()) return { success: false, error: 'Choose an existing folder for the Laravel project.' };
+      const root = fs.realpathSync(path.resolve(targetDir));
+      if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
+        return { success: false, error: 'Choose an existing folder for the Laravel project.' };
+      }
+      const LaravelManager = require('./laravelManager');
+      const isLaravel = LaravelManager.isLaravelProject(root);
+      const entries = fs.readdirSync(root);
+      const entryPath = path.join(root, 'public', 'index.php');
+      const entryFile = isLaravel && fs.existsSync(entryPath) && fs.statSync(entryPath).isFile() ? entryPath : null;
+      return {
+        success: true,
+        root,
+        isLaravel,
+        empty: entries.length === 0,
+        dependenciesInstalled: fs.existsSync(path.join(root, 'vendor', 'autoload.php')),
+        entryFile
+      };
+    } catch (error) {
+      return { success: false, error: `Could not inspect the selected folder: ${error.message}` };
+    }
+  }
+
+  inspectProjectTarget(targetDir) {
+    const inspected = this.inspectLaravelTarget(targetDir);
+    if (!inspected.success) return inspected;
+    const root = inspected.root;
+    let framework = 'none';
+    let wordpressIndexContent = '';
+    let wordpressConfigContent = '';
+    try {
+      const indexPath = path.join(root, 'index.php');
+      const configPath = path.join(root, 'wp-config-sample.php');
+      if (fs.existsSync(indexPath)) wordpressIndexContent = fs.readFileSync(indexPath, 'utf8');
+      if (fs.existsSync(configPath)) wordpressConfigContent = fs.readFileSync(configPath, 'utf8');
+    } catch (_) {}
+    const wordpressSetupRecognized = wordpressIndexContent.includes('C-Script LocalHost Panel WordPress Setup') ||
+      wordpressIndexContent.includes('WordPress Setup —') ||
+      wordpressConfigContent.includes('C-Script LocalHost Panel WordPress Setup') ||
+      wordpressConfigContent.includes('cscript_local_dev_key_1');
+    const wordpressSetupMissing = [];
+    const wordpressSetupCorrupt = [];
+    if (!fs.existsSync(path.join(root, 'index.php'))) wordpressSetupMissing.push('index.php');
+    if (!fs.existsSync(path.join(root, 'wp-config-sample.php'))) wordpressSetupMissing.push('wp-config-sample.php');
+    const wordpressIndexHealthy = (wordpressIndexContent.includes('C-Script LocalHost Panel WordPress Setup') || wordpressIndexContent.includes('WordPress Setup —')) &&
+      wordpressIndexContent.includes('WP_USE_THEMES') && wordpressIndexContent.includes('wp-blog-header.php');
+    const wordpressConfigHealthy = (wordpressConfigContent.includes('C-Script LocalHost Panel WordPress Setup') || wordpressConfigContent.includes('cscript_local_dev_key_1')) &&
+      wordpressConfigContent.includes('DB_NAME') && wordpressConfigContent.includes('DB_HOST') && wordpressConfigContent.includes('wp-settings.php');
+    if (fs.existsSync(path.join(root, 'index.php')) && !wordpressIndexHealthy) wordpressSetupCorrupt.push('index.php');
+    if (fs.existsSync(path.join(root, 'wp-config-sample.php')) && !wordpressConfigHealthy) wordpressSetupCorrupt.push('wp-config-sample.php');
+    const wordpressSetupComplete = wordpressSetupRecognized && wordpressSetupMissing.length === 0 && wordpressSetupCorrupt.length === 0;
+    const wordpressCoreComplete = fs.existsSync(path.join(root, 'wp-includes', 'version.php')) &&
+      fs.existsSync(path.join(root, 'wp-admin')) && fs.existsSync(path.join(root, 'wp-load.php'));
+    let hasCodeIgniterComposerPackage = false;
+    try {
+      const composer = JSON.parse(fs.readFileSync(path.join(root, 'composer.json'), 'utf8'));
+      hasCodeIgniterComposerPackage = ['require', 'require-dev'].some(section =>
+        Object.keys(composer?.[section] || {}).some(name => name.toLowerCase() === 'codeigniter4/framework')
+      );
+    } catch (_) {}
+    const codeigniterRecognized = hasCodeIgniterComposerPackage ||
+      (fs.existsSync(path.join(root, 'spark')) && fs.existsSync(path.join(root, 'app', 'Config', 'Paths.php')));
+    const codeigniterCoreComplete = fs.existsSync(path.join(root, 'spark')) &&
+      fs.existsSync(path.join(root, 'app', 'Config', 'Paths.php'));
+    if (inspected.isLaravel) {
+      framework = 'laravel';
+    } else if (
+      wordpressCoreComplete || wordpressSetupRecognized
+    ) {
+      framework = 'wordpress';
+    } else if (codeigniterRecognized) {
+      framework = 'codeigniter';
+    }
+    return {
+      ...inspected,
+      framework,
+      existingProject: framework !== 'none',
+      wordpressSetupRecognized,
+      wordpressSetupComplete,
+      wordpressSetupMissing,
+      wordpressSetupCorrupt,
+      wordpressCoreComplete,
+      codeigniterCoreComplete
+    };
+  }
+
+  hasActiveInstallations() {
+    return this.installations.size > 0 || this.children.size > 0 || this.downloadRequests.size > 0;
+  }
+
+  async cancelInstallation(targetDir) {
+    if (typeof targetDir !== 'string' || !targetDir.trim()) return { success: false, error: 'Choose the installation folder to stop.' };
+    const key = path.resolve(targetDir).toLowerCase();
+    const jobs = [...this.children].filter(job => path.resolve(job.targetDir).toLowerCase() === key);
+    const requests = [...this.downloadRequests].filter(request => path.resolve(request.targetDir || '').toLowerCase() === key);
+    const installations = [...this.installations].filter(installation => path.resolve(installation.targetDir || '').toLowerCase() === key);
+    if (!jobs.length && !requests.length && !installations.length && !this.installingRoots.has(key)) {
+      return { success: false, error: 'There is no active project setup operation for this folder.' };
+    }
+    this.cancelledRoots.add(key);
+    for (const request of requests) {
+      try { request.destroy(new Error('Laravel installation was cancelled by the user.')); } catch (_) {}
+    }
+    for (const job of jobs) {
+      try { job.child?.kill('SIGTERM'); } catch (_) {}
+    }
+    await Promise.allSettled(installations);
+    return { success: true, cancelled: true };
+  }
+
+  async installProjectDependencies(targetDir, phpBinary = 'php') {
+    const inspected = this.inspectProjectTarget(targetDir);
+    if (!inspected.success) return inspected;
+    if (inspected.framework !== 'codeigniter') {
+      return { success: false, error: 'Composer dependency repair is currently available for detected CodeIgniter 4 projects.' };
+    }
+    if (!inspected.codeigniterCoreComplete) {
+      return { success: false, error: 'The CodeIgniter project files are incomplete. Restore the missing project files from a backup before installing dependencies.' };
+    }
+    if (inspected.dependenciesInstalled) return { success: true, alreadyInstalled: true, message: 'Composer dependencies are already installed.' };
+    const root = inspected.root;
+    const rootKey = path.resolve(root).toLowerCase();
+    if (this.installingRoots.has(rootKey)) return { success: false, error: 'A project dependency installation is already running for this folder.' };
+    this.installingRoots.add(rootKey);
+    const installation = (async () => {
+      try {
+        this.emit('progress', { targetDir: root, stream: 'status', output: 'Preparing CodeIgniter Composer dependencies…\n' });
+        const composer = await this._ensureComposer(String(phpBinary || 'php').trim(), root);
+        const result = await this._runComposer(composer, String(phpBinary || 'php').trim(), ['install', '--no-interaction', '--prefer-dist'], root, root);
+        if (!result.success) return { success: false, error: result.error || 'Composer dependency repair failed.' };
+        const verified = this.inspectProjectTarget(root);
+        if (!verified.success || !verified.dependenciesInstalled) return { success: false, error: 'Composer finished, but the CodeIgniter dependencies are still incomplete.' };
+        return { success: true, framework: 'codeigniter', message: 'CodeIgniter Composer dependencies are ready.' };
+      } catch (error) {
+        return { success: false, error: `Could not repair project dependencies: ${error.message}` };
+      } finally {
+        this.installingRoots.delete(rootKey);
+        this.cancelledRoots.delete(rootKey);
+      }
+    })();
+    installation.targetDir = root;
+    this.installations.add(installation);
+    try { return await installation; }
+    finally { this.installations.delete(installation); }
+  }
+
+  _findComposer() {
+    const candidates = [];
+    const pathEntries = String(process.env.PATH || '').split(path.delimiter).filter(Boolean);
+    if (process.platform === 'win32' && process.env.ProgramData) pathEntries.unshift(path.join(process.env.ProgramData, 'ComposerSetup', 'bin'));
+    for (const directory of pathEntries) {
+      candidates.push(path.join(directory, 'composer.phar'));
+      candidates.push(path.join(directory, 'composer.exe'));
+      candidates.push(path.join(directory, 'composer.bat'));
+      candidates.push(path.join(directory, 'composer'));
+    }
+    for (const candidate of candidates) {
+      try {
+        if (!fs.existsSync(candidate) || !fs.statSync(candidate).isFile()) continue;
+        const extension = path.extname(candidate).toLowerCase();
+        if (extension === '.phar') return { type: 'phar', path: candidate };
+        if (extension === '.exe' || !extension) return { type: 'binary', path: candidate };
+        if (extension === '.bat') {
+          const adjacentPhar = path.join(path.dirname(candidate), 'composer.phar');
+          if (fs.existsSync(adjacentPhar)) return { type: 'phar', path: adjacentPhar };
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  _downloadHttpsFile(urlString, destination, targetDir, redirects = 0) {
+    return new Promise((resolve, reject) => {
+      if (this.cancelledRoots.has(path.resolve(targetDir).toLowerCase())) return reject(new Error('Laravel installation was cancelled by the user.'));
+      let url;
+      try { url = new URL(urlString); } catch (_) { return reject(new Error('Invalid Composer download URL.')); }
+      if (url.protocol !== 'https:' || url.hostname !== 'getcomposer.org') {
+        return reject(new Error('Composer downloads are restricted to the official getcomposer.org host.'));
+      }
+      const request = https.get(url, response => {
+        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          response.resume();
+          if (redirects >= 3) return reject(new Error('Composer download redirected too many times.'));
+          const redirected = new URL(response.headers.location, url).toString();
+          return resolve(this._downloadHttpsFile(redirected, destination, targetDir, redirects + 1));
+        }
+        if (response.statusCode !== 200) {
+          response.resume();
+          return reject(new Error(`Composer download returned HTTP ${response.statusCode}.`));
+        }
+        const output = fs.createWriteStream(destination);
+        let received = 0;
+        const total = Number(response.headers['content-length']) || 0;
+        response.on('data', chunk => {
+          received += chunk.length;
+          if (received > 20 * 1024 * 1024) request.destroy(new Error('Composer download exceeded the 20 MiB safety limit.'));
+          if (total > 0) this.emit('progress', { targetDir, stream: 'download', received, total, percent: Math.min(100, received / total * 100) });
+        });
+        response.pipe(output);
+        output.once('finish', () => output.close(() => resolve({ received, total })));
+        output.once('error', error => reject(error));
+        response.once('error', error => reject(error));
+      });
+      request.targetDir = targetDir;
+      this.downloadRequests.add(request);
+      request.once('close', () => this.downloadRequests.delete(request));
+      request.setTimeout(30000, () => request.destroy(new Error('Timed out downloading Composer.')));
+      request.once('error', reject);
+    });
+  }
+
+  async _ensureComposer(phpBinary, targetDir) {
+    const installed = this._findComposer();
+    if (installed) return installed;
+
+    const profile = process.env.USERPROFILE || os.homedir();
+    const appData = process.env.APPDATA || path.join(profile, 'AppData', 'Roaming');
+    const binDir = path.join(appData, 'c-script-localhost', 'bin');
+    const composerPath = path.join(binDir, 'composer.phar');
+    fs.mkdirSync(binDir, { recursive: true });
+
+    if (fs.existsSync(composerPath)) {
+      const cached = await this._runComposer({ type: 'phar', path: composerPath }, phpBinary, ['--version', '--no-interaction'], binDir, targetDir);
+      if (cached.success) return { type: 'phar', path: composerPath };
+      try { fs.unlinkSync(composerPath); } catch (_) {}
+    }
+
+    this.emit('progress', { targetDir, stream: 'status', output: 'Composer was not found. Downloading the official Composer release…\n' });
+    const tempPhar = `${composerPath}.${process.pid}.download`;
+    const tempChecksum = `${tempPhar}.sha256sum`;
+    try {
+      await this._downloadHttpsFile('https://getcomposer.org/download/latest-stable/composer.phar', tempPhar, targetDir);
+      await this._downloadHttpsFile('https://getcomposer.org/download/latest-stable/composer.phar.sha256sum', tempChecksum, targetDir);
+      const expected = fs.readFileSync(tempChecksum, 'utf8').match(/[a-f0-9]{64}/i)?.[0]?.toLowerCase();
+      if (!expected) throw new Error('Composer did not provide a valid SHA-256 checksum.');
+      const actual = crypto.createHash('sha256').update(fs.readFileSync(tempPhar)).digest('hex');
+      if (actual !== expected) throw new Error('Composer SHA-256 verification failed; the download was discarded.');
+      try { if (fs.existsSync(composerPath)) fs.unlinkSync(composerPath); } catch (_) {}
+      fs.renameSync(tempPhar, composerPath);
+      this.emit('progress', { targetDir, stream: 'status', output: 'Composer download verified.\n' });
+      return { type: 'phar', path: composerPath };
+    } catch (error) {
+      try { if (fs.existsSync(tempPhar)) fs.unlinkSync(tempPhar); } catch (_) {}
+      throw new Error(`Composer could not be downloaded or verified: ${error.message}`);
+    } finally {
+      try { if (fs.existsSync(tempChecksum)) fs.unlinkSync(tempChecksum); } catch (_) {}
+    }
+  }
+
+  _runComposer(composer, phpBinary, args, cwd, targetDir) {
+    if (this.cancelledRoots.has(path.resolve(targetDir).toLowerCase())) {
+      return Promise.resolve({ success: false, error: 'Laravel installation was cancelled by the user.' });
+    }
+    const command = composer.type === 'phar' ? phpBinary : composer.path;
+    const commandArgs = composer.type === 'phar' ? [composer.path, ...args] : args;
+    const job = { child: null, targetDir };
+    return new Promise(resolve => {
+      const child = spawn(command, commandArgs, {
+        cwd,
+        windowsHide: true,
+        shell: false,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, COMPOSER_NO_INTERACTION: '1', CI: '1' }
+      });
+      job.child = child;
+      this.children.add(job);
+      let outputTail = '';
+      let pendingOutput = '';
+      let flushTimer = null;
+      const flushOutput = () => {
+        if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+        if (!pendingOutput) return;
+        const output = pendingOutput;
+        pendingOutput = '';
+        this.emit('progress', { targetDir, stream: 'output', output });
+      };
+      const forward = (stream, chunk) => {
+        const text = chunk.toString();
+        outputTail = (outputTail + text).slice(-12000);
+        pendingOutput += text;
+        if (!flushTimer) {
+          flushTimer = setTimeout(flushOutput, 120);
+          flushTimer.unref?.();
+        }
+      };
+      child.stdout.on('data', chunk => forward('stdout', chunk));
+      child.stderr.on('data', chunk => forward('stderr', chunk));
+      child.once('error', error => {
+        flushOutput();
+        this.children.delete(job);
+        this.emit('progress', { targetDir, stream: 'status', output: `Composer could not start: ${error.message}\n` });
+        resolve({ success: false, error: `Composer could not start: ${error.message}`, output: outputTail });
+      });
+      child.once('close', (code, signal) => {
+        flushOutput();
+        this.children.delete(job);
+        resolve({ success: code === 0, code, signal, output: outputTail,
+          error: code === 0 ? undefined : `Composer exited (${signal || code}). ${outputTail.trim().slice(-1400)}` });
+      });
+    });
+  }
+
+  async stopAll() {
+    const jobs = [...this.children];
+    for (const request of this.downloadRequests) {
+      try { request.destroy(new Error('Laravel installation cancelled because the app is closing.')); } catch (_) {}
+    }
+    for (const job of jobs) {
+      try { job.child?.kill('SIGTERM'); } catch (_) {}
+    }
+    await Promise.all(jobs.map(job => new Promise(resolve => {
+      const child = job.child;
+      if (!child || child.exitCode !== null || child.signalCode !== null) return resolve();
+      const timer = setTimeout(resolve, 5000);
+      timer.unref?.();
+      child.once('close', () => { clearTimeout(timer); resolve(); });
+    })));
+    await Promise.allSettled([...this.installations]);
+  }
 
   /**
    * Scaffold a project based on framework type
@@ -28,7 +361,11 @@ class FrameworkManager {
     } else if (type === 'wordpress') {
       return this._scaffoldWordPress(targetDir, options);
     } else if (type === 'laravel') {
-      return this._scaffoldLaravel(targetDir, options);
+      const installation = this._scaffoldLaravel(targetDir, options);
+      installation.targetDir = path.resolve(targetDir);
+      this.installations.add(installation);
+      try { return await installation; }
+      finally { this.installations.delete(installation); }
     } else if (type === 'codeigniter') {
       return this._scaffoldCodeIgniter(targetDir, options);
     } else {
@@ -231,12 +568,18 @@ echo json_encode([
    * WordPress Starter Scaffolding
    */
   async _scaffoldWordPress(targetDir, options) {
+    const current = this.inspectProjectTarget(targetDir);
+    const canRepairPreviousSetup = current.success && current.framework === 'wordpress' && current.wordpressSetupRecognized;
+    if (fs.readdirSync(targetDir).length !== 0 && !canRepairPreviousSetup) {
+      return { success: false, error: 'This folder is not empty. Choose an empty folder for a new WordPress setup or select the existing WordPress project.' };
+    }
     const siteName = options.name || path.basename(targetDir);
     const dbName = options.dbName || siteName.toLowerCase().replace(/[^a-z0-9_]/g, '_');
 
     // Create standard WordPress wp-config-sample and starter structure
     const indexPhp = `<?php
 /**
+ * C-Script LocalHost Panel WordPress Setup
  * Front to the WordPress application.
  */
 define('WP_USE_THEMES', true);
@@ -282,6 +625,7 @@ if (file_exists(__DIR__ . '/wp-blog-header.php')) {
 
     const wpConfig = `<?php
 /**
+ * C-Script LocalHost Panel WordPress Setup
  * WordPress local configuration
  */
 define('DB_NAME', '${dbName}');
@@ -309,15 +653,34 @@ if (file_exists(ABSPATH . 'wp-settings.php')) {
 }
 `;
 
-    fs.writeFileSync(path.join(targetDir, 'index.php'), indexPhp, 'utf8');
-    fs.writeFileSync(path.join(targetDir, 'wp-config-sample.php'), wpConfig, 'utf8');
+    const indexPath = path.join(targetDir, 'index.php');
+    const configPath = path.join(targetDir, 'wp-config-sample.php');
+    const writeOrRepair = (destination, contents, corrupt) => {
+      if (!fs.existsSync(destination)) {
+        fs.writeFileSync(destination, contents, { encoding: 'utf8', flag: 'wx' });
+        return;
+      }
+      if (!corrupt) return;
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backup = `${destination}.cscript-backup-${stamp}`;
+      const temporary = `${destination}.cscript-repair-${process.pid}-${Date.now()}`;
+      fs.writeFileSync(temporary, contents, { encoding: 'utf8', flag: 'wx' });
+      fs.copyFileSync(destination, backup);
+      fs.renameSync(temporary, destination);
+    };
+    writeOrRepair(indexPath, indexPhp, current.wordpressSetupCorrupt?.includes('index.php'));
+    writeOrRepair(configPath, wpConfig, current.wordpressSetupCorrupt?.includes('wp-config-sample.php'));
+    const setupFilesReady = fs.existsSync(indexPath) && fs.existsSync(configPath);
 
     return {
-      success: true,
+      success: setupFilesReady,
       framework: 'wordpress',
       entryFile: 'index.php',
+      setupFilesReady,
       dbName,
-      message: `WordPress starter template ready with database "${dbName}" preset.`
+      message: setupFilesReady
+        ? `WordPress starter template ready with database "${dbName}" preset.`
+        : 'WordPress setup files could not be repaired.'
     };
   }
 
@@ -325,77 +688,74 @@ if (file_exists(ABSPATH . 'wp-settings.php')) {
    * Laravel Project Scaffolding
    */
   async _scaffoldLaravel(targetDir, options) {
-    const siteName = options.name || path.basename(targetDir);
-    const publicDir = path.join(targetDir, 'public');
-    if (!fs.existsSync(publicDir)) {
-      fs.mkdirSync(publicDir, { recursive: true });
+    const inspected = this.inspectLaravelTarget(targetDir);
+    if (!inspected.success) return inspected;
+    const root = inspected.root;
+    const rootKey = path.resolve(root).toLowerCase();
+    if (this.installingRoots.has(rootKey)) return { success: false, error: 'A Laravel installation is already running for this folder.' };
+    if (inspected.isLaravel && inspected.dependenciesInstalled) {
+      if (!inspected.entryFile) return { success: false, error: 'Laravel was found, but public/index.php is missing. No entry point was selected.' };
+      return { success: true, framework: 'laravel', entryFile: inspected.entryFile, alreadyInstalled: true, message: 'Laravel project is ready.' };
+    }
+    if (!inspected.isLaravel && !inspected.empty) {
+      return { success: false, error: 'This folder already contains files but is not a Laravel project. Choose an empty folder or an existing Laravel project.' };
     }
 
-    const indexPhp = `<?php
-define('LARAVEL_START', microtime(true));
+    const phpBinary = String(options.phpBinary || 'php').trim();
+    this.installingRoots.add(rootKey);
+    let temporaryTarget = null;
+    try {
+      const composer = await this._ensureComposer(phpBinary, root);
+      if (inspected.isLaravel) {
+        this.emit('progress', { targetDir: root, stream: 'status', output: 'Installing Laravel Composer dependencies…\n' });
+        const result = await this._runComposer(composer, phpBinary, ['install', '--no-interaction', '--prefer-dist'], root, root);
+        if (!result.success) return { success: false, error: result.error || 'Composer dependency installation failed.' };
+      } else {
+        const parent = path.dirname(root);
+        const baseName = path.basename(root);
+        temporaryTarget = path.join(parent, `.${baseName}.cscript-laravel-${process.pid}-${Date.now()}`);
+        if (fs.existsSync(temporaryTarget)) return { success: false, error: 'A temporary Laravel installation folder already exists. Remove or rename it, then retry.' };
+        this.emit('progress', { targetDir: root, stream: 'status', output: 'Downloading and installing Laravel into the selected empty folder…\n' });
+        const result = await this._runComposer(composer, phpBinary, ['create-project', '--prefer-dist', '--no-interaction', 'laravel/laravel', temporaryTarget], parent, root);
+        if (!result.success) return { success: false, error: result.error || 'Laravel installation failed.' };
+        const LaravelManager = require('./laravelManager');
+        if (!LaravelManager.isLaravelProject(temporaryTarget) ||
+            !fs.existsSync(path.join(temporaryTarget, 'vendor', 'autoload.php')) ||
+            !fs.existsSync(path.join(temporaryTarget, 'public', 'index.php'))) {
+          return { success: false, error: 'Composer finished, but the Laravel project or its dependencies are incomplete.' };
+        }
+        if (fs.readdirSync(root).length !== 0) {
+          return { success: false, error: 'The selected folder changed during installation. Its files were preserved; choose an empty folder and retry.' };
+        }
+        fs.rmdirSync(root);
+        fs.renameSync(temporaryTarget, root);
+        temporaryTarget = null;
+      }
 
-// Determine if the application is in maintenance mode...
-if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
-    require $maintenance;
-}
-
-// Register the Composer autoloader...
-if (file_exists(__DIR__.'/../vendor/autoload.php')) {
-    require __DIR__.'/../vendor/autoload.php';
-
-    $app = require_once __DIR__.'/../bootstrap/app.php';
-    if (method_exists($app, 'handleRequest')) {
-        // Laravel 11
-        $app->handleRequest(\\Illuminate\\Http\\Request::capture());
-    } else {
-        // Legacy Laravel (10 and below)
-        $kernel = $app->make(\\Illuminate\\Contracts\\Http\\Kernel::class);
-        $response = $kernel->handle(
-            $request = \\Illuminate\\Http\\Request::capture()
-        )->send();
-        $kernel->terminate($request, $response);
+      const LaravelManager = require('./laravelManager');
+      const installedEntry = path.join(root, 'public', 'index.php');
+      if (!LaravelManager.isLaravelProject(root) || !fs.existsSync(path.join(root, 'vendor', 'autoload.php')) || !fs.existsSync(installedEntry)) {
+        return { success: false, error: 'Laravel installation did not finish correctly. The site was not added.' };
+      }
+      this.emit('progress', { targetDir: root, stream: 'status', output: 'Laravel is installed and ready to add.\n' });
+      return { success: true, framework: 'laravel', entryFile: installedEntry, message: 'Laravel and its Composer dependencies were installed successfully.' };
+    } catch (error) {
+      return { success: false, error: `Laravel installation failed: ${error.message}` };
+    } finally {
+      if (temporaryTarget && fs.existsSync(temporaryTarget)) {
+        try {
+          const parent = path.dirname(root);
+          const resolvedTemp = path.resolve(temporaryTarget);
+          if (path.dirname(resolvedTemp) === parent && path.basename(resolvedTemp).startsWith(`.${path.basename(root)}.cscript-laravel-`)) {
+            fs.rmSync(resolvedTemp, { recursive: true, force: true });
+          }
+        } catch (cleanupError) {
+          console.warn('[FrameworkManager] Could not clean temporary Laravel installation:', cleanupError.message);
+        }
+      }
+      this.installingRoots.delete(rootKey);
+      this.cancelledRoots.delete(rootKey);
     }
-} else {
-?>
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Laravel — ${siteName}</title>
-  <link href="https://fonts.bunny.net/css?family=figtree:400,600&display=swap" rel="stylesheet" />
-  <style>
-    body { font-family: Figtree, sans-serif; background: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
-    .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 40px; max-width: 580px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); }
-    .logo { color: #f43f5e; font-size: 28px; font-weight: 800; margin-bottom: 12px; }
-    p { color: #94a3b8; font-size: 15px; line-height: 1.6; }
-    .cmd { background: #0b0f19; border: 1px solid #334155; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 13px; color: #38bdf8; margin: 20px 0; text-align: left; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="logo">Laravel 11 Ready</div>
-    <p>Your document root is set to <code>public/</code>. Run composer install to pull dependencies:</p>
-    <div class="cmd">
-      cd "${targetDir.replace(/\\/g, '/')}"<br>
-      composer create-project laravel/laravel . --prefer-dist
-    </div>
-    <p style="font-size:12px;color:#64748b;">C-Script LocalHost Panel will auto-serve from <code>public/index.php</code></p>
-  </div>
-</body>
-</html>
-<?php
-}
-`;
-
-    fs.writeFileSync(path.join(publicDir, 'index.php'), indexPhp, 'utf8');
-
-    return {
-      success: true,
-      framework: 'laravel',
-      entryFile: 'public/index.php',
-      rootOverride: publicDir,
-      message: 'Laravel project skeleton prepared with public/index.php routing.'
-    };
   }
 
   /**

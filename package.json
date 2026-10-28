@@ -1,7 +1,7 @@
 {
   "name": "c-script-localhost-panel",
   "productName": "C-Script LocalHost Panel",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "C-Script LocalHost Panel — local PHP & MySQL development environment",
   "repository": {
     "type": "git",
@@ -76,7 +76,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "devDependencies": {
     "electron": "^44.4.5",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^26.18.0"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",

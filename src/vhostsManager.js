@@ -5,9 +5,12 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const crypto = require('crypto');
 const http = require('http');
 const { exec } = require('child_process');
 const SslManager = require('./sslManager');
+const LaravelManager = require('./laravelManager');
 
 const HOSTS_PATH = process.platform === 'win32'
   ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'drivers', 'etc', 'hosts')
@@ -23,6 +26,7 @@ class VhostsManager {
     this.defaultTld = defaultTld;
     this.hostsPath = HOSTS_PATH;
     this.sslManager = new SslManager();
+    this._viteProxyStates = new Map();
   }
 
   /**
@@ -238,6 +242,10 @@ try {
     return null;
   }
 
+  isInternalProxyRunning() {
+    return Boolean(this._internalProxyServer?.listening);
+  }
+
   /**
    * Sync reverse proxy configurations for running sites so they can be accessed on port 80 without specifying a port!
    */
@@ -264,13 +272,124 @@ try {
     return false;
   }
 
+  _viteMetadataPath(site) {
+    const rootKey = crypto.createHash('sha256')
+      .update(path.resolve(site.root || '').toLowerCase())
+      .digest('hex');
+    return path.join(os.homedir(), '.c-script', 'vite-hot', `${rootKey}.json`);
+  }
+
+  _prepareLaravelVite(site, hasSsl) {
+    if (!site?.root || !site.domain || !/^[a-z0-9.-]+$/i.test(site.domain) || !LaravelManager.isLaravelProject(site.root)) return null;
+    const publicDir = path.join(site.root, 'public');
+    const hotPath = path.join(publicDir, 'hot');
+    const metadataPath = this._viteMetadataPath(site);
+    if (!fs.existsSync(hotPath)) {
+      try { if (fs.existsSync(metadataPath)) fs.unlinkSync(metadataPath); } catch (_) {}
+      return null;
+    }
+
+    try {
+      const hotValue = fs.readFileSync(hotPath, 'utf8').trim();
+      const hotUrl = new URL(hotValue);
+      if (!['http:', 'https:'].includes(hotUrl.protocol)) return null;
+      const localHosts = ['localhost', '127.0.0.1', '::1', '[::1]'];
+      const isLocalVite = localHosts.includes(hotUrl.hostname.toLowerCase());
+      let metadata = null;
+      try { metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')); } catch (_) {}
+      const isManagedUrl = hotUrl.hostname.toLowerCase() === site.domain.toLowerCase() && metadata?.version === 1;
+      if (!isLocalVite && !isManagedUrl) return null;
+
+      const appOrigin = `${hasSsl ? 'https' : 'http'}://${site.domain}`;
+      const port = isManagedUrl
+        ? Number(metadata.port)
+        : Number(hotUrl.port || 5173);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) return null;
+
+      const nextMetadata = {
+        version: 1,
+        port,
+        protocol: isManagedUrl ? metadata.protocol : hotUrl.protocol,
+        appOrigin,
+        originalUrl: isManagedUrl ? metadata.originalUrl : hotValue
+      };
+      if (!isManagedUrl || metadata.appOrigin !== appOrigin || metadata.port !== port) {
+        fs.mkdirSync(path.dirname(metadataPath), { recursive: true });
+        fs.writeFileSync(metadataPath, `${JSON.stringify(nextMetadata, null, 2)}\n`, 'utf8');
+        fs.writeFileSync(hotPath, appOrigin, 'utf8');
+      }
+
+      return {
+        port,
+        protocol: nextMetadata.protocol,
+        target: `${nextMetadata.protocol}//127.0.0.1:${port}`,
+        signature: `${site.domain}|${port}|${nextMetadata.protocol}|${appOrigin}`
+      };
+    } catch (error) {
+      console.warn(`[VhostsManager] Could not configure Vite for ${site.domain}:`, error.message);
+      return null;
+    }
+  }
+
+  refreshLaravelVite(sites = []) {
+    const nginxInfo = this.getNginxInfo();
+    if (!nginxInfo || !fs.existsSync(nginxInfo.vhostsDir)) {
+      const hadActiveProxy = this._viteProxyStates.size > 0;
+      this.restoreLaravelViteHotFiles(sites);
+      return hadActiveProxy;
+    }
+    const sslPaths = this.sslManager?.getWildcardCertPaths();
+    const hasSsl = !!(sslPaths && fs.existsSync(sslPaths.crt) && fs.existsSync(sslPaths.key));
+    const nextStates = new Map();
+    for (const site of sites) {
+      if (!site || site.status !== 'running') continue;
+      const state = this._prepareLaravelVite(site, hasSsl);
+      if (state) nextStates.set(String(site.id), state);
+    }
+    const changed = nextStates.size !== this._viteProxyStates.size || [...nextStates].some(([id, state]) =>
+      this._viteProxyStates.get(id)?.signature !== state.signature
+    );
+    this._viteProxyStates = nextStates;
+    return changed;
+  }
+
+  restoreLaravelViteHotFiles(sites = []) {
+    for (const site of sites) {
+      if (!site?.root || !LaravelManager.isLaravelProject(site.root)) continue;
+      const hotPath = path.join(site.root, 'public', 'hot');
+      const metadataPath = this._viteMetadataPath(site);
+      try {
+        const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+        if (fs.existsSync(hotPath) && metadata.originalUrl) {
+          const current = new URL(fs.readFileSync(hotPath, 'utf8').trim());
+          const expected = new URL(metadata.appOrigin);
+          if (current.origin === expected.origin) fs.writeFileSync(hotPath, metadata.originalUrl, 'utf8');
+        }
+        fs.unlinkSync(metadataPath);
+      } catch (_) {}
+    }
+    this._viteProxyStates.clear();
+  }
+
+  _viteProxyLocations(viteState) {
+    if (!viteState) return '';
+    const target = viteState.target;
+    const sslVerify = viteState.protocol === 'https:' ? '        proxy_ssl_verify off;\n' : '';
+    const vitePaths = ['/@vite/', '/@id/', '/@fs/', '/@react-refresh', '/resources/', '/node_modules/', '/__vite_ping'];
+    const pathLocations = vitePaths.map(prefix => `    location ^~ ${prefix} {\n        proxy_pass ${target};\n        proxy_http_version 1.1;\n        proxy_set_header Host 127.0.0.1:${viteState.port};\n${sslVerify}    }\n`).join('');
+    const websocketLocation = `    location @cscript_vite_hmr {\n        proxy_pass ${target};\n        proxy_http_version 1.1;\n        proxy_set_header Host 127.0.0.1:${viteState.port};\n        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection "upgrade";\n        proxy_read_timeout 1h;\n${sslVerify}    }\n`;
+    return `${pathLocations}    error_page 418 = @cscript_vite_hmr;\n${websocketLocation}`;
+  }
+
   async syncReverseProxy(sites = []) {
     const nginxInfo = this.getNginxInfo();
 
     if (nginxInfo && fs.existsSync(nginxInfo.vhostsDir)) {
       if (nginxInfo.confPath) this._ensureNginxConfOptimized(nginxInfo.confPath);
+      let certResult = { success: false, error: 'No local SSL certificate was generated.' };
       if (this.sslManager) {
-        try { await this.sslManager.ensureWildcardCert(); } catch (e) {}
+        try { certResult = await this.sslManager.ensureWildcardCert(sites.map(site => site?.domain).filter(Boolean)); }
+        catch (error) { certResult = { success: false, error: error.message }; }
       }
       const sslPaths = this.sslManager ? this.sslManager.getWildcardCertPaths() : null;
       const hasSsl = sslPaths && fs.existsSync(sslPaths.crt) && fs.existsSync(sslPaths.key);
@@ -280,6 +399,7 @@ try {
       let createdCount = 0;
       for (const site of sites) {
         if (!site || !site.domain || !site.port || site.status !== 'running') continue;
+        if (!/^[a-z0-9.-]+$/i.test(site.domain)) continue;
 
         const confFileName = `${site.domain}.conf`;
         const confPath = path.join(nginxInfo.vhostsDir, confFileName);
@@ -287,11 +407,47 @@ try {
     ssl_certificate "${crtFwd}";
     ssl_certificate_key "${keyFwd}";
 ` : '';
-        const serverBlock = `server {
+        const viteState = this._prepareLaravelVite(site, !!hasSsl);
+        const viteLocations = this._viteProxyLocations(viteState);
+        const viteUpgradeDispatch = viteState
+          ? '        if ($http_upgrade != "") { return 418; }\n'
+          : '';
+        let serverBlock;
+        if (site.phpMode === 'fastcgi' && Number(site.fastCgiPort) > 0) {
+          const docRoot = (fs.existsSync(path.join(site.root || '', 'public', 'index.php')) ? path.join(site.root, 'public') : site.root || '')
+            .replace(/\\/g, '/').replace(/"/g, '\\"');
+          serverBlock = `server {
+    listen 127.0.0.1:80;
+${sslBlock}    server_name ${site.domain} www.${site.domain};
+    root "${docRoot}";
+    index index.php index.html;
+    client_max_body_size 128M;
+
+${viteLocations}${viteUpgradeDispatch}
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        try_files $uri =404;
+        include fastcgi_params;
+        fastcgi_pass 127.0.0.1:${Number(site.fastCgiPort)};
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT $document_root;
+        fastcgi_param HTTP_PROXY "";
+    }
+
+    location ~ /\. { deny all; }
+}
+`;
+        } else {
+          serverBlock = `server {
     listen 127.0.0.1:80;
 ${sslBlock}    server_name ${site.domain} www.${site.domain} *.${site.domain};
     client_max_body_size 128M;
 
+${viteLocations}${viteUpgradeDispatch}
     location / {
         proxy_pass http://127.0.0.1:${site.port};
         proxy_set_header Host $host;
@@ -301,8 +457,12 @@ ${sslBlock}    server_name ${site.domain} www.${site.domain} *.${site.domain};
     }
 }
 `;
+        }
         try {
-          fs.writeFileSync(confPath, serverBlock, 'utf8');
+          const managedHeader = site.id === 'cscript-phpmyadmin'
+            ? '# Managed by C-Script LocalHost Panel: phpMyAdmin proxy route.\n'
+            : '';
+          fs.writeFileSync(confPath, `${managedHeader}${serverBlock}`, 'utf8');
           createdCount++;
         } catch (err) {
           console.warn(`[VhostsManager] Failed to write proxy config for ${site.domain}:`, err.message);
@@ -320,7 +480,7 @@ ${sslBlock}    server_name ${site.domain} www.${site.domain} *.${site.domain};
         });
       }
 
-      return { success: true, method: 'nginx', count: createdCount, ssl: hasSsl };
+      return { success: true, method: 'nginx', count: createdCount, ssl: hasSsl, sslError: hasSsl ? null : certResult.error || 'A complete certificate and private key are required.' };
     }
 
     // Fallback: Node.js internal HTTP reverse proxy on port 80 if port 80 is free

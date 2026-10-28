@@ -29,6 +29,8 @@ For this one update, download **C-Script-LocalHost-Panel-Setup-1.2.5.exe** from 
 
 ## 📄 License & Terms of Use
 
+For implementation notes on the Artisan panel, tray controls, and the current scope of the development integrations, see [FEATURES.md](FEATURES.md).
+
 Copyright © 2026 **C.S. Ranasinha (Chamika Sandeepa)**. All Rights Reserved.
 
 This software is proprietary. Free to download and use for personal, educational, and professional development. **Unauthorized copying, cloning, modification, redistribution, or claiming of copyright is strictly prohibited.** See [LICENSE](LICENSE) for details.

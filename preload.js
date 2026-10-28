@@ -85,6 +85,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
 
+  // ── Local phpMyAdmin ──────────────────────────────────────────────────────
+  phpMyAdmin: {
+    status: () => ipcRenderer.invoke('phpmyadmin:status'),
+    paths: () => ipcRenderer.invoke('phpmyadmin:paths'),
+    openFolder: () => ipcRenderer.invoke('phpmyadmin:open-folder'),
+    openConfig: () => ipcRenderer.invoke('phpmyadmin:open-config'),
+    open: () => ipcRenderer.invoke('phpmyadmin:open'),
+    stop: () => ipcRenderer.invoke('phpmyadmin:stop')
+  },
+
   // ── PHP ────────────────────────────────────────────────────────────────────
   php: {
     version: () => ipcRenderer.invoke('php:version'),
@@ -134,7 +144,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── SSL / HTTPS ────────────────────────────────────────────────────────────
   ssl: {
     status: () => ipcRenderer.invoke('ssl:status'),
-    ensure: () => ipcRenderer.invoke('ssl:ensure')
+    ensure: () => ipcRenderer.invoke('ssl:ensure'),
+    ensureTrusted: () => ipcRenderer.invoke('ssl:ensure-trusted')
   },
 
   // ── Cloudflare Tunnel (Share to Web) ───────────────────────────────────────
@@ -153,8 +164,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ── Framework Scaffolding ──────────────────────────────────────────────────
   frameworks: {
+    inspectLaravelTarget: (targetDir) => ipcRenderer.invoke('frameworks:inspect-laravel-target', targetDir),
+    inspectProjectTarget: (targetDir) => ipcRenderer.invoke('frameworks:inspect-project-target', targetDir),
+    installProjectDependencies: (targetDir, php) => ipcRenderer.invoke('frameworks:install-project-dependencies', { targetDir, php }),
+    cancelInstallation: (targetDir) => ipcRenderer.invoke('frameworks:cancel-installation', targetDir),
     scaffold: (framework, targetDir, options) =>
       ipcRenderer.invoke('frameworks:scaffold', { framework, targetDir, options })
+  },
+
+  // ── Laravel Artisan ───────────────────────────────────────────────────────
+  laravel: {
+    run: (siteId, action) => ipcRenderer.invoke('laravel:run', { siteId, action }),
+    stop: (jobId) => ipcRenderer.invoke('laravel:stop', jobId)
   },
 
   // ── Mail Catcher (SMTP) ────────────────────────────────────────────────────
@@ -170,6 +191,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Logs ───────────────────────────────────────────────────────────────────
   logs: {
     list: (source) => ipcRenderer.invoke('logs:list', source),
+    streams: () => ipcRenderer.invoke('logs:streams'),
     clear: () => ipcRenderer.invoke('logs:clear'),
     add: (entry) => ipcRenderer.invoke('logs:add', entry),
     reportAppError: (data) => ipcRenderer.invoke('logs:report-app-error', data)
@@ -206,6 +228,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     load: () => ipcRenderer.invoke('config:load')
   },
 
+  networkProxy: {
+    localBypassStatus: () => ipcRenderer.invoke('network-proxy:local-bypass-status'),
+    applyLocalBypass: () => ipcRenderer.invoke('network-proxy:apply-local-bypass')
+  },
+
   // ── App updates ────────────────────────────────────────────────────────────
   updater: {
     version: () => ipcRenderer.invoke('updater:version'),
@@ -239,7 +266,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ── Events (IPC → Renderer) ────────────────────────────────────────────────
   on: (channel, callback) => {
-    const validChannels = ['php:log', 'php:install-progress', 'site:stopped', 'webview:navigate', 'mail:new', 'log:entry'];
+    const validChannels = ['php:log', 'php:install-progress', 'site:stopped', 'webview:navigate', 'mail:new', 'log:entry', 'laravel:output', 'frameworks:progress', 'phpmyadmin:progress'];
     if (validChannels.includes(channel)) {
       const listener = (event, ...args) => callback(...args);
       ipcRenderer.on(channel, listener);
@@ -248,7 +275,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   removeAllListeners: (channel) => {
-    const validChannels = ['php:log', 'php:install-progress', 'site:stopped', 'webview:navigate', 'mail:new', 'log:entry'];
+    const validChannels = ['php:log', 'php:install-progress', 'site:stopped', 'webview:navigate', 'mail:new', 'log:entry', 'laravel:output', 'frameworks:progress', 'phpmyadmin:progress'];
     if (validChannels.includes(channel)) {
       ipcRenderer.removeAllListeners(channel);
     }

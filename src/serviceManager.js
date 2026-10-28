@@ -44,6 +44,35 @@ class ServiceManager {
     }
   }
 
+  /** Return listening TCP sockets with their owning PID. A port being open is not
+   * enough to identify a service: another application may own the same port. */
+  async _getListeningPortOwners() {
+    try {
+      const { stdout } = await execPromise('netstat -ano -p tcp', { timeout: 5000, windowsHide: true });
+      const owners = [];
+      for (const line of stdout.split(/\r?\n/)) {
+        const parts = line.trim().split(/\s+/);
+        if (parts[0]?.toUpperCase() !== 'TCP' || parts[3]?.toUpperCase() !== 'LISTENING') continue;
+        const localAddress = parts[1] || '';
+        const port = Number(localAddress.slice(localAddress.lastIndexOf(':') + 1));
+        const pid = Number(parts[4]);
+        if (Number.isInteger(port) && Number.isInteger(pid)) owners.push({ port, pid: String(pid) });
+      }
+      return owners;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  async _isPortOwnedByProcess(port, processNames) {
+    const acceptedNames = new Set(processNames.map(name => name.toLowerCase()));
+    const [owners, processes] = await Promise.all([this._getListeningPortOwners(), this._getProcessList()]);
+    const expectedPids = new Set(processes
+      .filter(proc => acceptedNames.has(String(proc.name).toLowerCase()))
+      .map(proc => String(proc.pid)));
+    return owners.some(owner => owner.port === Number(port) && expectedPids.has(owner.pid));
+  }
+
   /**
    * Dynamically detect PHP environment info from the system
    */
@@ -221,8 +250,9 @@ class ServiceManager {
    * Get all active services dynamically with zero hardcoded values
    */
   async getServices(siteManager = null, phpManager = null) {
-    const [procs, p80, p9000, p3306, phpInfo, mysqlInfo, webInfo] = await Promise.all([
+    const [procs, listeningOwners, p80, p9000, p3306, phpInfo, mysqlInfo, webInfo] = await Promise.all([
       this._getProcessList(),
+      this._getListeningPortOwners(),
       this.checkPort(80),
       this.checkPort(9000),
       this.checkPort(3306),
@@ -235,11 +265,19 @@ class ServiceManager {
     const phpCgiProcs = procs.filter(p => p.name.toLowerCase() === 'php-cgi.exe');
     const mysqlProcs = procs.filter(p => p.name.toLowerCase() === 'mysqld.exe' || p.name.toLowerCase() === 'mariadbd.exe');
 
+    const ownersAtPort = port => new Set(listeningOwners.filter(item => item.port === port).map(item => item.pid));
+    const nginxPids = new Set(nginxProcs.map(proc => String(proc.pid)));
+    const phpPidsAtFastCgi = new Set(phpCgiProcs.map(proc => String(proc.pid)));
+    const mysqlPids = new Set(mysqlProcs.map(proc => String(proc.pid)));
+    const nginxOwnsPort80 = [...ownersAtPort(80)].some(pid => nginxPids.has(pid));
+    const phpOwnsFastCgi = [...ownersAtPort(9000)].some(pid => phpPidsAtFastCgi.has(pid));
+    const mysqlOwnsPort3306 = [...ownersAtPort(3306)].some(pid => mysqlPids.has(pid));
+
     // Check running sites in phpManager
     const runningSites = phpManager ? (phpManager.getRunning() || []) : [];
-    const isPhpActive = phpCgiProcs.length > 0 || runningSites.length > 0 || p9000;
-    const isNginxActive = nginxProcs.length > 0 || (Boolean(webInfo.exePath && fs.existsSync(webInfo.exePath)) && p80);
-    const isMySQLActive = mysqlProcs.length > 0 || p3306 || (mysqlInfo.state && mysqlInfo.state.toLowerCase() === 'running');
+    const isPhpActive = phpOwnsFastCgi || runningSites.length > 0;
+    const isNginxActive = nginxOwnsPort80;
+    const isMySQLActive = mysqlOwnsPort3306;
 
     const services = [];
 
@@ -253,15 +291,16 @@ class ServiceManager {
         status: isNginxActive ? 'running' : 'stopped',
         available: Boolean(webInfo.exePath && fs.existsSync(webInfo.exePath)),
         port: 80,
-        portActive: p80,
+        portActive: nginxOwnsPort80,
+        portOccupied: p80,
         pids: nginxProcs.map(p => p.pid),
         procCount: nginxProcs.length,
         path: webInfo.exePath,
         configPath: webInfo.configPath,
         prefixDir: webInfo.prefixDir,
         description: isNginxActive
-          ? 'Active and handling HTTP traffic on port 80'
-          : (webInfo.exePath && fs.existsSync(webInfo.exePath) ? 'Web server is installed but stopped' : 'NGINX is not installed. Install the bundled web server to host sites.')
+          ? 'NGINX is listening on 127.0.0.1:80'
+          : (p80 ? 'Port 80 is occupied by another process; NGINX is not confirmed on that port.' : (webInfo.exePath && fs.existsSync(webInfo.exePath) ? 'NGINX is not listening on port 80.' : 'NGINX is not installed. Install the bundled web server to host sites.'))
       });
     }
 
@@ -279,7 +318,8 @@ class ServiceManager {
       status: isPhpActive ? 'running' : 'stopped',
       available: phpInfo.available,
       port: 9000,
-      portActive: p9000 || runningSites.length > 0,
+      portActive: phpOwnsFastCgi,
+      portOccupied: p9000,
       pids: phpPids,
       procCount: phpPids.length,
       path: phpInfo.binPath || phpInfo.cgiPath,
@@ -298,15 +338,16 @@ class ServiceManager {
       status: isMySQLActive ? 'running' : 'stopped',
       available: Boolean(mysqlInfo.serviceName || (mysqlInfo.exePath && fs.existsSync(mysqlInfo.exePath))),
       port: 3306,
-      portActive: p3306,
+      portActive: mysqlOwnsPort3306,
+      portOccupied: p3306,
       serviceName: mysqlInfo.serviceName,
       pids: mysqlProcs.map(p => p.pid),
       procCount: mysqlProcs.length,
       path: mysqlInfo.exePath,
       configPath: mysqlInfo.configPath,
       description: isMySQLActive
-        ? 'Relational database server listening on port 3306'
-        : (mysqlInfo.serviceName || mysqlInfo.exePath ? 'Database server is installed but stopped' : 'MySQL / MariaDB is not installed. Install the bundled database runtime to use databases.')
+        ? 'MariaDB / MySQL is listening on port 3306'
+        : (p3306 ? 'Port 3306 is occupied by another process; the database server is not confirmed on that port.' : (mysqlInfo.serviceName || mysqlInfo.exePath ? 'MariaDB / MySQL is not listening on port 3306.' : 'MySQL / MariaDB is not installed. Install the bundled database runtime to use databases.'))
     });
 
     return services;
@@ -339,9 +380,10 @@ class ServiceManager {
         }
         const phpInfo = await this._detectPhp(phpManager);
         if (phpInfo.cgiPath && fs.existsSync(phpInfo.cgiPath)) {
-          if (await this.checkPort(9000)) {
+          if (await this._isPortOwnedByProcess(9000, ['php-cgi.exe'])) {
             return { success: true, message: 'PHP FastCGI is already listening on 127.0.0.1:9000' };
           }
+          if (await this.checkPort(9000)) return { success: false, error: 'Port 9000 is already occupied by another process.' };
           const proc = spawn(phpInfo.cgiPath, ['-b', '127.0.0.1:9000'], { detached: true, stdio: 'ignore', windowsHide: true });
           this._ownedProcesses.set('php', proc);
           proc.once('exit', () => { if (this._ownedProcesses.get('php') === proc) this._ownedProcesses.delete('php'); });
@@ -351,7 +393,7 @@ class ServiceManager {
           for (let attempt = 0; attempt < 20; attempt++) {
             if (spawnError) return { success: false, error: `PHP FastCGI failed to start: ${spawnError.message}` };
             if (proc.exitCode != null) return { success: false, error: `PHP FastCGI exited with code ${proc.exitCode}. Check the PHP configuration and extensions.` };
-            if (await this.checkPort(9000)) return { success: true, message: `${phpInfo.version} FastCGI started on 127.0.0.1:9000` };
+            if (await this._isPortOwnedByProcess(9000, ['php-cgi.exe'])) return { success: true, message: `${phpInfo.version} FastCGI started on 127.0.0.1:9000` };
             await new Promise(resolve => setTimeout(resolve, 100));
           }
           return { success: false, error: 'PHP FastCGI did not become ready on port 9000.' };
@@ -365,10 +407,11 @@ class ServiceManager {
           const args = [];
           if (webInfo.prefixDir) args.push('-p', webInfo.prefixDir);
           if (webInfo.configPath) args.push('-c', webInfo.configPath);
-          const nginxAlreadyRunning = (await this._getProcessList()).some(p => p.name.toLowerCase() === 'nginx.exe');
-          if (nginxAlreadyRunning) {
+          const nginxAlreadyListening = await this._isPortOwnedByProcess(80, ['nginx.exe']);
+          if (nginxAlreadyListening) {
             return { success: true, message: `${webInfo.name} Web Server is already running` };
           }
+          if (await this.checkPort(80)) return { success: false, error: 'Port 80 is already occupied by another process.' };
 
           if (webInfo.prefixDir) {
             try {
@@ -407,8 +450,7 @@ class ServiceManager {
           for (let attempt = 0; attempt < 20; attempt++) {
             if (spawnError) return { success: false, error: `NGINX failed to start: ${spawnError.message}` };
             if (proc.exitCode != null) return { success: false, error: `NGINX exited with code ${proc.exitCode}. Check its configuration and port 80 availability.` };
-            const active = (await this._getProcessList()).some(p => p.name.toLowerCase() === 'nginx.exe');
-            if (active || await this.checkPort(80)) return { success: true, message: `${webInfo.name} Web Server started` };
+            if (await this._isPortOwnedByProcess(80, ['nginx.exe'])) return { success: true, message: `${webInfo.name} Web Server started` };
             await new Promise(resolve => setTimeout(resolve, 100));
           }
           return { success: false, error: 'NGINX did not become ready. Check the configuration and port 80 availability.' };
@@ -420,9 +462,10 @@ class ServiceManager {
         const mysqlInfo = await this._detectMySQL();
         const svcName = mysqlInfo.serviceName;
 
-        if (await this.checkPort(3306)) {
+        if (await this._isPortOwnedByProcess(3306, ['mysqld.exe', 'mariadbd.exe'])) {
           return { success: true, message: 'MySQL is already listening on port 3306' };
         }
+        if (await this.checkPort(3306)) return { success: false, error: 'Port 3306 is already occupied by another process.' };
 
         if (!svcName && (!mysqlInfo.exePath || !fs.existsSync(mysqlInfo.exePath))) {
           return {

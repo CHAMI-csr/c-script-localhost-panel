@@ -57,64 +57,79 @@ class MailCatcher extends EventEmitter {
           html: ''
         };
 
-        socket.write('220 C-Script LocalHost Panel MailCatcher Ready\r\n');
-
+        socket.setTimeout(120000, () => socket.destroy());
+        socket.write('220 localhost ESMTP C-Script Mailpit-compatible capture server\r\n');
+        let commandBuffer = '';
         let dataBuffer = '';
+        const resetMessage = () => ({
+          id: `email_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          receivedAt: new Date().toISOString(), date: new Date().toISOString(),
+          from: '', to: [], raw: '', subject: '', body: '', text: '', html: ''
+        });
+        const finishData = raw => {
+          currentEmail.raw = raw.replace(/\r?\n\.\r?\n$/, '').replace(/^\.\./gm, '.');
+          this._parseEmail(currentEmail);
+          this._addEmail(currentEmail);
+          this.emit('email', currentEmail);
+          currentEmail = resetMessage();
+          dataBuffer = '';
+          state = 'COMMAND';
+          socket.write('250 2.0.0 Message accepted\r\n');
+        };
+        const handleCommand = line => {
+          const command = line.trim();
+          const upper = command.toUpperCase();
+          if (!command) return;
+          if (upper.startsWith('EHLO')) {
+            socket.write('250-localhost\r\n250-SIZE 10485760\r\n250-8BITMIME\r\n250 SMTPUTF8\r\n');
+          } else if (upper.startsWith('HELO')) socket.write('250 localhost\r\n');
+          else if (upper.startsWith('MAIL FROM:')) {
+            currentEmail.from = command.slice(10).trim().replace(/^<|>.*$/g, '').split(/\s+/)[0];
+            socket.write('250 2.1.0 Sender accepted\r\n');
+          } else if (upper.startsWith('RCPT TO:')) {
+            currentEmail.to.push(command.slice(8).trim().replace(/[<>]/g, '').split(/\s+/)[0]);
+            socket.write('250 2.1.5 Recipient accepted\r\n');
+          } else if (upper === 'DATA') {
+            state = 'DATA';
+            dataBuffer = '';
+            socket.write('354 End data with <CRLF>.<CRLF>\r\n');
+          } else if (upper === 'RSET') {
+            currentEmail = resetMessage();
+            socket.write('250 2.0.0 Reset\r\n');
+          } else if (upper === 'NOOP') socket.write('250 2.0.0 OK\r\n');
+          else if (upper === 'QUIT') { socket.write('221 2.0.0 Bye\r\n'); socket.end(); }
+          else if (upper.startsWith('STARTTLS') || upper.startsWith('AUTH')) socket.write('502 5.5.1 TLS/authentication are not supported by the local capture server\r\n');
+          else socket.write('250 2.0.0 OK\r\n');
+        };
 
-        socket.on('data', (chunk) => {
-          const text = chunk.toString();
-
+        socket.on('data', chunk => {
+          const text = chunk.toString('utf8');
           if (state === 'DATA') {
             dataBuffer += text;
-            if (dataBuffer.includes('\r\n.\r\n') || dataBuffer.endsWith('\r\n.')) {
-              currentEmail.raw = dataBuffer;
-              this._parseEmail(currentEmail);
-              this._addEmail(currentEmail);
-              this.emit('email', currentEmail);
+            if (Buffer.byteLength(dataBuffer, 'utf8') > 10 * 1024 * 1024) {
+              socket.write('552 5.3.4 Message exceeds local 10 MB limit\r\n');
               state = 'COMMAND';
               dataBuffer = '';
-              socket.write('250 OK: Message received\r\n');
+              currentEmail = resetMessage();
+              return;
             }
-            return;
+            const terminator = dataBuffer.match(/\r?\n\.\r?\n/);
+            if (terminator) {
+              const end = terminator.index + terminator[0].length;
+              const remaining = dataBuffer.slice(end);
+              finishData(dataBuffer.slice(0, end));
+              commandBuffer += remaining;
+            }
+          } else {
+            commandBuffer += text;
           }
-
-          const lines = text.split('\r\n');
-          for (const line of lines) {
-            const cmd = line.trim().toUpperCase();
-            if (!cmd) continue;
-
-            if (cmd.startsWith('HELO') || cmd.startsWith('EHLO')) {
-              socket.write('250 Hello localhost\r\n');
-            } else if (cmd.startsWith('MAIL FROM:')) {
-              currentEmail.from = line.substring(10).trim().replace(/[<>]/g, '');
-              socket.write('250 Sender OK\r\n');
-            } else if (cmd.startsWith('RCPT TO:')) {
-              currentEmail.to.push(line.substring(8).trim().replace(/[<>]/g, ''));
-              socket.write('250 Recipient OK\r\n');
-            } else if (cmd === 'DATA') {
-              state = 'DATA';
-              socket.write('354 Start mail input; end with <CRLF>.<CRLF>\r\n');
-            } else if (cmd === 'QUIT') {
-              socket.write('221 Bye\r\n');
-              socket.end();
-            } else if (cmd === 'RSET') {
-              currentEmail = {
-                id: `email_${Date.now()}`,
-                receivedAt: new Date().toISOString(),
-                date: new Date().toISOString(),
-                from: '',
-                to: [],
-                raw: '',
-                subject: '',
-                body: '',
-                text: '',
-                html: ''
-              };
-              socket.write('250 Reset OK\r\n');
-            } else if (cmd === 'NOOP') {
-              socket.write('250 OK\r\n');
-            } else {
-              socket.write('250 OK\r\n');
+          if (state !== 'DATA') {
+            let newline;
+            while ((newline = commandBuffer.indexOf('\n')) !== -1) {
+              const line = commandBuffer.slice(0, newline).replace(/\r$/, '');
+              commandBuffer = commandBuffer.slice(newline + 1);
+              handleCommand(line);
+              if (state === 'DATA') break;
             }
           }
         });
@@ -184,6 +199,7 @@ class MailCatcher extends EventEmitter {
       body = raw.substring(headerEnd + 4);
     }
 
+    headers = headers.replace(/\r?\n[ \t]+/g, ' ');
     const subjectMatch = headers.match(/^Subject:\s*(.*)$/im);
     if (subjectMatch) {
       email.subject = decodeMimeHeader(subjectMatch[1].trim());
@@ -203,7 +219,8 @@ class MailCatcher extends EventEmitter {
 
     const dateMatch = headers.match(/^Date:\s*(.*)$/im);
     if (dateMatch) {
-      email.date = new Date(dateMatch[1].trim()).toISOString();
+      const parsedDate = new Date(dateMatch[1].trim());
+      if (!Number.isNaN(parsedDate.getTime())) email.date = parsedDate.toISOString();
     }
 
     // Clean terminating period from SMTP DATA

@@ -86,6 +86,7 @@ class SiteManager {
       autoindex: siteData.autoindex !== undefined ? !!siteData.autoindex : true,
       port: requestedPort,
       php: siteData.php || null,
+      phpMode: siteData.phpMode === 'fastcgi' ? 'fastcgi' : 'builtin',
       description: siteData.description || '',
       createdAt: new Date().toISOString(),
       status: 'stopped'

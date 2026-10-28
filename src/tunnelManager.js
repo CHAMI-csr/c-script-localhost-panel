@@ -44,6 +44,16 @@ class TunnelManager extends EventEmitter {
     return 'ssh';
   }
 
+  getNgrokPath() {
+    const userProfile = process.env.USERPROFILE || '';
+    const appData = process.env.APPDATA || (userProfile ? path.join(userProfile, 'AppData', 'Roaming') : '');
+    const local = path.join(appData, 'c-script-localhost', 'bin', 'ngrok.exe');
+    if (fs.existsSync(local)) return local;
+    const legacy = path.join(appData, 'antigravity-localhost', 'bin', 'ngrok.exe');
+    if (fs.existsSync(legacy)) return legacy;
+    return 'ngrok';
+  }
+
   /**
    * Check if cloudflared binary is available
    */
@@ -76,7 +86,7 @@ class TunnelManager extends EventEmitter {
    * Start a Public Web Tunnel for a site
    * @param {string} siteId Site ID
    * @param {number} port Local HTTP port
-   * @param {object} options { provider: 'auto' | 'ssh' | 'cloudflare' }
+   * @param {object} options { provider: 'auto' | 'ssh' | 'cloudflare' | 'ngrok', authToken }
    */
   async startTunnel(siteId, port, options = {}) {
     if (this.stoppingTunnels.has(siteId)) await this.stoppingTunnels.get(siteId);
@@ -91,6 +101,8 @@ class TunnelManager extends EventEmitter {
     }
 
     const provider = options.provider || 'auto';
+
+    if (provider === 'ngrok') return this._startNgrokTunnel(siteId, port, options.authToken);
 
     if (provider === 'cloudflare') {
       const res = await this._startCloudflareTunnel(siteId, port);
@@ -114,6 +126,50 @@ class TunnelManager extends EventEmitter {
 
     console.warn(`[TunnelManager] SSH tunnel failed (${sshRes.error}). Trying Cloudflare...`);
     return this._startCloudflareTunnel(siteId, port);
+  }
+
+  async _startNgrokTunnel(siteId, port, suppliedToken) {
+    const authToken = String(suppliedToken || process.env.NGROK_AUTHTOKEN || '').trim();
+    if (!authToken) return { success: false, error: 'Ngrok requires an authtoken. Set NGROK_AUTHTOKEN or enter it in the sharing prompt.' };
+    const bin = this.getNgrokPath();
+    return new Promise(resolve => {
+      let settled = false;
+      let output = '';
+      const timer = setTimeout(() => finish({ success: false, error: 'Timed out waiting for ngrok to provide a public URL.' }), 25000);
+      const proc = spawn(bin, ['http', '--log', 'stdout', '--log-format', 'logfmt', `127.0.0.1:${port}`], {
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, NGROK_AUTHTOKEN: authToken }
+      });
+      this.tunnels[siteId] = { process: proc, url: null, port, provider: 'Connecting to ngrok', engine: 'ngrok' };
+      const finish = result => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(result);
+      };
+      const onData = chunk => {
+        const text = chunk.toString();
+        output = (output + text).slice(-16000);
+        const match = output.match(/(?:url=|started tunnel[^\n]*?url=)["']?(https:\/\/[^\s"']+)/i) || output.match(/https:\/\/[a-z0-9-]+\.ngrok(?:-free)?\.app/i);
+        if (!match || settled) return;
+        const url = match[1] || match[0];
+        this.tunnels[siteId] = { ...this.tunnels[siteId], url, provider: 'ngrok' };
+        this.emit('tunnel-started', { siteId, url, provider: 'ngrok' });
+        finish({ success: true, url, siteId, provider: 'ngrok' });
+      };
+      proc.stdout.on('data', onData);
+      proc.stderr.on('data', onData);
+      proc.once('error', error => {
+        if (this.tunnels[siteId]?.process === proc) delete this.tunnels[siteId];
+        finish({ success: false, error: error.code === 'ENOENT' ? 'ngrok was not found. Install ngrok or place ngrok.exe in the app bin folder.' : error.message });
+      });
+      proc.once('exit', code => {
+        if (this.tunnels[siteId]?.process === proc) delete this.tunnels[siteId];
+        if (!settled) finish({ success: false, error: `ngrok exited with code ${code}. ${output.slice(-1000)}` });
+        this.emit('tunnel-stopped', { siteId });
+      });
+    });
   }
 
   /**

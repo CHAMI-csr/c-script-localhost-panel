@@ -14,6 +14,7 @@ class SslManager {
   constructor(certsDir) {
     this.certsDir = certsDir || this._detectCertsDir();
     this.opensslBin = this._detectOpenSSL();
+    this._ensurePromise = null;
     this._ensureDir(this.certsDir);
   }
 
@@ -73,57 +74,76 @@ class SslManager {
     return [...new Set(['*.test', 'test', 'localhost', '127.0.0.1', '::1', ...validDomains])];
   }
 
+  /** Ensure only one certificate writer can replace the pair at a time. */
+  async ensureWildcardCert(domains = []) {
+    if (this._ensurePromise) return this._ensurePromise;
+    this._ensurePromise = this._ensureWildcardCert(domains).finally(() => { this._ensurePromise = null; });
+    return this._ensurePromise;
+  }
+
   /**
    * Ensure wildcard SSL certificates exist. Generates them if missing.
    */
-  async ensureWildcardCert(domains = []) {
+  async _ensureWildcardCert(domains = []) {
     const { crt, key } = this.getWildcardCertPaths();
     const requestedDomains = this._getCertificateNames(domains).filter(name => !name.startsWith('*') && !name.includes(':'));
+    let existingPairUsable = false;
     if (fs.existsSync(crt) && fs.existsSync(key)) {
       try {
         const certificate = new X509Certificate(fs.readFileSync(crt));
+        existingPairUsable = true;
         const names = new Set((certificate.subjectAltName || '').split(/,\s*/).filter(item => item.startsWith('DNS:')).map(item => item.slice(4)));
         if (requestedDomains.every(domain => names.has(domain))) return { success: true, crt, key, generated: false };
       } catch (_) {}
     }
 
     this._ensureDir(this.certsDir);
-    // A leftover certificate without its private key is unusable by NGINX.
-    // Remove only these app-managed files before generating a complete pair.
-    for (const file of [crt, key]) {
-      try { if (fs.existsSync(file)) fs.unlinkSync(file); } catch (_) {}
-    }
+    // Generate away from the live paths. NGINX must never observe one file
+    // deleted or replaced while the other half of the pair is still pending.
+    const suffix = `.tmp-${process.pid}-${Date.now()}`;
+    const tempCrt = `${crt}${suffix}`;
+    const tempKey = `${key}${suffix}`;
+    const cleanup = () => {
+      for (const file of [tempCrt, tempKey]) {
+        try { if (fs.existsSync(file)) fs.unlinkSync(file); } catch (_) {}
+      }
+    };
+    const installPair = () => {
+      if (!fs.existsSync(tempCrt) || !fs.existsSync(tempKey)) {
+        throw new Error('Certificate provider did not create both certificate files.');
+      }
+      fs.copyFileSync(tempCrt, crt);
+      fs.copyFileSync(tempKey, key);
+      cleanup();
+    };
 
     const mkcert = this._detectMkcert();
     const certificateNames = this._getCertificateNames(domains);
     try {
-      await execFileAsync(mkcert, ['-cert-file', crt, '-key-file', key, ...certificateNames], {
+      await execFileAsync(mkcert, ['-cert-file', tempCrt, '-key-file', tempKey, ...certificateNames], {
         windowsHide: true,
         timeout: 30000
       });
-      if (fs.existsSync(crt) && fs.existsSync(key)) {
-        return { success: true, crt, key, generated: true, provider: 'mkcert' };
-      }
-      throw new Error('mkcert did not create both certificate and private-key files.');
+      installPair();
+      return { success: true, crt, key, generated: true, provider: 'mkcert' };
     } catch (mkcertError) {
-      for (const file of [crt, key]) {
-        try { if (fs.existsSync(file)) fs.unlinkSync(file); } catch (_) {}
-      }
+      cleanup();
       try {
         await execFileAsync(this.opensslBin, [
           'req', '-x509', '-nodes', '-days', '3650', '-newkey', 'rsa:2048',
-          '-keyout', key, '-out', crt, '-subj', '/CN=*.test',
+          '-keyout', tempKey, '-out', tempCrt, '-subj', '/CN=*.test',
           '-addext', `subjectAltName=${certificateNames.map(name => name.includes(':') ? `IP:${name}` : `DNS:${name}`).join(',')}`
         ], { windowsHide: true, timeout: 30000 });
-        if (!fs.existsSync(crt) || !fs.existsSync(key)) throw new Error('OpenSSL did not create both certificate and private-key files.');
+        installPair();
         return { success: true, crt, key, generated: true, provider: 'openssl', trusted: false };
       } catch (opensslError) {
-        for (const file of [crt, key]) {
-          try { if (fs.existsSync(file)) fs.unlinkSync(file); } catch (_) {}
-        }
+        cleanup();
         const details = opensslError.code === 'ENOENT'
           ? 'Install mkcert or OpenSSL and make sure it is available to the app.'
           : `${opensslError.stderr || opensslError.message || 'Certificate generation failed.'}`.trim();
+        if (existingPairUsable) {
+          return { success: true, crt, key, generated: false, warning: `Could not refresh the local certificate; continuing with the existing valid pair. ${details}` };
+        }
         return { success: false, error: `Could not create a complete local SSL certificate. ${details}`, cause: mkcertError.message };
       }
     }

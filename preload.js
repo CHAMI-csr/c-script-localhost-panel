@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('mysql:update-row', { database, table, primary, changes }),
     insertRow: (database, table, values) =>
       ipcRenderer.invoke('mysql:insert-row', { database, table, values }),
+    generateMockData: (database, table, count) =>
+      ipcRenderer.invoke('mysql:generate-mock-data', { database, table, count }),
     deleteRow: (database, table, primary) =>
       ipcRenderer.invoke('mysql:delete-row', { database, table, primary }),
     query: (database, query) => ipcRenderer.invoke('mysql:query', { database, query }),

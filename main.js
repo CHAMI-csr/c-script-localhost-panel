@@ -960,6 +960,10 @@ ipcMain.handle('mysql:insert-row', async (event, { database, table, values }) =>
   return await mysqlManager.insertTableRow(database, table, values);
 });
 
+ipcMain.handle('mysql:generate-mock-data', async (event, { database, table, count }) => {
+  return await mysqlManager.generateMockData(database, table, count);
+});
+
 ipcMain.handle('mysql:delete-row', async (event, { database, table, primary }) => {
   return await mysqlManager.deleteTableRow(database, table, primary);
 });

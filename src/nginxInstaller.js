@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const https = require('https');
-const { spawn, execFile, exec } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const { EventEmitter } = require('events');
 
 const NGINX_VERSION = '1.26.2';
@@ -27,6 +27,7 @@ class NginxInstaller extends EventEmitter {
     this.logsDir = path.join(this.baseDir, 'logs');
     this.tempDir = path.join(this.baseDir, 'temp');
     this.ownedProcess = null;
+    this._reloadPromise = null;
 
     this._ensureDir(this.baseDir);
     this.removeLegacyBranding();
@@ -99,16 +100,68 @@ class NginxInstaller extends EventEmitter {
     return fs.existsSync(this.exePath);
   }
 
-  /**
-   * Check if any nginx.exe is running on the system
-   */
+  _pidPath() {
+    return path.join(this.logsDir, 'nginx.pid');
+  }
+
+  _readMasterPid() {
+    try {
+      const pid = Number.parseInt(fs.readFileSync(this._pidPath(), 'utf8').trim(), 10);
+      return Number.isInteger(pid) && pid > 0 ? pid : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  _removeStalePid() {
+    try { if (fs.existsSync(this._pidPath())) fs.unlinkSync(this._pidPath()); } catch (_) {}
+  }
+
+  /** Check the master PID recorded under this app's NGINX prefix, not an
+   * unrelated nginx.exe that happens to be running on the computer. */
   async isRunning() {
-    return new Promise((resolve) => {
-      exec('tasklist /FI "IMAGENAME eq nginx.exe" /NH', (err, stdout) => {
-        if (err || !stdout) return resolve(false);
-        resolve(stdout.toLowerCase().includes('nginx.exe'));
+    const pid = this._readMasterPid();
+    if (!pid) return false;
+    if (process.platform !== 'win32') {
+      try { process.kill(pid, 0); return true; } catch (_) { return false; }
+    }
+    return new Promise(resolve => {
+      const escapedExe = this.exePath.replace(/'/g, "''");
+      const escapedPrefix = this.baseDir.replace(/'/g, "''");
+      const script = `$p=Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}" -ErrorAction SilentlyContinue; $cmd=[string]$p.CommandLine; if ($p -and $p.ExecutablePath -ieq '${escapedExe}' -and $cmd.IndexOf('${escapedPrefix}', [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { 'owned' }`;
+      execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, timeout: 5000 }, (error, stdout) => {
+        resolve(!error && String(stdout).trim() === 'owned');
       });
     });
+  }
+
+  _execNginx(args, timeout = 10000) {
+    return new Promise(resolve => {
+      execFile(this.exePath, args, { windowsHide: true, timeout }, (error, stdout, stderr) => {
+        resolve({
+          success: !error,
+          error: error ? String(stderr || stdout || error.message).trim() : null
+        });
+      });
+    });
+  }
+
+  async _waitForCertificateWrite() {
+    const sslDir = path.join(path.dirname(this.baseDir), 'ssl');
+    for (let attempt = 0; attempt < 150; attempt++) {
+      let writing = false;
+      try {
+        writing = fs.readdirSync(sslDir).some(name => /^wildcard\.test\.(?:crt|key)\.tmp-/i.test(name));
+      } catch (_) {}
+      if (!writing) return;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+
+  async _testConfiguration() {
+    await this._waitForCertificateWrite();
+    this.repairMissingSslReferences();
+    return this._execNginx(['-p', this.baseDir, '-c', this.confPath, '-t']);
   }
 
   /**
@@ -289,6 +342,14 @@ http {
       }
     } catch (_) {}
 
+    const configTest = await this._testConfiguration();
+    if (!configTest.success) {
+      return { success: false, error: configTest.error || 'NGINX configuration test failed.' };
+    }
+    // A dead master can leave nginx.pid behind. Never let a newly started
+    // instance inherit that PID and later signal an unrelated Windows process.
+    this._removeStalePid();
+
     return new Promise((resolve) => {
       const proc = spawn(this.exePath, ['-p', this.baseDir, '-c', this.confPath], {
         cwd: this.baseDir,
@@ -307,16 +368,33 @@ http {
     });
   }
 
-  /**
-   * Reload standalone NGINX configuration
-   */
+  /** Reload only the app-owned master. Concurrent callers share one config
+   * test/signal so Windows never receives overlapping reload events. */
   async reload() {
-    if (!this.isInstalled()) return { success: false };
-    return new Promise((resolve) => {
-      execFile(this.exePath, ['-p', this.baseDir, '-c', this.confPath, '-s', 'reload'], (err) => {
-        resolve({ success: !err });
-      });
-    });
+    if (this._reloadPromise) return this._reloadPromise;
+    this._reloadPromise = this._reloadSafely().finally(() => { this._reloadPromise = null; });
+    return this._reloadPromise;
+  }
+
+  async _reloadSafely() {
+    if (!this.isInstalled()) return { success: false, error: 'NGINX is not installed.' };
+
+    const configTest = await this._testConfiguration();
+    if (!configTest.success) {
+      return { success: false, error: configTest.error || 'NGINX configuration test failed.' };
+    }
+
+    if (!await this.isRunning()) {
+      this._removeStalePid();
+      return this.start();
+    }
+
+    const result = await this._execNginx(['-p', this.baseDir, '-c', this.confPath, '-s', 'reload']);
+    if (!result.success && /OpenEvent|ngx_reload/i.test(result.error || '') && !await this.isRunning()) {
+      this._removeStalePid();
+      return this.start();
+    }
+    return result;
   }
 
   /** Stop only the NGINX instance using this app's prefix and configuration. */

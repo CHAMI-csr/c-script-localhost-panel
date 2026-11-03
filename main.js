@@ -436,7 +436,7 @@ app.whenReady().then(async () => {
   } catch (e) { /* use default */ }
 
   const tld = cfg?.app?.tld || cfg?.tld || 'test';
-  vhostsManager = new VhostsManager(tld);
+  vhostsManager = new VhostsManager(tld, { nginxInstaller });
   viteProxyTimer = setInterval(async () => {
     if (!vhostsManager || !siteManager || viteProxySyncInFlight) return;
     const proxySites = siteManager.getSites().map(site => ({

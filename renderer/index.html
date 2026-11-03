@@ -1222,7 +1222,8 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
             + New Session
           </button>
           <div id="db-connected-actions" class="db-connected-actions" style="display:none">
-          <button class="btn btn-sm" onclick="loadDatabases()">Refresh</button>
+          <button class="btn btn-sm" onclick="refreshDatabaseWorkspace(true)">Refresh</button>
+          <button class="btn btn-sm" id="db-auto-refresh-btn" onclick="toggleDatabaseAutoRefresh()" title="Automatically detect database, table and row changes">Auto refresh: On</button>
           <button class="btn btn-sm" onclick="openDatabaseSettings()" title="Server settings and account password">Database Settings</button>
           <button class="btn btn-primary btn-sm" onclick="openCreateDBModal()">+ New DB</button>
           <button class="btn btn-sm" onclick="createTableForCurrentDB()">+ New Table</button>
@@ -2958,14 +2959,19 @@ DESCRIBE tablename;"></textarea>
     </div>
     <div class="modal-body">
       <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
-        Quickly populate <strong id="mock-data-table-name" style="color:var(--blue)"></strong> with realistic dummy data matching column types (names, emails, dates, numbers).
+        Populate <strong id="mock-data-table-name" style="color:var(--blue)"></strong> with schema-aware development data. Column names, SQL types, lengths, enums, unique IDs, JSON, dates and foreign-key values are detected automatically.
+      </div>
+      <div style="font-size:11px;color:var(--yellow);background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);padding:8px 10px;border-radius:5px;margin-bottom:12px">
+        Development use only. All rows are inserted in one transaction; if any constraint fails, no partial mock data is kept.
       </div>
       <div class="form-group">
         <label class="form-label">Number of Rows to Insert</label>
         <select class="input select" id="mock-data-count">
           <option value="10">10 rows (Fast test)</option>
           <option value="50" selected>50 rows (Standard sample)</option>
-          <option value="100">100 rows (Stress test)</option>
+          <option value="100">100 rows (Large sample)</option>
+          <option value="500">500 rows (Stress test)</option>
+          <option value="1000">1,000 rows (Maximum batch)</option>
         </select>
       </div>
     </div>
@@ -3030,8 +3036,15 @@ const DB = {
   rowSearch: '',
   primaryKeys: [],
   showRowActions: false,
-  visibleRows: []
+  visibleRows: [],
+  databaseSignature: '',
+  tableSignatures: new Map(),
+  dataFingerprint: ''
 };
+
+let databaseAutoRefreshEnabled = localStorage.getItem('c_script_db_auto_refresh') !== 'false';
+let databaseAutoRefreshInFlight = false;
+let databaseAutoRefreshTick = 0;
 
 // ══════════════════════════════════════════════════════════
 // DATABASE SESSIONS STATE & HELPERS
@@ -3321,6 +3334,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   setTimeout(() => checkPhpSecurity(true), 1800);
   setInterval(() => checkPhpSecurity(true), 24 * 60 * 60 * 1000);
   await checkMySQLStatus();
+  updateDatabaseAutoRefreshButton();
+  setInterval(() => refreshDatabaseWorkspace(false), 4000);
   await checkNginxStatus();
   loadNginxInfo();
   loadMysqlInstallerInfo();
@@ -4165,14 +4180,86 @@ async function disconnectMySQL() {
 // ══════════════════════════════════════════════════════════
 // DATABASE TREE
 // ══════════════════════════════════════════════════════════
-async function loadDatabases() {
+async function loadDatabases(options = {}) {
   const r = await api.mysql.databases();
-  if(!r.success){ toast('Failed to load databases: '+r.error,'error'); return; }
-  DB.allDatabases = r.databases||[];
-  DB.systemDatabases = r.systemDatabases||[];
-  renderTree();
-  updateSQLDBSelect();
-  updateERDBSelect();
+  if(!r.success){ if(!options.silent) toast('Failed to load databases: '+r.error,'error'); return false; }
+  const nextUser = r.databases || [];
+  const nextSystem = r.systemDatabases || [];
+  const signature = JSON.stringify([...nextUser, ...nextSystem].map(db => [db.name, db.charset, db.collation]));
+  const changed = signature !== DB.databaseSignature;
+  DB.allDatabases = nextUser;
+  DB.systemDatabases = nextSystem;
+  DB.databaseSignature = signature;
+  if(changed || !options.silent){
+    renderTree();
+    updateSQLDBSelect();
+    updateERDBSelect();
+  }
+  return changed;
+}
+
+function updateDatabaseAutoRefreshButton(){
+  const button = document.getElementById('db-auto-refresh-btn');
+  if(!button) return;
+  button.textContent = `Auto refresh: ${databaseAutoRefreshEnabled ? 'On' : 'Off'}`;
+  button.classList.toggle('btn-accent', databaseAutoRefreshEnabled);
+}
+
+function toggleDatabaseAutoRefresh(){
+  databaseAutoRefreshEnabled = !databaseAutoRefreshEnabled;
+  localStorage.setItem('c_script_db_auto_refresh', String(databaseAutoRefreshEnabled));
+  updateDatabaseAutoRefreshButton();
+  toast(`Database auto refresh ${databaseAutoRefreshEnabled ? 'enabled' : 'disabled'}`, 'info');
+  if(databaseAutoRefreshEnabled) refreshDatabaseWorkspace(true);
+}
+
+function databaseEditorIsBusy(){
+  if(document.hidden || document.querySelector('.modal-overlay.open')) return true;
+  const active = document.activeElement;
+  return Boolean(active && (active.matches?.('input, textarea, select') || active.isContentEditable));
+}
+
+async function refreshDatabaseWorkspace(force = false){
+  if(!DB.connected || databaseAutoRefreshInFlight) return;
+  if(!force && (!databaseAutoRefreshEnabled || databaseEditorIsBusy())) return;
+  databaseAutoRefreshInFlight = true;
+  try{
+    databaseAutoRefreshTick++;
+    const databasesChanged = await loadDatabases({ silent: !force });
+
+    if(DB.activeDB){
+      const tablesResult = await api.mysql.tables(DB.activeDB);
+      if(tablesResult.success){
+        const tableSignature = JSON.stringify((tablesResult.tables || []).map(item => [item.name, item.rowCount, item.sizeKB, item.type]));
+        const previous = DB.tableSignatures.get(DB.activeDB);
+        DB.tableSignatures.set(DB.activeDB, tableSignature);
+        if(force || databasesChanged || previous !== tableSignature){
+          if(DB.expandedDBs.has(DB.activeDB)) await loadTreeTables(DB.activeDB);
+          if(DB.mainView === 'db') await renderDatabaseOverview(DB.activeDB);
+          sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
+          refreshSqlSchema(DB.activeDB);
+        }
+      }
+    }
+
+    if(DB.mainView === 'table' && DB.tableTab === 'data' && DB.activeDB && DB.activeTable){
+      const offset = (DB.page - 1) * DB.pageSize;
+      const [result, structure] = await Promise.all([
+        api.mysql.tableData(DB.activeDB, DB.activeTable, DB.pageSize, offset),
+        api.mysql.tableStructure(DB.activeDB, DB.activeTable)
+      ]);
+      if(result.success){
+        const fingerprint = databaseResultFingerprint(result) + ':' + JSON.stringify(structure?.columns || []);
+        if(force || fingerprint !== DB.dataFingerprint) applyLoadedTableData(result, structure);
+      }
+    }
+
+    if(force) toast('Database workspace refreshed', 'success');
+  } catch(error){
+    if(force) toast('Database refresh failed: ' + error.message, 'error');
+  } finally {
+    databaseAutoRefreshInFlight = false;
+  }
 }
 
 function renderTree() {
@@ -5044,6 +5131,27 @@ async function loadCurrentTabContent(){
   else if(tab==='info') await loadInfoTab();
 }
 
+function databaseResultFingerprint(result){
+  try {
+    return JSON.stringify([result.total || 0, result.data || []], (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value);
+  } catch (_) {
+    return `${result.total || 0}:${Date.now()}`;
+  }
+}
+
+function applyLoadedTableData(result, structure){
+  DB.showRowActions = true;
+  DB.primaryKeys = structure?.success ? (structure.columns || []).filter(c => c.key_type === 'PRI').map(c => c.field) : DB.primaryKeys;
+  DB.totalRows = result.total || 0;
+  DB.lastResults = { data: result.data || [], fields: result.fields || [] };
+  DB.dataFingerprint = databaseResultFingerprint(result) + ':' + JSON.stringify(structure?.columns || []);
+  renderDataTable(result.data, result.fields, false);
+  const totalPages = Math.max(1, Math.ceil(DB.totalRows / DB.pageSize));
+  setResultInfo(`<span class="ri-ok">✓</span> ${fmtNum(DB.totalRows)} rows total — page ${DB.page}/${totalPages}`);
+  showPagination(DB.totalRows > DB.pageSize);
+}
+
 async function loadDataTab(){
   const {activeDB:db, activeTable:table, page, pageSize} = DB;
   const offset = (page-1)*pageSize;
@@ -5052,14 +5160,7 @@ async function loadDataTab(){
     api.mysql.tableStructure(db, table)
   ]);
   if(!r.success){ showResultMsg(r.error,'error'); setResultInfo('<span class="ri-err">✗</span> Error'); return; }
-  DB.showRowActions=true;
-  DB.primaryKeys=structure.success?(structure.columns||[]).filter(c=>c.key_type==='PRI').map(c=>c.field):[];
-  DB.totalRows = r.total||0;
-  DB.lastResults = { data: r.data||[], fields: r.fields||[] };
-  renderDataTable(r.data, r.fields, false);
-  const totalPages = Math.max(1, Math.ceil(DB.totalRows/pageSize));
-  setResultInfo(`<span class="ri-ok">✓</span> ${fmtNum(DB.totalRows)} rows total — page ${page}/${totalPages}`);
-  showPagination(DB.totalRows > pageSize);
+  applyLoadedTableData(r, structure);
 }
 
 let _currentTableColumns = [];
@@ -10345,80 +10446,19 @@ function openMockDataModal(){
 
 async function runGenerateMockData(){
   const { activeDB: db, activeTable: table } = DB;
-  const count = parseInt(document.getElementById('mock-data-count')?.value) || 50;
+  const count = Math.max(1, Math.min(1000, parseInt(document.getElementById('mock-data-count')?.value) || 50));
   const btn = document.getElementById('btn-run-mock-data');
-  if(btn){ btn.disabled = true; btn.textContent = 'Generating...'; }
+  if(btn){ btn.disabled = true; btn.textContent = `Generating ${count} rows...`; }
 
   try {
-    const struct = await api.mysql.tableStructure(db, table);
-    if(!struct.success || !struct.columns){
-      toast('Failed to load table structure: ' + struct.error, 'error');
-      if(btn){ btn.disabled = false; btn.textContent = 'Generate & Insert'; }
+    const result = await api.mysql.generateMockData(db, table, count);
+    if(!result.success){
+      toast('Mock data generation failed: ' + (result.error || 'Unknown database constraint error'), 'error');
       return;
     }
-
-    const firstNames = ['John', 'Jane', 'Michael', 'Sarah', 'David', 'Emma', 'Alex', 'Laura', 'Robert', 'Lisa', 'Daniel', 'Olivia', 'Kamal', 'Nimal', 'Sunil', 'Kasun'];
-    const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Silva', 'Perera', 'Fernando', 'De Silva'];
-    const domains = ['gmail.com', 'example.com', 'devsuite.dev', 'company.org', 'testmail.net'];
-    const cities = ['New York', 'London', 'Colombo', 'Tokyo', 'Berlin', 'Sydney', 'Toronto', 'Singapore'];
-
-    let insertedCount = 0;
-    for(let i = 0; i < count; i++){
-      const row = {};
-      const fName = firstNames[Math.floor(Math.random() * firstNames.length)];
-      const lName = lastNames[Math.floor(Math.random() * lastNames.length)];
-
-      struct.columns.forEach(col => {
-        if(col.extra && col.extra.toLowerCase().includes('auto_increment')) return;
-
-        const name = col.field.toLowerCase();
-        const type = col.type.toLowerCase();
-
-        if(name.includes('email')){
-          row[col.field] = `${fName.toLowerCase()}.${lName.toLowerCase()}${Math.floor(Math.random() * 90 + 10)}@${domains[Math.floor(Math.random() * domains.length)]}`;
-        } else if(name.includes('name') || name.includes('full_name') || name.includes('author')){
-          row[col.field] = `${fName} ${lName}`;
-        } else if(name.includes('first_name')){
-          row[col.field] = fName;
-        } else if(name.includes('last_name')){
-          row[col.field] = lName;
-        } else if(name.includes('phone') || name.includes('mobile') || name.includes('tel')){
-          row[col.field] = `+1-${Math.floor(Math.random() * 899 + 100)}-${Math.floor(Math.random() * 899 + 100)}-${Math.floor(Math.random() * 8999 + 1000)}`;
-        } else if(name.includes('city') || name.includes('address')){
-          row[col.field] = `${Math.floor(Math.random() * 900 + 100)} Main St, ${cities[Math.floor(Math.random() * cities.length)]}`;
-        } else if(name.includes('status')){
-          const statuses = ['active', 'pending', 'completed', 'inactive'];
-          row[col.field] = statuses[Math.floor(Math.random() * statuses.length)];
-        } else if(name.includes('title')){
-          row[col.field] = `Sample ${col.field} #${i + 1}`;
-        } else if(name.includes('password') || name.includes('pass') || name.includes('hash')){
-          row[col.field] = '$2y$10$e8wV6wB5bKj7yF9mH1xL3O7qP9zX0vW8sY1aB2c3d4e5f6g7h8i9j';
-        } else if(type.includes('int')){
-          if(col.key_type === 'PRI') row[col.field] = Math.floor(Math.random() * 900000 + 10000);
-          else if(name.includes('price') || name.includes('amount')) row[col.field] = Math.floor(Math.random() * 500 + 10);
-          else if(name.includes('age')) row[col.field] = Math.floor(Math.random() * 50 + 18);
-          else row[col.field] = Math.floor(Math.random() * 100 + 1);
-        } else if(type.includes('decimal') || type.includes('float') || type.includes('double')){
-          row[col.field] = (Math.random() * 990 + 10).toFixed(2);
-        } else if(type.includes('date') || type.includes('time')){
-          const pastDate = new Date(Date.now() - Math.floor(Math.random() * 30 * 86400000));
-          row[col.field] = pastDate.toISOString().slice(0, 19).replace('T', ' ');
-        } else if(type.includes('text')){
-          row[col.field] = `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore #${i + 1}.`;
-        } else if(type.includes('bool') || type.includes('tinyint(1)')){
-          row[col.field] = Math.random() > 0.5 ? 1 : 0;
-        } else {
-          row[col.field] = `Test ${col.field} ${i + 1}`;
-        }
-      });
-
-      const insRes = await api.mysql.insertRow(db, table, row);
-      if(insRes.success) insertedCount++;
-    }
-
     closeModal('modal-mock-data');
-    toast(`Successfully generated & inserted ${insertedCount} rows of mock data!`, 'success');
-    await loadDataTab();
+    toast(`Inserted ${result.insertedRows} schema-aware rows (${result.detectedColumns} columns, ${result.foreignKeysUsed} foreign keys detected).`, 'success');
+    await refreshDatabaseWorkspace(true);
   } catch(err){
     toast('Mock data generation failed: ' + err.message, 'error');
   } finally {

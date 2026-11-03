@@ -8,6 +8,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { once } = require('events');
 const zlib = require('zlib');
+const { generateRows } = require('./mockDataGenerator');
 
 const SYSTEM_DBS = ['information_schema', 'performance_schema', 'sys', 'mysql'];
 const quoteIdent = (value) => `\`${String(value).replace(/`/g, '``')}\``;
@@ -312,6 +313,88 @@ class MySQLManager {
       const [result] = await this.connection.query(sql, names.map(column => values[column]));
       return { success: true, insertId: result.insertId, affectedRows: result.affectedRows };
     } catch (err) { return { success: false, error: this._fmtErr(err) }; }
+  }
+
+  /** Generate schema-aware development data and insert it atomically in batches. */
+  async generateMockData(database, table, count = 50) {
+    if (!this.connection) return { success: false, error: 'Not connected' };
+    const safeCount = Math.max(1, Math.min(1000, parseInt(count, 10) || 50));
+    try {
+      const [columns] = await this.connection.query(
+        `SELECT COLUMN_NAME AS field,
+                DATA_TYPE AS dataType,
+                COLUMN_TYPE AS type,
+                IS_NULLABLE AS nullable,
+                COLUMN_DEFAULT AS def,
+                COLUMN_KEY AS key_type,
+                EXTRA AS extra,
+                COLUMN_COMMENT AS comment,
+                CHARACTER_MAXIMUM_LENGTH AS maxLength,
+                NUMERIC_PRECISION AS precisionValue,
+                NUMERIC_SCALE AS scale
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+         ORDER BY ORDINAL_POSITION`,
+        [database, table]
+      );
+      if (!columns.length) return { success: false, error: 'Table structure could not be detected' };
+
+      const [foreignKeys] = await this.connection.query(
+        `SELECT COLUMN_NAME AS field,
+                REFERENCED_TABLE_SCHEMA AS refDatabase,
+                REFERENCED_TABLE_NAME AS refTable,
+                REFERENCED_COLUMN_NAME AS refColumn
+         FROM information_schema.KEY_COLUMN_USAGE
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND REFERENCED_TABLE_NAME IS NOT NULL`,
+        [database, table]
+      );
+      const foreignValues = {};
+      for (const fk of foreignKeys) {
+        const [values] = await this.connection.query(
+          `SELECT DISTINCT ${quoteIdent(fk.refColumn)} AS value
+           FROM ${quoteIdent(fk.refDatabase || database)}.${quoteIdent(fk.refTable)}
+           WHERE ${quoteIdent(fk.refColumn)} IS NOT NULL LIMIT 500`
+        );
+        foreignValues[fk.field] = values.map(item => item.value);
+      }
+
+      const [[countRow]] = await this.connection.query(
+        `SELECT COUNT(*) AS total FROM ${quoteIdent(database)}.${quoteIdent(table)}`
+      );
+      const seed = Number(countRow?.total || 0) + (Math.floor(Date.now() / 1000) % 10000000);
+      const rows = generateRows(columns, safeCount, { foreignValues, seed });
+      const names = Object.keys(rows[0] || {});
+
+      await this.connection.beginTransaction();
+      try {
+        if (!names.length) {
+          for (let index = 0; index < safeCount; index++) {
+            await this.connection.query(`INSERT INTO ${quoteIdent(database)}.${quoteIdent(table)} () VALUES ()`);
+          }
+        } else {
+          const batchSize = 100;
+          for (let offset = 0; offset < rows.length; offset += batchSize) {
+            const batch = rows.slice(offset, offset + batchSize);
+            const tuple = `(${names.map(() => '?').join(', ')})`;
+            const sql = `INSERT INTO ${quoteIdent(database)}.${quoteIdent(table)} (${names.map(quoteIdent).join(', ')}) VALUES ${batch.map(() => tuple).join(', ')}`;
+            await this.connection.query(sql, batch.flatMap(row => names.map(name => row[name])));
+          }
+        }
+        await this.connection.commit();
+      } catch (error) {
+        await this.connection.rollback();
+        throw error;
+      }
+
+      return {
+        success: true,
+        insertedRows: rows.length,
+        detectedColumns: columns.length,
+        foreignKeysUsed: foreignKeys.length
+      };
+    } catch (err) {
+      return { success: false, error: this._fmtErr(err) };
+    }
   }
 
   async deleteTableRow(database, table, primary) {

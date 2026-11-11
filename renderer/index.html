@@ -275,7 +275,7 @@ select option{background-color:var(--bg2);color:var(--text1);padding:5px 8px}
 #sql-editor::placeholder{-webkit-text-fill-color:var(--text3);color:var(--text3)}
 .sql-token-keyword{color:#c792ea}.sql-token-function{color:#82aaff}.sql-token-string{color:#c3e88d}.sql-token-number{color:#f78c6c}.sql-token-comment{color:#697386;font-style:italic}.sql-token-identifier{color:#f07178}.sql-token-operator{color:#89ddff}
 .sql-completions{position:absolute;z-index:12;display:none;min-width:240px;max-width:min(360px,calc(100% - 16px));max-height:260px;overflow:auto;background:var(--bg1);border:1px solid var(--border2);border-radius:8px;box-shadow:0 12px 32px rgba(0,0,0,.42);padding:5px;color:var(--text1)}
-.sql-completions.open{display:block}.sql-completion-item{display:flex;align-items:center;gap:9px;width:100%;padding:6px 8px;border:0;border-radius:5px;background:transparent;color:var(--text1);font:12px var(--font-mono);text-align:left;cursor:pointer}.sql-completion-item:hover,.sql-completion-item.active{background:rgba(124,106,247,.16)}.sql-completion-kind{margin-left:auto;color:var(--text3);font:10px Arial,sans-serif;text-transform:uppercase}.sql-completion-icon{width:17px;color:var(--accent);text-align:center}.sql-completion-empty{padding:9px;color:var(--text3);font-size:11px}
+.sql-completions.open{display:block}.sql-completion-item{display:flex;align-items:center;gap:9px;width:100%;padding:6px 8px;border:0;border-radius:5px;background:transparent;color:var(--text1);font:12px var(--font-mono);text-align:left;cursor:pointer}.sql-completion-item:hover,.sql-completion-item.active{background:rgba(124,106,247,.16)}.sql-completion-copy{display:flex;flex-direction:column;min-width:0;flex:1}.sql-completion-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sql-completion-detail{font:9px/1.3 Arial,sans-serif;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}.sql-completion-kind{margin-left:auto;color:var(--text3);font:10px Arial,sans-serif;text-transform:uppercase;flex-shrink:0}.sql-completion-icon{width:17px;color:var(--accent);text-align:center;flex-shrink:0}.sql-completion-empty{padding:9px;color:var(--text3);font-size:11px}
 .sql-hint{position:absolute;bottom:8px;right:12px;font-size:10px;color:var(--text3);pointer-events:none;background:var(--bg0);padding:2px 6px;border-radius:3px}
 
 /* Table View */
@@ -988,7 +988,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
   <div class="titlebar-logo" onclick="switchPanel('about')" style="cursor:pointer" title="About C-Script LocalHost Panel">
     <img src="../assets/icon.png" alt="C-Script" style="width:22px;height:22px;border-radius:6px;">
     <span>C-Script LocalHost Panel</span>
-    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.10</span>
+    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.11</span>
     <button class="titlebar-whatsnew-btn" onclick="event.stopPropagation();openWhatsNewModal()" title="See What's New in this update">
       <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
       <span>What's New</span>
@@ -2127,7 +2127,7 @@ DESCRIBE tablename;"></textarea>
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
               <h1 style="font-size:22px;font-weight:700;color:var(--text1);margin:0">C-Script LocalHost Panel</h1>
-              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.10</span>
+              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.11</span>
               <button class="btn btn-xs" onclick="openWhatsNewModal()" style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;font-size:11px;padding:3px 9px;cursor:pointer">
                 <svg class="tab-icon-svg" style="width:11px;height:11px;margin:0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 What's New
@@ -2290,7 +2290,7 @@ DESCRIBE tablename;"></textarea>
         </div>
         <div>
           <h2 class="whatsnew-header-title" id="whatsnew-title">What's New</h2>
-          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.10</div>
+          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.11</div>
         </div>
       </div>
     </div>
@@ -4922,6 +4922,14 @@ function escapeSqlHtml(value) {
   return String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
 }
 
+function sqlCompletionIdentifier(value) {
+  const name = String(value || '');
+  const reserved = new Set(SQL_KEYWORDS);
+  return /^[A-Za-z_$][\w$]*$/.test(name) && !reserved.has(name.toUpperCase())
+    ? name
+    : `\`${name.replace(/`/g, '``')}\``;
+}
+
 function renderSqlHighlight(sql) {
   const tokenPattern = /--[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|\\.|[^'])*'|"(?:""|\\.|[^"])*"|`(?:``|[^`])*`|\b\d+(?:\.\d+)?\b|@[\w$]+|\b[a-z_$][\w$]*\b|<>|!=|<=|>=|:=|[=<>+\-*\/%]/gi;
   const keywords = new Set(SQL_KEYWORDS);
@@ -5000,27 +5008,57 @@ async function refreshSqlSchema(database = sqlEditorDatabase()) {
 
 async function loadSqlTableColumns(database, table) {
   if (!database || !table || sqlSchemaCache.database !== database) return [];
-  if (sqlSchemaCache.columns.has(table)) return sqlSchemaCache.columns.get(table);
-  const pending = api.mysql.tableStructure(database, table).then(result => {
-    const columns = result?.success ? (result.columns || []).map(column => column.field).filter(Boolean) : [];
-    sqlSchemaCache.columns.set(table, columns);
+  const actualTable = sqlSchemaCache.tables.find(name => name.toLowerCase() === String(table).toLowerCase()) || table;
+  if (sqlSchemaCache.columns.has(actualTable)) return sqlSchemaCache.columns.get(actualTable);
+  const pending = api.mysql.tableStructure(database, actualTable).then(result => {
+    if (!result?.success) {
+      sqlSchemaCache.columns.delete(actualTable);
+      return [];
+    }
+    const columns = (result.columns || []).map(column => column.field).filter(Boolean);
+    sqlSchemaCache.columns.set(actualTable, columns);
     return columns;
-  }).catch(() => []);
-  sqlSchemaCache.columns.set(table, pending);
+  }).catch(() => {
+    sqlSchemaCache.columns.delete(actualTable);
+    return [];
+  });
+  sqlSchemaCache.columns.set(actualTable, pending);
+  return pending;
+}
+
+async function loadSqlDatabaseColumns(database) {
+  if (!database || sqlSchemaCache.database !== database) return [];
+  if (sqlSchemaCache.allColumns) return sqlSchemaCache.allColumns;
+  const pending = api.mysql.databaseColumns(database).then(result => {
+    if (!result?.success) {
+      delete sqlSchemaCache.allColumns;
+      return [];
+    }
+    const columns = (result.columns || []).map(column => ({
+      table: column.table_name,
+      name: column.name,
+      dataType: column.data_type || '',
+      keyType: column.key_type || ''
+    })).filter(column => column.table && column.name);
+    sqlSchemaCache.allColumns = columns;
+    return columns;
+  }).catch(() => {
+    delete sqlSchemaCache.allColumns;
+    return [];
+  });
+  sqlSchemaCache.allColumns = pending;
   return pending;
 }
 
 function resolveSqlTableName(name, sql) {
   const clean = String(name || '').replace(/^[`"]|[`"]$/g, '');
-  if (sqlSchemaCache.tables.includes(clean)) return clean;
-  const aliases = /\b(?:FROM|JOIN|UPDATE|INTO)\s+[`"]?([\w$]+)[`"]?(?:\s+(?:AS\s+)?[`"]?([\w$]+)[`"]?)?/gi;
-  const reserved = new Set([...SQL_KEYWORDS, 'WHERE','ON','SET','VALUES','GROUP','ORDER','LIMIT','LEFT','RIGHT','INNER','OUTER','CROSS','JOIN']);
-  for (const match of sql.matchAll(aliases)) {
-    const table = match[1];
-    const alias = match[2];
-    if (alias && alias.toLowerCase() === clean.toLowerCase() && !reserved.has(alias.toUpperCase())) return table;
-  }
-  return clean;
+  const actualTable = sqlSchemaCache.tables.find(table => table.toLowerCase() === clean.toLowerCase());
+  if (actualTable) return actualTable;
+  const references = api.sqlUtils?.tableReferences(sql) || [];
+  const reference = references.find(item =>
+    item.alias?.toLowerCase() === clean.toLowerCase() || item.table?.toLowerCase() === clean.toLowerCase()
+  );
+  return reference?.table || clean;
 }
 
 function getSqlCompletionContext(editor) {
@@ -5030,7 +5068,20 @@ function getSqlCompletionContext(editor) {
   const tokenStart = cursor - token.length;
   const qualified = before.slice(0, tokenStart).match(/(?:`([^`]+)`|"([^"]+)"|([\w$]+))\.$/);
   const tableClause = /\b(?:FROM|JOIN|UPDATE|INTO)\s+(?:`[^`]*`|"[^"]*"|[\w$]*)$/i.test(before);
-  return { before, token, tokenStart, qualifiedName: qualified?.[1] || qualified?.[2] || qualified?.[3] || '', tableClause };
+  const columnClause = /(?:\b(?:SELECT|WHERE|ON|HAVING|SET|AND|OR)\s+|\b(?:ORDER|GROUP)\s+BY\s+|,)\s*[\w$]*$/i.test(before);
+  const statement = api.sqlUtils?.statementAtCursor(editor.value, cursor);
+  const statementText = statement?.text || editor.value;
+  const tableReferences = api.sqlUtils?.tableReferences(statementText) || [];
+  return {
+    before,
+    token,
+    tokenStart,
+    qualifiedName: qualified?.[1] || qualified?.[2] || qualified?.[3] || '',
+    tableClause,
+    columnClause,
+    statementText,
+    tableReferences
+  };
 }
 
 function positionSqlCompletions(editor, popup) {
@@ -5074,42 +5125,79 @@ async function updateSqlCompletions(force = false) {
   const context = getSqlCompletionContext(editor);
   const prefix = context.token.toLowerCase();
   const afterDot = Boolean(context.qualifiedName);
-  if (!force && !prefix && !afterDot && !context.tableClause) return hideSqlCompletions();
+  if (!force && !prefix && !afterDot && !context.tableClause && !context.columnClause) return hideSqlCompletions();
 
   let suggestions = [];
   if (afterDot && database) {
-    const table = resolveSqlTableName(context.qualifiedName, context.before);
+    const table = resolveSqlTableName(context.qualifiedName, context.statementText);
     const columns = await loadSqlTableColumns(database, table);
     if (editor.value !== valueSnapshot || editor.selectionStart !== cursorSnapshot || database !== sqlEditorDatabase()) return updateSqlCompletions(force);
-    suggestions = columns.map(label => ({ label, kind: 'Column', icon: '◫' }));
+    suggestions = columns.map(label => ({
+      label,
+      insertion: sqlCompletionIdentifier(label),
+      match: label,
+      kind: 'Column',
+      detail: table,
+      icon: '◫'
+    }));
   } else if (context.tableClause) {
-    suggestions = sqlSchemaCache.tables.map(label => ({ label, kind: 'Table', icon: '▤' }));
+    suggestions = sqlSchemaCache.tables.map(label => ({ label, insertion: sqlCompletionIdentifier(label), kind: 'Table', detail: database, icon: '▤' }));
   } else {
-    suggestions = [
-      ...SQL_KEYWORDS.map(label => ({ label, kind: 'Keyword', icon: 'K' })),
-      ...SQL_FUNCTIONS.map(label => ({ label: `${label}()`, match: label, kind: 'Function', icon: 'ƒ' })),
-      ...sqlSchemaCache.tables.map(label => ({ label, kind: 'Table', icon: '▤' })),
-      ...(DB.allDatabases || []).map(item => ({ label: item.name, kind: 'Database', icon: '◈' }))
-    ];
-    if (database && DB.activeDB === database && DB.activeTable) {
-      const columns = await loadSqlTableColumns(database, DB.activeTable);
+    let columnSuggestions = [];
+    if (database) {
+      const allColumns = await loadSqlDatabaseColumns(database);
       if (editor.value !== valueSnapshot || editor.selectionStart !== cursorSnapshot || database !== sqlEditorDatabase()) return updateSqlCompletions(force);
-      suggestions.push(...columns.map(label => ({ label, kind: 'Column', icon: '◫' })));
+      const currentDb = database.toLowerCase();
+      const hasExplicitReferences = context.tableReferences.length > 0;
+      let references = context.tableReferences.filter(reference => !reference.database || reference.database.toLowerCase() === currentDb);
+      if (!references.length && !hasExplicitReferences && DB.activeDB === database && DB.activeTable) {
+        references = [{ database: '', table: DB.activeTable, alias: '' }];
+      }
+      const scopedColumns = references.length
+        ? references.flatMap(reference => allColumns
+            .filter(column => column.table.toLowerCase() === reference.table.toLowerCase())
+            .map(column => ({ column, reference })))
+        : hasExplicitReferences ? [] : allColumns.map(column => ({ column, reference: null }));
+      const qualifyColumns = references.length > 1;
+      columnSuggestions = scopedColumns.map(({ column, reference }) => {
+        const qualifier = reference?.alias || reference?.table || column.table;
+        const columnIdentifier = sqlCompletionIdentifier(column.name);
+        const insertion = qualifyColumns ? `${sqlCompletionIdentifier(qualifier)}.${columnIdentifier}` : columnIdentifier;
+        const keyLabel = column.keyType === 'PRI' ? ' · primary key' : column.keyType ? ' · indexed' : '';
+        return {
+          label: insertion,
+          insertion,
+          match: column.name,
+          kind: 'Column',
+          detail: `${column.table}${column.dataType ? ` · ${column.dataType}` : ''}${keyLabel}`,
+          icon: column.keyType === 'PRI' ? '◆' : '◫'
+        };
+      });
     }
+    const keywordSuggestions = SQL_KEYWORDS.map(label => ({ label, insertion: label, kind: 'Keyword', icon: 'K' }));
+    const functionSuggestions = SQL_FUNCTIONS.map(label => ({ label: `${label}()`, insertion: `${label}()`, match: label, kind: 'Function', icon: 'ƒ' }));
+    const tableSuggestions = sqlSchemaCache.tables.map(label => ({ label, insertion: sqlCompletionIdentifier(label), kind: 'Table', detail: database, icon: '▤' }));
+    const databaseSuggestions = (DB.allDatabases || []).map(item => ({ label: item.name, insertion: sqlCompletionIdentifier(item.name), kind: 'Database', icon: '◈' }));
+    const preferColumns = force || context.columnClause || context.tableReferences.length > 0;
+    suggestions = preferColumns
+      ? [...columnSuggestions, ...functionSuggestions, ...keywordSuggestions, ...tableSuggestions, ...databaseSuggestions]
+      : [...keywordSuggestions, ...functionSuggestions, ...columnSuggestions, ...tableSuggestions, ...databaseSuggestions];
   }
   const needle = prefix;
   const seen = new Set();
   sqlCompletionItems = suggestions.filter(item => {
-    const matchText = (item.match || item.label).toLowerCase();
-    const key = `${item.kind}:${item.label.toLowerCase()}`;
-    if ((!force && needle && !matchText.startsWith(needle)) || seen.has(key)) return false;
+    const matchText = String(item.match || item.label).toLowerCase();
+    const labelText = String(item.label).toLowerCase();
+    const key = `${item.kind}:${String(item.insertion || item.label).toLowerCase()}:${String(item.detail || '').toLowerCase()}`;
+    const matches = !needle || matchText.startsWith(needle) || labelText.startsWith(needle);
+    if ((needle && !matches) || seen.has(key)) return false;
     seen.add(key);
     return true;
-  }).slice(0, 80);
+  }).slice(0, 100);
   if (!sqlCompletionItems.length) return hideSqlCompletions();
   if (document.activeElement !== editor) return hideSqlCompletions();
   sqlCompletionIndex = 0;
-  popup.innerHTML = sqlCompletionItems.map((item, index) => `<button type="button" class="sql-completion-item${index === 0 ? ' active' : ''}" role="option" aria-selected="${index === 0}" data-sql-completion="${index}"><span class="sql-completion-icon">${escapeSqlHtml(item.icon)}</span><span>${escapeSqlHtml(item.label)}</span><span class="sql-completion-kind">${escapeSqlHtml(item.kind)}</span></button>`).join('');
+  popup.innerHTML = sqlCompletionItems.map((item, index) => `<button type="button" class="sql-completion-item${index === 0 ? ' active' : ''}" role="option" aria-selected="${index === 0}" data-sql-completion="${index}"><span class="sql-completion-icon">${escapeSqlHtml(item.icon)}</span><span class="sql-completion-copy"><span class="sql-completion-label">${escapeSqlHtml(item.label)}</span>${item.detail ? `<span class="sql-completion-detail">${escapeSqlHtml(item.detail)}</span>` : ''}</span><span class="sql-completion-kind">${escapeSqlHtml(item.kind)}</span></button>`).join('');
   popup.classList.add('open');
   positionSqlCompletions(editor, popup);
 }
@@ -5135,7 +5223,7 @@ function acceptSqlCompletion(index = sqlCompletionIndex) {
   const item = sqlCompletionItems[index];
   if (!editor || !item) return hideSqlCompletions();
   const context = getSqlCompletionContext(editor);
-  const insertion = item.kind === 'Function' ? `${item.match}()` : item.label;
+  const insertion = item.insertion || item.label;
   editor.setRangeText(insertion, context.tokenStart, editor.selectionEnd, 'end');
   hideSqlCompletions();
   editor.dispatchEvent(new Event('input', { bubbles: true }));
@@ -8937,6 +9025,32 @@ function applyTheme(themeName){
 // WHAT'S NEW MODAL & POST-UPDATE ANNOUNCEMENT
 // ══════════════════════════════════════════════════════════
 const WHATS_NEW_DATA = {
+  '1.2.11': [
+    {
+      iconColor: '#5865f2',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="M8 9h8M8 13h5M8 17h7"></path></svg>',
+      title: 'Column-Aware SQL Suggestions',
+      desc: 'Autocomplete now suggests columns across the selected database, not only table names and SQL keywords.'
+    },
+    {
+      iconColor: '#10b981',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"></path></svg>',
+      title: 'JOIN and Alias Intelligence',
+      desc: 'Referenced tables and aliases are detected so JOIN queries receive qualified suggestions such as customer.Name and invoice.Total.'
+    },
+    {
+      iconColor: '#38bdf8',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4l3 2"></path></svg>',
+      title: 'Fast Schema Index',
+      desc: 'A lightweight cached schema query loads column names, data types, and key information efficiently for suggestions.'
+    },
+    {
+      iconColor: '#f59e0b',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>',
+      title: 'Autocomplete Reliability Fixes',
+      desc: 'Fixed the 80-item cutoff, stale failed caches, aliases mistaken for clauses, quoted identifiers, and false matches inside comments or strings.'
+    }
+  ],
   '1.2.10': [
     {
       iconColor: '#5865f2',
@@ -9232,7 +9346,7 @@ const WHATS_NEW_DATA = {
 };
 
 function openWhatsNewModal(targetVersion, customItems){
-  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.10';
+  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.11';
   const verClean = String(ver).replace(/^v/i, '').trim();
   const verEl = document.getElementById('whatsnew-version');
   if(verEl) verEl.textContent = `Version ${verClean}`;
@@ -9260,7 +9374,7 @@ function openWhatsNewModal(targetVersion, customItems){
 }
 
 function closeWhatsNewModal(){
-  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.10';
+  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.11';
   const verClean = String(ver).replace(/^v/i, '').trim();
   localStorage.setItem('c_script_last_seen_version', verClean);
   closeModal('modal-whats-new');

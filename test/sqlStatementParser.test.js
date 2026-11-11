@@ -27,6 +27,22 @@ test('finds the statement at the cursor or the next statement in whitespace', ()
   assert.equal(statementAtCursor(sql, sql.indexOf('\n\n') + 1).text, 'SELECT AVG(UnitPrice) FROM track');
 });
 
+test('supports mysql DELIMITER blocks without emitting client directives', () => {
+  const sql = `DELIMITER $$
+CREATE PROCEDURE count_tracks()
+BEGIN
+  SELECT COUNT(*) FROM track;
+  SELECT 'semi;colon';
+END$$
+DELIMITER ;
+CALL count_tracks();`;
+  assert.deepEqual(splitSqlStatements(sql).map(item => item.text), [
+    "CREATE PROCEDURE count_tracks()\nBEGIN\n  SELECT COUNT(*) FROM track;\n  SELECT 'semi;colon';\nEND",
+    'CALL count_tracks()'
+  ]);
+  assert.match(statementAtCursor(sql, sql.indexOf('COUNT')).text, /^CREATE PROCEDURE/);
+});
+
 test('skips comment-only input', () => {
   assert.deepEqual(splitSqlStatements('-- nothing to run;\n/* still nothing */'), []);
   assert.equal(statementAtCursor('-- nothing', 2), null);

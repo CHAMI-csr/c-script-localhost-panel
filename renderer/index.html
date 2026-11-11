@@ -964,7 +964,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
   <div class="titlebar-logo" onclick="switchPanel('about')" style="cursor:pointer" title="About C-Script LocalHost Panel">
     <img src="../assets/icon.png" alt="C-Script" style="width:22px;height:22px;border-radius:6px;">
     <span>C-Script LocalHost Panel</span>
-    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.8</span>
+    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.9</span>
     <button class="titlebar-whatsnew-btn" onclick="event.stopPropagation();openWhatsNewModal()" title="See What's New in this update">
       <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
       <span>What's New</span>
@@ -2100,7 +2100,7 @@ DESCRIBE tablename;"></textarea>
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
               <h1 style="font-size:22px;font-weight:700;color:var(--text1);margin:0">C-Script LocalHost Panel</h1>
-              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.8</span>
+              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.9</span>
               <button class="btn btn-xs" onclick="openWhatsNewModal()" style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;font-size:11px;padding:3px 9px;cursor:pointer">
                 <svg class="tab-icon-svg" style="width:11px;height:11px;margin:0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 What's New
@@ -2263,7 +2263,7 @@ DESCRIBE tablename;"></textarea>
         </div>
         <div>
           <h2 class="whatsnew-header-title" id="whatsnew-title">What's New</h2>
-          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.8</div>
+          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.9</div>
         </div>
       </div>
     </div>
@@ -4182,7 +4182,9 @@ async function connectMySQL(customSession = null) {
 
 async function disconnectMySQL() {
   await api.mysql.disconnect();
-  DB.connected=false; DB.allDatabases=[]; DB.activeDB=''; DB.activeTable='';
+  DB.connected=false; DB.allDatabases=[]; DB.systemDatabases=[]; DB.activeDB=''; DB.activeTable='';
+  DB.lastResults=null; DB.visibleRows=[]; DB.databaseSignature=''; DB.dataFingerprint=''; DB.tableSignatures.clear(); DB.expandedDBs.clear();
+  sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
   document.getElementById('db-connect-screen').style.display='';
   document.getElementById('db-connected-screen').style.display='none';
   document.getElementById('db-connected-actions').style.display='none';
@@ -4191,6 +4193,9 @@ async function disconnectMySQL() {
   if (tableTabs) tableTabs.innerHTML = '';
   document.getElementById('mysql-status-dot').className='status-dot yellow';
   document.getElementById('mysql-status-text').textContent='MySQL: off';
+  document.getElementById('db-results-area').innerHTML='<div class="results-empty"><div>Connect to MySQL to run queries</div></div>';
+  hidePagination();
+  setResultInfo('Ready');
   renderSessionList();
   toast('Disconnected from MySQL','info');
 }
@@ -5022,7 +5027,16 @@ function getSqlExecutionTarget(mode = 'current') {
   const editor = document.getElementById('sql-editor');
   if (!editor) return null;
   const fullSql = editor.value;
-  if (mode === 'all') return fullSql.trim() ? { text: fullSql.trim(), label: 'all statements' } : null;
+  if (mode === 'all') {
+    const statements = api.sqlUtils?.splitStatements(fullSql) || [];
+    if (statements.length) {
+      return {
+        text: statements.map(statement => statement.text).join(';\n'),
+        label: statements.length === 1 ? 'statement' : `all ${statements.length} statements`
+      };
+    }
+    return fullSql.trim() ? { text: fullSql.trim(), label: 'all statements' } : null;
+  }
 
   if (editor.selectionStart !== editor.selectionEnd) {
     const selected = fullSql.slice(editor.selectionStart, editor.selectionEnd).trim();
@@ -5079,7 +5093,7 @@ async function runSQL(mode = 'current'){
         showResultMsg('Query executed successfully ('+elapsed+'ms)','success');
         setResultInfo(`<span class="ri-ok">✓</span> ${escHtml(target.label)} completed`);
       }
-      if (/^\s*(?:CREATE|ALTER|DROP|RENAME|TRUNCATE)\b/i.test(sql)) {
+      if (/^(?:(?:--[^\r\n]*(?:\r?\n|$))|(?:#[^\r\n]*(?:\r?\n|$))|(?:\/\*[\s\S]*?\*\/)|\s)*(?:CREATE|ALTER|DROP|RENAME|TRUNCATE)\b/i.test(sql)) {
         sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
         refreshDatabaseWorkspace(true).catch(()=>{});
       }
@@ -7124,7 +7138,10 @@ function exportResults(format){
   const res = DB.lastResults;
   if(!res||res.data.length===0){ toast('No data to export','info'); return; }
   const data = res.sortedData||res.data;
-  const cols = res.fields.map(f=>f.name);
+  const cols = res.fields?.length ? res.fields.map(f=>f.name) : Object.keys(data[0] || {});
+  if(!cols.length){ toast('No result columns to export','info'); return; }
+  const isQueryResult = DB.mainView === 'sql';
+  const exportBaseName = isQueryResult ? 'query' : (DB.activeTable || 'results');
   let content, filename, mime;
   if(format==='csv'){
     const csvCell=value=>{
@@ -7133,9 +7150,9 @@ function exportResults(format){
       return /[",\r\n]/.test(text)?'"'+text.replace(/"/g,'""')+'"':text;
     };
     const rows = [cols.map(csvCell).join(','),...data.map(r=>cols.map(c=>csvCell(r[c])).join(','))];
-    content=rows.join('\n'); filename=`${DB.activeTable||'query'}_export.csv`; mime='text/csv';
+    content=rows.join('\n'); filename=`${exportBaseName}_export.csv`; mime='text/csv';
   } else if(format==='sql'){
-    const table = DB.activeTable || 'exported_table';
+    const table = isQueryResult ? 'exported_query' : (DB.activeTable || 'exported_table');
     const escVal = v => {
       if(v === null || v === undefined) return 'NULL';
       if(typeof v === 'number') return v;
@@ -7155,10 +7172,12 @@ function exportResults(format){
     filename = `${table}_export.sql`;
     mime = 'application/sql';
   } else {
-    content=JSON.stringify(data,null,2); filename=`${DB.activeTable||'query'}_export.json`; mime='application/json';
+    content=JSON.stringify(data,null,2); filename=`${exportBaseName}_export.json`; mime='application/json';
   }
   const blob=new Blob([content],{type:mime});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click();
+  const objectUrl=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=objectUrl; a.download=filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(objectUrl),0);
   toast(`Exported ${data.length} rows as ${format.toUpperCase()}`,'success');
 }
 
@@ -8736,6 +8755,32 @@ function applyTheme(themeName){
 // WHAT'S NEW MODAL & POST-UPDATE ANNOUNCEMENT
 // ══════════════════════════════════════════════════════════
 const WHATS_NEW_DATA = {
+  '1.2.9': [
+    {
+      iconColor: '#7c6af7',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h8M8 17h5"></path></svg>',
+      title: 'Run SQL One Statement at a Time',
+      desc: 'Run the selected query or the statement under the cursor with Ctrl+Enter, while Ctrl+Shift+Enter runs the complete editor.'
+    },
+    {
+      iconColor: '#38bdf8',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>',
+      title: 'Collapsible Query Results',
+      desc: 'Minimize the results table from its new Results bar to give the SQL editor more working space.'
+    },
+    {
+      iconColor: '#10b981',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"></path><path d="M3 9h18M9 21V9"></path></svg>',
+      title: 'Cleaner Database Workspace',
+      desc: 'Database actions are grouped in a dedicated command bar, with Disconnect placed safely beside the active session controls.'
+    },
+    {
+      iconColor: '#f59e0b',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>',
+      title: 'SQL Editor Reliability Fixes',
+      desc: 'Improved statement parsing, DELIMITER routines, formatting, exports, keyboard handling, pagination, and disconnect cleanup.'
+    }
+  ],
   '1.2.8': [
     {
       iconColor: '#10b981',
@@ -8979,7 +9024,7 @@ const WHATS_NEW_DATA = {
 };
 
 function openWhatsNewModal(targetVersion, customItems){
-  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.8';
+  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.9';
   const verClean = String(ver).replace(/^v/i, '').trim();
   const verEl = document.getElementById('whatsnew-version');
   if(verEl) verEl.textContent = `Version ${verClean}`;
@@ -9007,7 +9052,7 @@ function openWhatsNewModal(targetVersion, customItems){
 }
 
 function closeWhatsNewModal(){
-  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.8';
+  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.9';
   const verClean = String(ver).replace(/^v/i, '').trim();
   localStorage.setItem('c_script_last_seen_version', verClean);
   closeModal('modal-whats-new');

@@ -944,6 +944,10 @@ ipcMain.handle('mysql:tables', async (event, database) => {
   return await mysqlManager.getTables(database);
 });
 
+ipcMain.handle('mysql:database-columns', async (event, database) => {
+  return await mysqlManager.getDatabaseColumns(database);
+});
+
 ipcMain.handle('mysql:columns', async (event, { database, table }) => {
   return await mysqlManager.getColumns(database, table);
 });

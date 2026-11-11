@@ -91,6 +91,36 @@ function statementAtCursor(source, cursor) {
     || statements[statements.length - 1];
 }
 
+function extractSqlTableReferences(source) {
+  const sql = String(source || '');
+  // Preserve offsets and identifiers while preventing FROM/JOIN text inside
+  // comments and string literals from becoming false table references.
+  const searchable = sql.replace(/--[^\r\n]*|#[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|\\.|[^'])*'|"(?:""|\\.|[^"])*"/g, match => ' '.repeat(match.length));
+  const reserved = new Set([
+    'WHERE', 'ON', 'SET', 'VALUES', 'GROUP', 'ORDER', 'LIMIT', 'HAVING',
+    'LEFT', 'RIGHT', 'INNER', 'OUTER', 'CROSS', 'FULL', 'JOIN', 'UNION',
+    'USING', 'RETURNING', 'FOR', 'LOCK', 'PROCEDURE'
+  ]);
+  const identifier = '(?:`(?:``|[^`])+`|[A-Za-z_$][\\w$]*)';
+  const pattern = new RegExp(`\\b(?:FROM|JOIN|UPDATE|INTO)\\s+(${identifier}(?:\\s*\\.\\s*${identifier})?)(?:\\s+(?:AS\\s+)?(${identifier}))?`, 'gi');
+  const references = [];
+  const seen = new Set();
+  const unquote = value => String(value || '').trim().replace(/^`|`$/g, '').replace(/^"|"$/g, '').replace(/``/g, '`').replace(/""/g, '"');
+
+  for (const match of searchable.matchAll(pattern)) {
+    const parts = (match[1].match(new RegExp(identifier, 'g')) || []).map(unquote);
+    const table = parts.pop();
+    const database = parts.pop() || '';
+    let alias = unquote(match[2]);
+    if (reserved.has(alias.toUpperCase())) alias = '';
+    const key = `${database.toLowerCase()}.${table.toLowerCase()}:${alias.toLowerCase()}`;
+    if (!table || seen.has(key)) continue;
+    seen.add(key);
+    references.push({ database, table, alias });
+  }
+  return references;
+}
+
 function toggleSqlLineComments(source) {
   const lines = String(source || '').split('\n');
   const nonEmpty = lines.filter(line => line.trim());
@@ -105,4 +135,4 @@ function toggleSqlLineComments(source) {
   };
 }
 
-module.exports = { splitSqlStatements, statementAtCursor, toggleSqlLineComments };
+module.exports = { splitSqlStatements, statementAtCursor, extractSqlTableReferences, toggleSqlLineComments };

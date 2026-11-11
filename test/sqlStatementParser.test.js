@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { splitSqlStatements, statementAtCursor, toggleSqlLineComments } = require('../src/sqlStatementParser');
+const { splitSqlStatements, statementAtCursor, extractSqlTableReferences, toggleSqlLineComments } = require('../src/sqlStatementParser');
 
 test('splits SQL statements without splitting quoted semicolons', () => {
   const sql = "SELECT 'first;value' AS label;\nSELECT `odd;column` FROM track;";
@@ -41,6 +41,26 @@ CALL count_tracks();`;
     'CALL count_tracks()'
   ]);
   assert.match(statementAtCursor(sql, sql.indexOf('COUNT')).text, /^CREATE PROCEDURE/);
+});
+
+test('extracts tables, databases, and aliases without matching literals or comments', () => {
+  const sql = `SELECT a.Title, t.Name
+FROM music.album AS a
+JOIN \`track\` t ON t.AlbumId = a.AlbumId
+WHERE a.Note = 'FROM fake_table f' AND a.OtherNote = "JOIN another_fake x"
+-- JOIN ignored_table i
+UPDATE inventory SET count = count - 1;`;
+  assert.deepEqual(extractSqlTableReferences(sql), [
+    { database: 'music', table: 'album', alias: 'a' },
+    { database: '', table: 'track', alias: 't' },
+    { database: '', table: 'inventory', alias: '' }
+  ]);
+});
+
+test('does not mistake SQL clauses for table aliases', () => {
+  assert.deepEqual(extractSqlTableReferences('SELECT * FROM track WHERE id = 1'), [
+    { database: '', table: 'track', alias: '' }
+  ]);
 });
 
 test('toggles SQL line comments while preserving indentation and blank lines', () => {

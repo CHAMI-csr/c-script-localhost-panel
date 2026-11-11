@@ -106,6 +106,25 @@ class MySQLManager {
     } catch (err) { return { success: false, error: this._fmtErr(err) }; }
   }
 
+  /** Lightweight schema index used by SQL editor autocomplete. */
+  async getDatabaseColumns(database) {
+    if (!this.connection) return { success: false, error: 'Not connected' };
+    try {
+      const [columns] = await this.connection.query(
+        `SELECT TABLE_NAME as table_name,
+                COLUMN_NAME as name,
+                DATA_TYPE as data_type,
+                COLUMN_KEY as key_type,
+                ORDINAL_POSITION as ordinal_position
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = ?
+         ORDER BY TABLE_NAME, ORDINAL_POSITION`,
+        [database]
+      );
+      return { success: true, columns };
+    } catch (err) { return { success: false, error: this._fmtErr(err) }; }
+  }
+
   /** Full table structure: columns + indexes + foreign keys */
   async getTableStructure(database, table) {
     if (!this.connection) return { success: false, error: 'Not connected' };

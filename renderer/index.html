@@ -144,6 +144,9 @@ select option{background-color:var(--bg2);color:var(--text1);padding:5px 8px}
 .db-conn-bar{display:flex;align-items:center;gap:12px;padding:6px 14px;background:var(--bg1);border-bottom:1px solid var(--border);font-size:11px;color:var(--text3);flex-shrink:0}
 .db-conn-bar .conn-badge{background:rgba(63,207,142,.12);color:var(--green);border:1px solid rgba(63,207,142,.25);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700}
 .db-conn-bar .conn-sep{color:var(--border2)}
+.db-command-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 12px;background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto}
+.db-command-group{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.db-command-group-primary{margin-left:auto}
 
 /* ── DB Split Layout ── */
 .db-split{display:flex;flex:1;overflow:hidden}
@@ -270,7 +273,13 @@ select option{background-color:var(--bg2);color:var(--text1);padding:5px 8px}
 .table-subtab.active{color:var(--blue);border-bottom-color:var(--blue)}
 
 /* ── Results Area ── */
-.db-results-area{flex:1;overflow:auto;position:relative}
+.db-results-togglebar{height:27px;min-height:27px;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 14px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg1);color:var(--text3);font-size:10px;font-weight:700;letter-spacing:.65px;text-transform:uppercase;flex-shrink:0}
+.db-results-toggle{display:flex;align-items:center;justify-content:center;padding:3px 6px;transition:transform .15s ease}
+.db-results-toggle svg{transition:transform .15s ease}
+.db-workspace.results-collapsed .db-results-toggle svg{transform:rotate(180deg)}
+.db-workspace.results-collapsed .db-results-area{display:none!important}
+.db-workspace.results-collapsed .db-status-bar{border-top:0}
+.db-results-area{flex:1;overflow:auto;position:relative;min-height:0}
 .results-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);gap:8px;font-size:13px}
 .results-empty .empty-icon{font-size:36px;margin-bottom:4px}
 
@@ -1221,20 +1230,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
             <svg class="tab-icon-svg" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
             + New Session
           </button>
-          <div id="db-connected-actions" class="db-connected-actions" style="display:none">
-          <button class="btn btn-sm" onclick="refreshDatabaseWorkspace(true)">Refresh</button>
-          <button class="btn btn-sm" id="db-auto-refresh-btn" onclick="toggleDatabaseAutoRefresh()" title="Automatically detect database, table and row changes">Auto refresh: On</button>
-          <button class="btn btn-sm" onclick="openDatabaseSettings()" title="Server settings and account password">Database Settings</button>
-          <button class="btn btn-primary btn-sm" onclick="openCreateDBModal()">+ New DB</button>
-          <button class="btn btn-sm" onclick="createTableForCurrentDB()">+ New Table</button>
-          <button class="btn btn-sm" onclick="switchMainView('er')">
-            <svg class="tab-icon-svg" viewBox="0 0 24 24"><rect x="2" y="2" width="8" height="6" rx="1"></rect><rect x="14" y="16" width="8" height="6" rx="1"></rect><path d="M6 8v5a3 3 0 0 0 3 3h5"></path></svg>
-            ER Diagram
-          </button>
-          <button class="btn btn-sm" onclick="importSQLFile()">Import SQL</button>
-          <button class="btn btn-sm" onclick="exportDatabaseBackup()">Backup DB</button>
-          </div>
-          <button class="btn btn-danger btn-sm" onclick="disconnectMySQL()" id="db-disconnect-btn" style="display:none">Disconnect</button>
+
         </div>
       </div>
 
@@ -1335,6 +1331,24 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
             <button class="btn btn-sm btn-primary" onclick="addNewRootSession('modal');openSessionModal()" style="padding:2px 8px;font-size:11px" title="Create a new root session">
               + New Root Session
             </button>
+            <button class="btn btn-danger btn-sm" onclick="disconnectMySQL()" id="db-disconnect-btn" style="display:none;padding:2px 8px;font-size:11px" title="Disconnect this database session">Disconnect</button>
+          </div>
+        </div>
+
+        <div id="db-connected-actions" class="db-connected-actions db-command-bar" style="display:none">
+          <div class="db-command-group">
+            <button class="btn btn-sm" onclick="refreshDatabaseWorkspace(true)">Refresh</button>
+            <button class="btn btn-sm" id="db-auto-refresh-btn" onclick="toggleDatabaseAutoRefresh()" title="Automatically detect database, table and row changes">Auto refresh: On</button>
+            <button class="btn btn-sm" onclick="openDatabaseSettings()" title="Server settings and account password">Database Settings</button>
+          </div>
+          <div class="db-command-group db-command-group-primary">
+            <button class="btn btn-primary btn-sm" onclick="openCreateDBModal()">+ New DB</button>
+            <button class="btn btn-sm" onclick="createTableForCurrentDB()">+ New Table</button>
+            <button class="btn btn-sm" onclick="switchMainView('er')" title="Open ER Diagram">
+              <svg class="tab-icon-svg" viewBox="0 0 24 24"><rect x="2" y="2" width="8" height="6" rx="1"></rect><rect x="14" y="16" width="8" height="6" rx="1"></rect><path d="M6 8v5a3 3 0 0 0 3 3h5"></path></svg>ER Diagram
+            </button>
+            <button class="btn btn-sm" onclick="importSQLFile()">Import SQL</button>
+            <button class="btn btn-sm" onclick="exportDatabaseBackup()">Backup DB</button>
           </div>
         </div>
 
@@ -1374,7 +1388,8 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
                   <option value="">-- Select Database --</option>
                 </select>
                 <span class="sql-toolbar-sep"></span>
-                <button class="btn btn-primary btn-sm" onclick="runSQL()">Run</button>
+                <button class="btn btn-primary btn-sm" id="sql-run-current" onclick="runSQL('current')" title="Run selected SQL or the statement containing the cursor (Ctrl+Enter)">Run statement</button>
+                <button class="btn btn-sm" id="sql-run-all" onclick="runSQL('all')" title="Run the complete editor (Ctrl+Shift+Enter)">Run all</button>
                 <button class="btn btn-sm" onclick="clearSqlEditor()">Clear</button>
                 <button class="btn btn-sm" onclick="formatSQL()">Format</button>
                 <button class="btn btn-sm" onclick="showHistory()">History</button>
@@ -1395,7 +1410,7 @@ SHOW TABLES;
 DESCRIBE tablename;"></textarea>
                 <div class="sql-completions" id="sql-completions" role="listbox" aria-label="SQL suggestions"></div>
                 </div>
-                <div class="sql-hint">Ctrl+Space suggestions · Ctrl+Enter run</div>
+                <div class="sql-hint">Ctrl+Space suggestions · Ctrl+Enter statement · Ctrl+Shift+Enter all</div>
               </div>
             </div>
 
@@ -1564,6 +1579,12 @@ DESCRIBE tablename;"></textarea>
             </div>
 
             <!-- Results Area (shared) -->
+            <div class="db-results-togglebar" id="db-results-togglebar">
+              <span>Results</span>
+              <button class="btn-icon db-results-toggle" id="db-results-toggle" onclick="toggleDatabaseResults()" title="Minimize results table" aria-expanded="true" aria-controls="db-results-area">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+              </button>
+            </div>
             <div class="db-results-area" id="db-results-area">
               <div class="results-empty">
                 <div class="empty-icon">
@@ -3352,9 +3373,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
   // Keep service health current while the app is open, even on other panels.
   setInterval(() => refreshDashboardServiceHealth(), 5000);
-  document.getElementById('sql-editor').addEventListener('keydown', e => {
-    if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); runSQL(); }
-  });
   initSqlEditor();
   const mainTabsBar = document.querySelector('.db-main-tabs');
   if (mainTabsBar) {
@@ -4667,9 +4685,12 @@ function switchMainView(view){
   if(dbView) dbView.style.display = isDB?'flex':'none';
 
   const resultsArea = document.getElementById('db-results-area');
+  const resultsTogglebar = document.getElementById('db-results-togglebar');
   const statusBar = document.querySelector('.db-status-bar');
-  if(resultsArea) resultsArea.style.display = (isER||isDB)?'none':'block';
-  if(statusBar) statusBar.style.display = isER?'none':'flex';
+  const hideSharedResults = isER || isDB;
+  if(resultsArea) resultsArea.style.display = hideSharedResults ? 'none' : 'block';
+  if(resultsTogglebar) resultsTogglebar.style.display = hideSharedResults ? 'none' : 'flex';
+  if(statusBar) statusBar.style.display = isER ? 'none' : 'flex';
 
   document.querySelectorAll('.db-main-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-sql-editor')?.classList.toggle('active', isSQL);
@@ -4693,6 +4714,20 @@ function switchTableTab(tab){
   document.querySelectorAll('.table-subtab').forEach(t=>t.classList.remove('active'));
   document.querySelector(`.table-subtab[data-tab="${tab}"]`)?.classList.add('active');
   loadCurrentTabContent();
+}
+
+function setDatabaseResultsCollapsed(collapsed) {
+  const workspace = document.querySelector('#panel-databases .db-workspace');
+  const button = document.getElementById('db-results-toggle');
+  if (!workspace || !button) return;
+  workspace.classList.toggle('results-collapsed', Boolean(collapsed));
+  button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  button.title = collapsed ? 'Expand results table' : 'Minimize results table';
+}
+
+function toggleDatabaseResults() {
+  const workspace = document.querySelector('#panel-databases .db-workspace');
+  setDatabaseResultsCollapsed(!workspace?.classList.contains('results-collapsed'));
 }
 
 // ══════════════════════════════════════════════════════════
@@ -4957,9 +4992,21 @@ function acceptSqlCompletion(index = sqlCompletionIndex) {
 function handleSqlEditorKeydown(event) {
   const popup = document.getElementById('sql-completions');
   const open = popup?.classList.contains('open');
+  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+    event.preventDefault();
+    runSQL(event.shiftKey ? 'all' : 'current');
+    return;
+  }
   if ((event.ctrlKey || event.metaKey) && event.code === 'Space') {
     event.preventDefault();
     updateSqlCompletions(true);
+    return;
+  }
+  if (!open && event.key === 'Tab') {
+    event.preventDefault();
+    const editor = event.currentTarget;
+    editor.setRangeText('  ', editor.selectionStart, editor.selectionEnd, 'end');
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
     return;
   }
   if (!open) return;
@@ -4969,53 +5016,106 @@ function handleSqlEditorKeydown(event) {
   else if (event.key === 'Escape') { event.preventDefault(); hideSqlCompletions(); }
 }
 
-async function runSQL(){
+let sqlRunInFlight = false;
+
+function getSqlExecutionTarget(mode = 'current') {
+  const editor = document.getElementById('sql-editor');
+  if (!editor) return null;
+  const fullSql = editor.value;
+  if (mode === 'all') return fullSql.trim() ? { text: fullSql.trim(), label: 'all statements' } : null;
+
+  if (editor.selectionStart !== editor.selectionEnd) {
+    const selected = fullSql.slice(editor.selectionStart, editor.selectionEnd).trim();
+    return selected ? { text: selected, label: 'selection' } : null;
+  }
+  const statement = api.sqlUtils?.statementAtCursor(fullSql, editor.selectionStart);
+  if (!statement) return null;
+  const statements = api.sqlUtils?.splitStatements(fullSql) || [];
+  const index = statements.findIndex(item => item.start === statement.start && item.end === statement.end);
+  return { text: statement.text, label: statements.length > 1 ? `statement ${index + 1} of ${statements.length}` : 'statement' };
+}
+
+async function runSQL(mode = 'current'){
+  if (sqlRunInFlight) return;
   hideSqlCompletions();
-  const sql = document.getElementById('sql-editor').value.trim();
-  if(!sql){ toast('Enter a SQL query first','info'); return; }
-  const db = document.getElementById('sql-db-select').value;
+  const target = getSqlExecutionTarget(mode);
+  if(!target?.text){ toast(mode === 'all' ? 'Enter a SQL query first' : 'Place the cursor in a SQL statement or select SQL to run','info'); return; }
+  const sql = target.text;
+  const db = sqlEditorDatabase();
   DB.showRowActions=false;
   DB.rowSearch='';
+  setDatabaseResultsCollapsed(false);
 
-  // Add to history
   if(DB.queryHistory[0]!==sql){
     DB.queryHistory.unshift(sql);
     if(DB.queryHistory.length>30) DB.queryHistory.pop();
   }
 
-  setResultInfo('<span style="color:var(--text3)">Running...</span>');
+  sqlRunInFlight = true;
+  const runCurrent = document.getElementById('sql-run-current');
+  const runAll = document.getElementById('sql-run-all');
+  if (runCurrent) runCurrent.disabled = true;
+  if (runAll) runAll.disabled = true;
+  hidePagination();
+  setResultInfo(`<span style="color:var(--text3)">Running ${escHtml(target.label)}...</span>`);
   const start = Date.now();
-  const r = await api.mysql.query(db, sql);
-  const elapsed = Date.now()-start;
+  try {
+    const r = await api.mysql.query(db, sql);
+    const elapsed = Date.now()-start;
 
-  if(r.success){
-    DB.lastResults = { data: r.data||[], fields: r.fields||[], sortedData: r.data||[] };
-    DB.page = 1;
-    if(Array.isArray(r.data) && r.data.length>0){
-      DB.totalRows = r.rowCount||r.data.length;
-      renderDataTable(DB.lastResults.data, DB.lastResults.fields, true);
-      setResultInfo(`<span class="ri-ok">✓</span> ${fmtNum(DB.lastResults.data.length)} row${DB.lastResults.data.length!==1?'s':''} in ${elapsed}ms`);
-    } else if(r.affectedRows!=null){
-      showResultMsg(`Query OK — ${r.affectedRows} row(s) affected, insert ID: ${r.insertId||'—'} (${elapsed}ms)`, 'success');
-      setResultInfo(`<span class="ri-ok">✓</span> ${r.affectedRows} row(s) affected`);
+    if(r.success){
+      DB.lastResults = { data: r.data||[], fields: r.fields||[], sortedData: r.data||[] };
+      DB.page = 1;
+      if(Array.isArray(r.data) && r.data.length>0){
+        DB.totalRows = r.rowCount||r.data.length;
+        // SQL queries already return their complete result set; table-browser
+        // pagination would navigate the active table instead of this query.
+        renderDataTable(DB.lastResults.data, DB.lastResults.fields, false);
+        setResultInfo(`<span class="ri-ok">✓</span> ${fmtNum(DB.lastResults.data.length)} row${DB.lastResults.data.length!==1?'s':''} from ${escHtml(target.label)} in ${elapsed}ms`);
+      } else if(r.affectedRows!=null){
+        showResultMsg(`Query OK — ${r.affectedRows} row(s) affected, insert ID: ${r.insertId||'—'} (${elapsed}ms)`, 'success');
+        setResultInfo(`<span class="ri-ok">✓</span> ${r.affectedRows} row(s) affected by ${escHtml(target.label)}`);
+      } else {
+        showResultMsg('Query executed successfully ('+elapsed+'ms)','success');
+        setResultInfo(`<span class="ri-ok">✓</span> ${escHtml(target.label)} completed`);
+      }
+      if (/^\s*(?:CREATE|ALTER|DROP|RENAME|TRUNCATE)\b/i.test(sql)) {
+        sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
+        refreshDatabaseWorkspace(true).catch(()=>{});
+      }
     } else {
-      showResultMsg('Query executed successfully ('+elapsed+'ms)','success');
-      setResultInfo(`<span class="ri-ok">✓</span> OK`);
+      showResultMsg(r.error, 'error');
+      setResultInfo(`<span class="ri-err">✗</span> Error in ${escHtml(target.label)}`);
     }
-  } else {
-    showResultMsg(r.error, 'error');
-    setResultInfo(`<span class="ri-err">✗</span> Error`);
+  } catch (error) {
+    showResultMsg(error.message || String(error), 'error');
+    setResultInfo(`<span class="ri-err">✗</span> Query failed`);
+  } finally {
+    sqlRunInFlight = false;
+    if (runCurrent) runCurrent.disabled = false;
+    if (runAll) runAll.disabled = false;
   }
 }
 
 function formatSQL(){
   const el = document.getElementById('sql-editor');
-  const keywords = ['SELECT','FROM','WHERE','JOIN','LEFT JOIN','RIGHT JOIN','INNER JOIN','ON','AND','OR','GROUP BY','ORDER BY','HAVING','LIMIT','OFFSET','INSERT INTO','VALUES','UPDATE','SET','DELETE FROM','CREATE TABLE','ALTER TABLE','DROP TABLE','SHOW','DESCRIBE','EXPLAIN'];
-  let sql = el.value;
-  keywords.forEach(kw=>{ sql = sql.replace(new RegExp('\\b'+kw+'\\b','gi'), '\n'+kw+'\n'); });
-  sql = sql.split('\n').map(l=>l.trim()).filter(Boolean).join('\n');
+  if (!el.value.trim()) return;
+  // Format only unquoted SQL so keywords inside strings, identifiers, and
+  // comments are never modified.
+  const protectedParts = el.value.split(/(--[^\r\n]*|#[^\r\n]*|\/\*[\s\S]*?\*\/|'(?:''|\\.|[^'])*'|"(?:""|\\.|[^"])*"|`(?:``|[^`])*`)/g);
+  const clausePattern = /\b(LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|OUTER\s+JOIN|CROSS\s+JOIN|GROUP\s+BY|ORDER\s+BY|INSERT\s+INTO|DELETE\s+FROM|CREATE\s+TABLE|ALTER\s+TABLE|DROP\s+TABLE|UNION\s+ALL|SELECT|FROM|WHERE|JOIN|HAVING|LIMIT|OFFSET|VALUES|UPDATE|SET|SHOW|DESCRIBE|EXPLAIN|UNION)\b/gi;
+  const logicalPattern = /\b(AND|OR)\b/gi;
+  let sql = protectedParts.map((part, index) => {
+    if (index % 2 === 1) return part;
+    return part
+      .replace(/[ \t]+/g, ' ')
+      .replace(clausePattern, match => `\n${match.toUpperCase().replace(/\s+/g, ' ')}`)
+      .replace(logicalPattern, match => `\n  ${match.toUpperCase()}`);
+  }).join('');
+  sql = sql.split('\n').map(line => line.trimEnd()).filter((line, index, lines) => line.trim() || (index && lines[index - 1].trim())).join('\n').trim();
   el.value = sql;
   el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.focus();
 }
 
 function showHistory(){
@@ -6467,6 +6567,7 @@ function renderDataTable(data, fields, hasPagination){
   document.querySelectorAll('#db-results-area [data-edit-row]').forEach(button=>button.addEventListener('click',()=>editGridRow(Number(button.dataset.editRow))));
   document.querySelectorAll('#db-results-area [data-delete-row]').forEach(button=>button.addEventListener('click',()=>deleteGridRow(Number(button.dataset.deleteRow))));
   if(hasPagination) showPagination(true);
+  else hidePagination();
   const filterBar = document.getElementById('data-quick-filter-bar');
   if(filterBar && filterBar.style.display !== 'none'){
     const sel = document.getElementById('qfilter-col');

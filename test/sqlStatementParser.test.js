@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { splitSqlStatements, statementAtCursor } = require('../src/sqlStatementParser');
+const { splitSqlStatements, statementAtCursor, toggleSqlLineComments } = require('../src/sqlStatementParser');
 
 test('splits SQL statements without splitting quoted semicolons', () => {
   const sql = "SELECT 'first;value' AS label;\nSELECT `odd;column` FROM track;";
@@ -41,6 +41,16 @@ CALL count_tracks();`;
     'CALL count_tracks()'
   ]);
   assert.match(statementAtCursor(sql, sql.indexOf('COUNT')).text, /^CREATE PROCEDURE/);
+});
+
+test('toggles SQL line comments while preserving indentation and blank lines', () => {
+  const source = 'SELECT *\n  FROM track\n\nWHERE id = 1';
+  const commented = toggleSqlLineComments(source);
+  assert.equal(commented.uncommented, false);
+  assert.equal(commented.text, '-- SELECT *\n  -- FROM track\n\n-- WHERE id = 1');
+  const restored = toggleSqlLineComments(commented.text);
+  assert.equal(restored.uncommented, true);
+  assert.equal(restored.text, source);
 });
 
 test('skips comment-only input', () => {

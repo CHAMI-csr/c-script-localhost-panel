@@ -53,8 +53,19 @@ button{cursor:pointer}
 .layout{display:flex;flex:1;overflow:hidden}
 
 /* ── Sidebar ── */
-.sidebar{width:200px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
-.sidebar-header{padding:14px 12px 8px;font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase}
+.sidebar{width:200px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:width .18s ease}
+.sidebar-header{min-height:38px;padding:9px 10px 5px 12px;font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;gap:6px}
+.sidebar-collapse-btn{width:25px;height:25px;padding:0;border:0;border-radius:5px;background:transparent;color:var(--text3);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.sidebar-collapse-btn:hover{background:var(--bg3);color:var(--text1)}
+.sidebar-collapse-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;transition:transform .18s ease}
+.app.sidebar-collapsed .sidebar{width:56px}
+.app.sidebar-collapsed .sidebar-header{justify-content:center;padding-left:8px;padding-right:8px}
+.app.sidebar-collapsed .sidebar-header>span,.app.sidebar-collapsed .nav-label,.app.sidebar-collapsed .status-pill>span,.app.sidebar-collapsed #mail-unread-badge{display:none!important}
+.app.sidebar-collapsed .sidebar-collapse-btn svg{transform:rotate(180deg)}
+.app.sidebar-collapsed .nav-item{justify-content:center;padding-left:10px;padding-right:10px;gap:0}
+.app.sidebar-collapsed .nav-item .nav-icon{width:22px;height:22px}
+.app.sidebar-collapsed .sidebar-footer{align-items:center;padding-left:6px;padding-right:6px}
+.app.sidebar-collapsed .status-pill{justify-content:center;padding:5px}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;color:var(--text2);transition:.15s;border-left:2px solid transparent;-webkit-app-region:no-drag}
 .nav-item:hover{color:var(--text1);background:var(--bg2)}
 .nav-item.active{color:var(--accent);background:rgba(124,106,247,.1);border-left-color:var(--accent)}
@@ -150,8 +161,15 @@ select option{background-color:var(--bg2);color:var(--text1);padding:5px 8px}
 
 /* ── DB Split Layout ── */
 .db-split{display:flex;flex:1;overflow:hidden}
-.db-tree-panel{width:250px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg1)}
-.db-tree-top{padding:8px 10px;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center}
+.db-tree-panel{width:250px;flex-shrink:0;display:flex;flex-direction:column;background:var(--bg1);min-width:170px;max-width:520px}
+.db-tree-resizer{width:5px;flex:0 0 5px;cursor:col-resize;background:var(--bg1);border-left:1px solid var(--border);border-right:1px solid transparent;position:relative;z-index:5;transition:background .12s}
+.db-tree-resizer:hover,.db-tree-resizer.is-dragging{background:var(--accent);border-color:var(--accent)}
+.db-split.tree-collapsed .db-tree-panel{display:none}
+.db-split.tree-collapsed .db-tree-resizer{width:12px;flex-basis:12px;cursor:e-resize;background:var(--bg2);border-left-color:var(--border2);display:flex;align-items:center;justify-content:center}
+.db-split.tree-collapsed .db-tree-resizer::after{content:'›';color:var(--text3);font-size:16px}
+.db-split.tree-collapsed .db-tree-resizer:hover::after{color:#fff}
+.db-tree-collapse-btn{font-size:18px;line-height:1;padding:2px 6px}
+.db-tree-top{padding:8px 8px 8px 10px;border-bottom:1px solid var(--border);display:flex;gap:4px;align-items:center}
 .db-tree-filter{flex:1;padding:5px 10px;background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text1);font-size:12px}
 .db-tree-filter:focus{outline:none;border-color:var(--accent)}
 .db-tree-filter::placeholder{color:var(--text3)}
@@ -242,7 +260,7 @@ select option{background-color:var(--bg2);color:var(--text1);padding:5px 8px}
 .db-ov-empty-card{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px 20px;text-align:center;background:var(--bg1);border:1px dashed var(--border2);border-radius:var(--radius);margin:24px 18px}
 .db-ov-footer-stats{padding:9px 18px;background:var(--bg1);border-top:1px solid var(--border);font-size:11px;color:var(--text3);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
 
-.sql-view{display:flex;flex-direction:column;flex:1;overflow:hidden}
+.sql-view{display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:110px;max-height:calc(100% - 150px)}
 .sql-toolbar{display:flex;align-items:center;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border);background:var(--bg1);flex-shrink:0;flex-wrap:wrap}
 .sql-db-select{background:var(--bg2);border:1px solid var(--border2);color:var(--text1);border-radius:var(--radius-sm);padding:4px 26px 4px 9px;font-size:12px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236060A0'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;max-width:180px;cursor:pointer}
 .sql-db-select:focus{outline:none;border-color:var(--accent)}
@@ -273,13 +291,17 @@ select option{background-color:var(--bg2);color:var(--text1);padding:5px 8px}
 .table-subtab.active{color:var(--blue);border-bottom-color:var(--blue)}
 
 /* ── Results Area ── */
-.db-results-togglebar{height:27px;min-height:27px;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 14px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg1);color:var(--text3);font-size:10px;font-weight:700;letter-spacing:.65px;text-transform:uppercase;flex-shrink:0}
-.db-results-toggle{display:flex;align-items:center;justify-content:center;padding:3px 6px;transition:transform .15s ease}
+.db-results-togglebar{height:27px;min-height:27px;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 14px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg1);color:var(--text3);font-size:10px;font-weight:700;letter-spacing:.65px;text-transform:uppercase;flex-shrink:0;cursor:row-resize;user-select:none}
+.db-results-togglebar.is-dragging{border-top-color:var(--accent);background:var(--bg2)}
+.db-results-toggle{display:flex;align-items:center;justify-content:center;padding:3px 6px;transition:transform .15s ease;cursor:pointer}
 .db-results-toggle svg{transition:transform .15s ease}
 .db-workspace.results-collapsed .db-results-toggle svg{transform:rotate(180deg)}
 .db-workspace.results-collapsed .db-results-area{display:none!important}
+.db-workspace.results-collapsed .sql-view{flex:1 1 auto!important;max-height:none}
 .db-workspace.results-collapsed .db-status-bar{border-top:0}
-.db-results-area{flex:1;overflow:auto;position:relative;min-height:0}
+.db-results-area{flex:1;overflow:auto;position:relative;min-height:70px}
+body.is-panel-resizing{cursor:col-resize!important;user-select:none!important}
+body.is-result-resizing{cursor:row-resize!important;user-select:none!important}
 .results-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);gap:8px;font-size:13px}
 .results-empty .empty-icon{font-size:36px;margin-bottom:4px}
 
@@ -876,7 +898,9 @@ body[data-theme="dark"] .tree-db-row.active-db{background:rgba(88,101,242,.14)}
 body[data-theme="dark"] .btn-primary{background:var(--accent);border-color:var(--accent)}
 body[data-theme="dark"] .btn-primary:hover{background:#4752C4}
 body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-height:1.45;letter-spacing:.05px}
-.panel-header{min-height:56px;padding:0 22px;border-bottom-color:var(--border)}
+.panel-header{min-height:56px;padding:0 22px;border-bottom-color:var(--border);gap:12px;min-width:0}
+.panel-title{flex-shrink:0}
+.panel-actions{min-width:0;max-width:72%;overflow-x:auto;padding:3px 0;scrollbar-width:thin}
 .app-update-card{display:flex;align-items:center;gap:14px;padding:15px 17px;margin-bottom:20px;background:var(--bg2);border:1px solid var(--border2);border-radius:9px}.app-update-icon{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 38px;border-radius:8px;background:rgba(114,170,255,.12);color:var(--accent);font-size:22px}.app-update-copy{flex:1;min-width:0}.app-update-title{font-size:13px;font-weight:700;color:var(--text1)}.app-update-status{font-size:11px;color:var(--text3);margin-top:3px;overflow-wrap:anywhere}.app-update-actions{display:flex;gap:7px;align-items:center}.app-update-progress-wrap{display:flex;align-items:center;gap:8px;margin-top:8px}.app-update-progress-track{height:5px;max-width:240px;flex:1;background:var(--bg4);border-radius:6px;overflow:hidden}.app-update-progress{height:100%;width:0;background:var(--accent);transition:width .2s}.app-update-progress-wrap span{font-size:10px;color:var(--text2);min-width:34px}
 .update-notice-modal{width:540px;max-width:calc(100vw - 32px)}.update-notice-body{display:flex;align-items:center;gap:14px;min-height:104px;flex-wrap:wrap}.update-notice-mark{display:flex;align-items:center;justify-content:center;width:44px;height:44px;flex:0 0 44px;background:rgba(88,101,242,.14);color:var(--accent);border-radius:11px;font-size:24px}.update-notice-message{font-size:13px;color:var(--text2);line-height:1.55}.update-notice-overlay{z-index:10020}.update-popup-progress{flex:1;min-width:100%;margin:12px 0 0}.update-notes-container{scrollbar-width:thin}.update-notes-container ul{margin:4px 0 6px 18px;padding:0}.update-notes-container li{margin-bottom:3px}
 .btn{border-radius:6px;font-weight:600;letter-spacing:.05px;box-shadow:none;transition:background .15s,border-color .15s,color .15s}
@@ -964,7 +988,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
   <div class="titlebar-logo" onclick="switchPanel('about')" style="cursor:pointer" title="About C-Script LocalHost Panel">
     <img src="../assets/icon.png" alt="C-Script" style="width:22px;height:22px;border-radius:6px;">
     <span>C-Script LocalHost Panel</span>
-    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.9</span>
+    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.10</span>
     <button class="titlebar-whatsnew-btn" onclick="event.stopPropagation();openWhatsNewModal()" title="See What's New in this update">
       <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
       <span>What's New</span>
@@ -982,8 +1006,8 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
 <!-- Main Layout -->
 <div class="layout">
   <!-- Sidebar -->
-  <aside class="sidebar">
-    <div class="sidebar-header">Menu</div>
+  <aside class="sidebar" id="app-sidebar">
+    <div class="sidebar-header"><span>Menu</span><button class="sidebar-collapse-btn" id="sidebar-collapse-btn" onclick="toggleAppSidebar()" title="Collapse sidebar" aria-label="Collapse sidebar" aria-expanded="true"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button></div>
     <div class="nav-item active" data-panel="dashboard" onclick="switchPanel('dashboard')">
       <span class="nav-icon">
         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>
@@ -1355,15 +1379,17 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
         <!-- Split -->
         <div class="db-split">
           <!-- Tree -->
-          <div class="db-tree-panel">
+          <div class="db-tree-panel" id="db-tree-panel">
             <div class="db-tree-top">
               <input class="db-tree-filter" id="tree-filter" placeholder="Filter databases..." oninput="filterTree(this.value)">
               <button class="btn-icon" onclick="loadDatabases()" title="Refresh">↺</button>
+              <button class="btn-icon db-tree-collapse-btn" id="db-tree-collapse-btn" onclick="toggleDatabaseTree()" title="Collapse database browser" aria-label="Collapse database browser" aria-expanded="true">‹</button>
             </div>
             <div class="db-tree-body" id="db-tree-body">
               <div style="padding:20px;color:var(--text3);font-size:12px;text-align:center">Loading...</div>
             </div>
           </div>
+          <div class="db-tree-resizer" id="db-tree-resizer" role="separator" aria-orientation="vertical" aria-label="Resize database browser" title="Drag to resize · double-click to collapse" tabindex="0"></div>
 
           <!-- Workspace -->
           <div class="db-workspace">
@@ -1392,6 +1418,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
                 <button class="btn btn-sm" id="sql-run-all" onclick="runSQL('all')" title="Run the complete editor (Ctrl+Shift+Enter)">Run all</button>
                 <button class="btn btn-sm" onclick="clearSqlEditor()">Clear</button>
                 <button class="btn btn-sm" onclick="formatSQL()">Format</button>
+                <button class="btn btn-sm" onclick="toggleSqlComment()" title="Comment or uncomment selected lines (Ctrl+/)">Comment</button>
                 <button class="btn btn-sm" onclick="showHistory()">History</button>
                 <button class="btn btn-sm" onclick="openSQLFileInEditor()" title="Open .sql file into Query Editor">Open .sql</button>
                 <div class="sql-toolbar-right">
@@ -1410,7 +1437,7 @@ SHOW TABLES;
 DESCRIBE tablename;"></textarea>
                 <div class="sql-completions" id="sql-completions" role="listbox" aria-label="SQL suggestions"></div>
                 </div>
-                <div class="sql-hint">Ctrl+Space suggestions · Ctrl+Enter statement · Ctrl+Shift+Enter all</div>
+                <div class="sql-hint">Ctrl+/ comment · Ctrl+Space suggestions · Ctrl+Enter statement · Ctrl+Shift+Enter all</div>
               </div>
             </div>
 
@@ -1579,7 +1606,7 @@ DESCRIBE tablename;"></textarea>
             </div>
 
             <!-- Results Area (shared) -->
-            <div class="db-results-togglebar" id="db-results-togglebar">
+            <div class="db-results-togglebar" id="db-results-togglebar" role="separator" aria-orientation="horizontal" aria-label="Resize query editor and results">
               <span>Results</span>
               <button class="btn-icon db-results-toggle" id="db-results-toggle" onclick="toggleDatabaseResults()" title="Minimize results table" aria-expanded="true" aria-controls="db-results-area">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
@@ -2100,7 +2127,7 @@ DESCRIBE tablename;"></textarea>
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
               <h1 style="font-size:22px;font-weight:700;color:var(--text1);margin:0">C-Script LocalHost Panel</h1>
-              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.9</span>
+              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.10</span>
               <button class="btn btn-xs" onclick="openWhatsNewModal()" style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;font-size:11px;padding:3px 9px;cursor:pointer">
                 <svg class="tab-icon-svg" style="width:11px;height:11px;margin:0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 What's New
@@ -2263,7 +2290,7 @@ DESCRIBE tablename;"></textarea>
         </div>
         <div>
           <h2 class="whatsnew-header-title" id="whatsnew-title">What's New</h2>
-          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.9</div>
+          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.10</div>
         </div>
       </div>
     </div>
@@ -3344,10 +3371,131 @@ function toggleSessionNode() {
   if (toggle) toggle.className = 'tree-toggle ' + (!DB.sessionNodeCollapsed ? 'open' : '');
 }
 
+function setAppSidebarCollapsed(collapsed) {
+  const appRoot = document.querySelector('.app');
+  const button = document.getElementById('sidebar-collapse-btn');
+  if (!appRoot || !button) return;
+  appRoot.classList.toggle('sidebar-collapsed', Boolean(collapsed));
+  button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  button.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  document.querySelectorAll('.sidebar .nav-item').forEach(item => {
+    const label = item.querySelector('.nav-label')?.textContent?.trim() || '';
+    item.title = collapsed ? label : '';
+  });
+  localStorage.setItem('c_script_sidebar_collapsed', String(Boolean(collapsed)));
+}
+
+function toggleAppSidebar() {
+  setAppSidebarCollapsed(!document.querySelector('.app')?.classList.contains('sidebar-collapsed'));
+}
+
+function setDatabaseTreeCollapsed(collapsed) {
+  const split = document.querySelector('#panel-databases .db-split');
+  const button = document.getElementById('db-tree-collapse-btn');
+  if (!split || !button) return;
+  split.classList.toggle('tree-collapsed', Boolean(collapsed));
+  button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  button.title = collapsed ? 'Expand database browser' : 'Collapse database browser';
+  button.textContent = collapsed ? '›' : '‹';
+  localStorage.setItem('c_script_db_tree_collapsed', String(Boolean(collapsed)));
+}
+
+function toggleDatabaseTree() {
+  const split = document.querySelector('#panel-databases .db-split');
+  setDatabaseTreeCollapsed(!split?.classList.contains('tree-collapsed'));
+}
+
+function initializeResizablePanels() {
+  setAppSidebarCollapsed(localStorage.getItem('c_script_sidebar_collapsed') === 'true');
+  setDatabaseTreeCollapsed(localStorage.getItem('c_script_db_tree_collapsed') === 'true');
+  setDatabaseResultsCollapsed(localStorage.getItem('c_script_db_results_collapsed') === 'true');
+
+  const tree = document.getElementById('db-tree-panel');
+  const treeResizer = document.getElementById('db-tree-resizer');
+  const savedTreeWidth = Math.max(170, Math.min(520, Number(localStorage.getItem('c_script_db_tree_width')) || 250));
+  if (tree) tree.style.width = `${savedTreeWidth}px`;
+  if (tree && treeResizer) {
+    treeResizer.addEventListener('mousedown', event => {
+      if (event.button !== 0) return;
+      const split = tree.closest('.db-split');
+      if (split?.classList.contains('tree-collapsed')) {
+        setDatabaseTreeCollapsed(false);
+        return;
+      }
+      event.preventDefault();
+      const startX = event.clientX;
+      const startWidth = tree.getBoundingClientRect().width;
+      treeResizer.classList.add('is-dragging');
+      document.body.classList.add('is-panel-resizing');
+      const onMove = moveEvent => {
+        const maxWidth = Math.min(520, Math.max(170, split.getBoundingClientRect().width - 320));
+        tree.style.width = `${Math.max(170, Math.min(maxWidth, startWidth + moveEvent.clientX - startX))}px`;
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        window.removeEventListener('blur', onUp);
+        treeResizer.classList.remove('is-dragging');
+        document.body.classList.remove('is-panel-resizing');
+        localStorage.setItem('c_script_db_tree_width', String(Math.round(tree.getBoundingClientRect().width)));
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      window.addEventListener('blur', onUp);
+    });
+    treeResizer.addEventListener('dblclick', () => toggleDatabaseTree());
+    treeResizer.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleDatabaseTree(); return; }
+      if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      event.preventDefault();
+      if (tree.closest('.db-split')?.classList.contains('tree-collapsed')) setDatabaseTreeCollapsed(false);
+      const delta = event.key === 'ArrowLeft' ? -16 : 16;
+      const width = Math.max(170, Math.min(520, tree.getBoundingClientRect().width + delta));
+      tree.style.width = `${width}px`;
+      localStorage.setItem('c_script_db_tree_width', String(Math.round(width)));
+    });
+  }
+
+  const resultHandle = document.getElementById('db-results-togglebar');
+  const sqlView = document.getElementById('view-sql');
+  const workspace = document.querySelector('#panel-databases .db-workspace');
+  const savedEditorHeight = Number(localStorage.getItem('c_script_sql_editor_height'));
+  if (sqlView && savedEditorHeight >= 110) sqlView.style.flex = `0 0 ${savedEditorHeight}px`;
+  if (resultHandle && sqlView && workspace) {
+    resultHandle.addEventListener('mousedown', event => {
+      if (event.button !== 0 || event.target.closest('button') || DB.mainView !== 'sql' || workspace.classList.contains('results-collapsed')) return;
+      event.preventDefault();
+      const startY = event.clientY;
+      const startHeight = sqlView.getBoundingClientRect().height;
+      resultHandle.classList.add('is-dragging');
+      document.body.classList.add('is-result-resizing');
+      const onMove = moveEvent => {
+        const maxHeight = Math.max(110, workspace.getBoundingClientRect().height - 150);
+        sqlView.style.flex = `0 0 ${Math.max(110, Math.min(maxHeight, startHeight + moveEvent.clientY - startY))}px`;
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        window.removeEventListener('blur', onUp);
+        resultHandle.classList.remove('is-dragging');
+        document.body.classList.remove('is-result-resizing');
+        localStorage.setItem('c_script_sql_editor_height', String(Math.round(sqlView.getBoundingClientRect().height)));
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      window.addEventListener('blur', onUp);
+    });
+    resultHandle.addEventListener('dblclick', event => {
+      if (!event.target.closest('button')) toggleDatabaseResults();
+    });
+  }
+}
+
 // ══════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
+  initializeResizablePanels();
   await loadConfig();
   await initUpdaterUI();
   await checkPHPStatus();
@@ -4728,6 +4876,7 @@ function setDatabaseResultsCollapsed(collapsed) {
   workspace.classList.toggle('results-collapsed', Boolean(collapsed));
   button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   button.title = collapsed ? 'Expand results table' : 'Minimize results table';
+  localStorage.setItem('c_script_db_results_collapsed', String(Boolean(collapsed)));
 }
 
 function toggleDatabaseResults() {
@@ -4994,9 +5143,42 @@ function acceptSqlCompletion(index = sqlCompletionIndex) {
   editor.focus();
 }
 
+function toggleSqlComment() {
+  const editor = document.getElementById('sql-editor');
+  if (!editor) return;
+  const value = editor.value;
+  const selectionStart = editor.selectionStart;
+  const selectionEnd = editor.selectionEnd;
+  const blockStart = value.lastIndexOf('\n', Math.max(0, selectionStart - 1)) + 1;
+  let effectiveEnd = selectionEnd;
+  if (selectionEnd > selectionStart && value[selectionEnd - 1] === '\n') effectiveEnd--;
+  const nextNewline = value.indexOf('\n', effectiveEnd);
+  const blockEnd = nextNewline === -1 ? value.length : nextNewline;
+  const toggled = api.sqlUtils.toggleLineComments(value.slice(blockStart, blockEnd));
+  const shouldUncomment = toggled.uncommented;
+  const transformed = toggled.text;
+  editor.setRangeText(transformed, blockStart, blockEnd, 'select');
+  if (selectionStart === selectionEnd) {
+    const originalPrefix = value.slice(blockStart, selectionStart);
+    const transformedPrefix = shouldUncomment
+      ? originalPrefix.replace(/^(\s*)--\s?/, '$1')
+      : originalPrefix.replace(/^(\s*)/, '$1-- ');
+    const cursor = blockStart + transformedPrefix.length;
+    editor.setSelectionRange(cursor, cursor);
+  }
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+  editor.focus();
+}
+
 function handleSqlEditorKeydown(event) {
   const popup = document.getElementById('sql-completions');
   const open = popup?.classList.contains('open');
+  if ((event.ctrlKey || event.metaKey) && event.code === 'Slash') {
+    event.preventDefault();
+    hideSqlCompletions();
+    toggleSqlComment();
+    return;
+  }
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
     event.preventDefault();
     runSQL(event.shiftKey ? 'all' : 'current');
@@ -8755,6 +8937,32 @@ function applyTheme(themeName){
 // WHAT'S NEW MODAL & POST-UPDATE ANNOUNCEMENT
 // ══════════════════════════════════════════════════════════
 const WHATS_NEW_DATA = {
+  '1.2.10': [
+    {
+      iconColor: '#5865f2',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="M9 4v16M9 12h11"></path></svg>',
+      title: 'Flexible Workspace Panels',
+      desc: 'Collapse the app sidebar, resize or hide the database browser, and drag the Results bar to balance editor and output space.'
+    },
+    {
+      iconColor: '#10b981',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9l-3 3 3 3M16 9l3 3-3 3M14 5l-4 14"></path></svg>',
+      title: 'SQL Comment Shortcut',
+      desc: 'Press Ctrl+/ to comment or uncomment the current SQL line or every selected line while preserving indentation.'
+    },
+    {
+      iconColor: '#38bdf8',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M12 4h9M4 9h16M4 15h16"></path></svg>',
+      title: 'Remembered Layout',
+      desc: 'Sidebar, database tree, editor height, and result visibility preferences persist between app launches.'
+    },
+    {
+      iconColor: '#f59e0b',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>',
+      title: 'Responsive UI Fixes',
+      desc: 'Toolbars handle narrower windows more safely, drag operations clean up when focus changes, and panel sizes stay within usable limits.'
+    }
+  ],
   '1.2.9': [
     {
       iconColor: '#7c6af7',
@@ -9024,7 +9232,7 @@ const WHATS_NEW_DATA = {
 };
 
 function openWhatsNewModal(targetVersion, customItems){
-  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.9';
+  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.10';
   const verClean = String(ver).replace(/^v/i, '').trim();
   const verEl = document.getElementById('whatsnew-version');
   if(verEl) verEl.textContent = `Version ${verClean}`;
@@ -9052,7 +9260,7 @@ function openWhatsNewModal(targetVersion, customItems){
 }
 
 function closeWhatsNewModal(){
-  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.9';
+  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.10';
   const verClean = String(ver).replace(/^v/i, '').trim();
   localStorage.setItem('c_script_last_seen_version', verClean);
   closeModal('modal-whats-new');

@@ -3,12 +3,13 @@
  * Exposes safe Electron IPC methods to the renderer process
  */
 const { contextBridge, ipcRenderer } = require('electron');
-const { splitSqlStatements, statementAtCursor } = require('./src/sqlStatementParser');
+const { splitSqlStatements, statementAtCursor, toggleSqlLineComments } = require('./src/sqlStatementParser');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   sqlUtils: {
     splitStatements: (sql) => splitSqlStatements(sql),
-    statementAtCursor: (sql, cursor) => statementAtCursor(sql, cursor)
+    statementAtCursor: (sql, cursor) => statementAtCursor(sql, cursor),
+    toggleLineComments: (sql) => toggleSqlLineComments(sql)
   },
   // ── Sites ──────────────────────────────────────────────────────────────────
   sites: {

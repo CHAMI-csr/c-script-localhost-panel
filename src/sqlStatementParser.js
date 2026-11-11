@@ -91,4 +91,18 @@ function statementAtCursor(source, cursor) {
     || statements[statements.length - 1];
 }
 
-module.exports = { splitSqlStatements, statementAtCursor };
+function toggleSqlLineComments(source) {
+  const lines = String(source || '').split('\n');
+  const nonEmpty = lines.filter(line => line.trim());
+  const uncomment = nonEmpty.length > 0 && nonEmpty.every(line => /^\s*--(?:\s|$)/.test(line));
+  return {
+    uncommented: uncomment,
+    text: lines.map(line => {
+      if (!line.trim()) return line;
+      if (uncomment) return line.replace(/^(\s*)--\s?/, '$1');
+      return line.replace(/^(\s*)/, '$1-- ');
+    }).join('\n')
+  };
+}
+
+module.exports = { splitSqlStatements, statementAtCursor, toggleSqlLineComments };

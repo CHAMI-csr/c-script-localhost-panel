@@ -266,6 +266,8 @@ select option{background-color:var(--bg2);color:var(--text1);padding:5px 8px}
 .sql-db-select:focus{outline:none;border-color:var(--accent)}
 .sql-toolbar-sep{width:1px;height:20px;background:var(--border);flex-shrink:0}
 .sql-toolbar-right{margin-left:auto;display:flex;gap:6px}
+.db-context-menu{position:fixed;z-index:10020;display:none;min-width:205px;padding:5px;background:var(--bg1);border:1px solid var(--border2);border-radius:7px;box-shadow:0 14px 36px rgba(0,0,0,.35)}
+.db-context-menu.open{display:block}.db-context-menu button{display:flex;align-items:center;width:100%;padding:8px 10px;border:0;border-radius:4px;background:transparent;color:var(--text2);font:inherit;font-size:12px;text-align:left;cursor:pointer}.db-context-menu button:hover{background:var(--bg3);color:var(--text1)}.db-context-menu button.danger{color:var(--red)}.db-context-menu hr{border:0;border-top:1px solid var(--border);margin:4px 2px}
 .sql-editor-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
 .sql-editor-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:var(--bg0)}
 .sql-highlight,#sql-editor{position:absolute;inset:0;box-sizing:border-box;margin:0;border:0;padding:14px 16px;font-family:var(--font-mono);font-size:13px;font-weight:400;line-height:1.6;letter-spacing:normal;tab-size:2;white-space:pre-wrap;overflow-wrap:break-word;word-break:normal}
@@ -988,7 +990,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
   <div class="titlebar-logo" onclick="switchPanel('about')" style="cursor:pointer" title="About C-Script LocalHost Panel">
     <img src="../assets/icon.png" alt="C-Script" style="width:22px;height:22px;border-radius:6px;">
     <span>C-Script LocalHost Panel</span>
-    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.11</span>
+    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.12</span>
     <button class="titlebar-whatsnew-btn" onclick="event.stopPropagation();openWhatsNewModal()" title="See What's New in this update">
       <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
       <span>What's New</span>
@@ -1421,6 +1423,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
                 <button class="btn btn-sm" onclick="toggleSqlComment()" title="Comment or uncomment selected lines (Ctrl+/)">Comment</button>
                 <button class="btn btn-sm" onclick="showHistory()">History</button>
                 <button class="btn btn-sm" onclick="openSQLFileInEditor()" title="Open .sql file into Query Editor">Open .sql</button>
+                <button class="btn btn-sm" onclick="saveSQLFile()" title="Save editor SQL to a file (Ctrl+S)">Save .sql</button>
                 <div class="sql-toolbar-right">
                   <button class="btn btn-sm" onclick="exportResults('csv')">CSV</button>
                   <button class="btn btn-sm" onclick="exportResults('json')">JSON</button>
@@ -2127,7 +2130,7 @@ DESCRIBE tablename;"></textarea>
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
               <h1 style="font-size:22px;font-weight:700;color:var(--text1);margin:0">C-Script LocalHost Panel</h1>
-              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.11</span>
+              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.12</span>
               <button class="btn btn-xs" onclick="openWhatsNewModal()" style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;font-size:11px;padding:3px 9px;cursor:pointer">
                 <svg class="tab-icon-svg" style="width:11px;height:11px;margin:0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 What's New
@@ -2290,7 +2293,7 @@ DESCRIBE tablename;"></textarea>
         </div>
         <div>
           <h2 class="whatsnew-header-title" id="whatsnew-title">What's New</h2>
-          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.11</div>
+          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.12</div>
         </div>
       </div>
     </div>
@@ -2358,6 +2361,8 @@ DESCRIBE tablename;"></textarea>
     </div>
   </div>
 </div>
+
+<div class="db-context-menu" id="db-context-menu" role="menu" aria-label="Database object actions"></div>
 
 <!-- Create DB Modal -->
 <div class="modal-overlay" id="modal-create-db">
@@ -2846,9 +2851,14 @@ DESCRIBE tablename;"></textarea>
       </div>
       <div class="form-group" id="edit-column-default-value-wrap" style="display:none"><label class="form-label">Default Value</label><input class="input" id="edit-column-default-value"></div>
       <div class="form-row">
-        <label class="form-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="edit-column-nullable"> Allow NULL values</label>
-        <label class="form-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="edit-column-auto"> AUTO_INCREMENT</label>
+        <div class="form-group"><label class="form-label">Key</label><select class="input select" id="edit-column-key" onchange="updateEditColumnKey()"><option value="none">None</option><option value="primary">Primary key</option><option value="unique">Unique index</option><option value="index">Index</option></select></div>
+        <div class="form-group"><label class="form-label">Position</label><select class="input select" id="edit-column-position"></select></div>
       </div>
+      <div class="form-row">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="edit-column-nullable"> Allow NULL values</label>
+        <label class="form-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="edit-column-auto" onchange="updateEditColumnAuto()"> AUTO_INCREMENT</label>
+      </div>
+      <div class="form-hint" style="margin-bottom:12px">Changing a key can affect constraints. Composite indexes must be managed from the Indexes tab.</div>
       <div class="form-group"><label class="form-label">Comment</label><input class="input" id="edit-column-comment" placeholder="Column description (optional)"></div>
     </div>
     <div class="modal-footer">
@@ -4472,7 +4482,7 @@ function renderTree() {
       : '<svg class="tree-icon-svg" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>';
     return `
     <div class="tree-db" id="treedb-${db.name}">
-      <div class="tree-db-row ${isActive?'active-db':''}" onclick="selectDatabase('${db.name}')">
+      <div class="tree-db-row ${isActive?'active-db':''}" data-database="${escAttr(db.name)}" data-system="${isSystem ? 'true' : 'false'}" onclick="selectDatabase('${db.name}')" oncontextmenu="openDatabaseContextMenu(event, this)">
         <span class="tree-toggle ${expanded?'open':''}" onclick="toggleDBNodeOnly(event, '${db.name}')">▶</span>
         <span class="tree-db-icon">${icon}</span>
         <span class="tree-db-name" title="${db.name}">${db.name}</span>
@@ -4722,7 +4732,7 @@ async function dropTableFromOverview(db, table) {
   if (!confirm(`Permanently drop table "${db}"."${table}"?`)) return;
   const res = await api.mysql.dropTable(db, table);
   if (res && res.success) {
-    toast(`Table "${table}" dropped`, 'info');
+    toast(`${res.objectType === 'view' ? 'View' : 'Table'} "${table}" dropped`, 'info');
     await loadDatabases();
     await renderDatabaseOverview(db);
   } else {
@@ -4762,12 +4772,12 @@ async function loadTreeTables(dbName) {
     baseTables.forEach(t=>{
       const isActive = DB.activeDB===dbName && DB.activeTable===t.name;
       html += `
-      <div class="tree-table-row ${isActive?'active':''}" onclick="openTable('${dbName}','${t.name}')" id="tt-${dbName}-${t.name}">
+      <div class="tree-table-row ${isActive?'active':''}" data-database="${escAttr(dbName)}" data-table="${escAttr(t.name)}" onclick="openTable('${dbName}','${t.name}')" oncontextmenu="openTableContextMenu(event, this)" id="tt-${dbName}-${t.name}">
         <span class="tree-table-icon"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></span>
         <span class="tree-table-name" title="${t.name}">${t.name}</span>
         <span class="tree-table-rows">${fmtNum(t.rowCount)}</span>
         <div class="tree-table-acts">
-          <button class="tree-act-btn" title="Truncate" onclick="event.stopPropagation();truncateTable('${dbName}','${t.name}')">×</button>
+          <button class="tree-act-btn del" title="Empty table (confirmation required)" onclick="event.stopPropagation();truncateTable('${dbName}','${t.name}')">Empty</button>
         </div>
       </div>`;
     });
@@ -4776,7 +4786,7 @@ async function loadTreeTables(dbName) {
     html += `<div class="tree-folder"><svg class="tree-icon-svg" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg> Views (${viewTables.length})</div>`;
     viewTables.forEach(t=>{
       html += `
-      <div class="tree-table-row" onclick="openTable('${dbName}','${t.name}')">
+      <div class="tree-table-row" data-database="${escAttr(dbName)}" data-table="${escAttr(t.name)}" data-view="true" onclick="openTable('${dbName}','${t.name}')" oncontextmenu="openTableContextMenu(event, this)">
         <span class="tree-table-icon tree-view-icon"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span>
         <span class="tree-table-name">${t.name}</span>
       </div>`;
@@ -4788,6 +4798,100 @@ async function loadTreeTables(dbName) {
 function filterTree(text){
   DB.filterText = text;
   renderTree();
+}
+
+function showDatabaseContextMenu(event, items) {
+  event.preventDefault();
+  event.stopPropagation();
+  const menu = document.getElementById('db-context-menu');
+  menu.replaceChildren();
+  items.forEach(item => {
+    if (item === 'separator') { menu.appendChild(document.createElement('hr')); return; }
+    const button = document.createElement('button');
+    button.type = 'button'; button.textContent = item.label;
+    if (item.danger) button.classList.add('danger');
+    button.addEventListener('click', () => { closeDatabaseContextMenu(); item.action(); });
+    menu.appendChild(button);
+  });
+  menu.classList.add('open');
+  const width = 215;
+  const height = menu.offsetHeight;
+  menu.style.left = `${Math.min(event.clientX, window.innerWidth - width - 8)}px`;
+  menu.style.top = `${Math.min(event.clientY, window.innerHeight - height - 8)}px`;
+}
+
+function closeDatabaseContextMenu() {
+  document.getElementById('db-context-menu')?.classList.remove('open');
+}
+
+function openDatabaseContextMenu(event, row) {
+  const database = row.dataset.database;
+  const isSystem = row.dataset.system === 'true';
+  const items = [
+    { label: 'Open database overview', action: () => selectDatabase(database) },
+    { label: 'Open SQL editor', action: async () => { await selectDatabase(database); switchMainView('sql'); document.getElementById('sql-editor')?.focus(); } },
+    { label: 'Refresh', action: async () => { await loadDatabases(); if (DB.expandedDBs.has(database)) await loadTreeTables(database); } }
+  ];
+  if (!isSystem) items.push('separator',
+    { label: 'Create table…', action: () => openCreateTableModal(database) },
+    { label: 'Backup database…', action: () => exportDatabaseBackup(database) },
+    { label: 'Rename database…', action: () => renameDatabaseAction(database) },
+    { label: 'Drop database…', danger: true, action: () => dropDatabase(database) }
+  );
+  showDatabaseContextMenu(event, items);
+}
+
+function openTableContextMenu(event, row) {
+  const database = row.dataset.database;
+  const table = row.dataset.table;
+  const isView = row.dataset.view === 'true';
+  const items = [
+    { label: 'Browse data', action: () => openTable(database, table) },
+    { label: 'Open structure', action: () => openTableStructure(database, table) },
+    { label: 'Open table info', action: () => openTableInfo(database, table) },
+    { label: 'Rename…', action: () => renameTableAction(database, table) }
+  ];
+  if (!isView) items.push('separator', { label: 'Empty / truncate table…', danger: true, action: () => truncateTable(database, table) });
+  items.push({ label: `Drop ${isView ? 'view' : 'table'}…`, danger: true, action: () => dropTableFromOverview(database, table) });
+  showDatabaseContextMenu(event, items);
+}
+
+document.addEventListener('pointerdown', event => {
+  if (!event.target.closest?.('#db-context-menu')) closeDatabaseContextMenu();
+});
+document.addEventListener('keydown', event => { if (event.key === 'Escape') closeDatabaseContextMenu(); });
+window.addEventListener('blur', closeDatabaseContextMenu);
+
+async function renameDatabaseAction(oldName) {
+  const newName = prompt(`Rename database "${oldName}" to:`, oldName);
+  if (newName === null || newName.trim() === oldName) return;
+  if (!newName.trim()) { toast('Database name is required', 'error'); return; }
+  if (!confirm(`Rename database "${oldName}" to "${newName.trim()}"?\nThe app will move all tables to the new schema. Create a backup first for important data.`)) return;
+  const result = await api.mysql.renameDb(oldName, newName.trim());
+  if (!result.success) { toast('Could not rename database: ' + result.error, 'error'); return; }
+  DB.expandedDBs.delete(oldName); DB.expandedDBs.add(newName.trim());
+  DB.activeDB = newName.trim(); DB.activeTable = '';
+  document.getElementById('table-tab-container')?.replaceChildren();
+  sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
+  await loadDatabases();
+  await selectDatabase(newName.trim());
+  toast(`Database renamed to "${newName.trim()}"`, 'success');
+}
+
+async function renameTableAction(database, oldName) {
+  const newName = prompt(`Rename table "${oldName}" to:`, oldName);
+  if (newName === null || newName.trim() === oldName) return;
+  if (!newName.trim()) { toast('Table name is required', 'error'); return; }
+  const result = await api.mysql.renameTable(database, oldName, newName.trim());
+  if (!result.success) { toast('Could not rename table: ' + result.error, 'error'); return; }
+  document.getElementById(`tab-table-${CSS.escape(database + '.' + oldName)}`)?.remove();
+  DB.activeDB = database; DB.activeTable = newName.trim();
+  sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
+  await loadDatabases();
+  await loadTreeTables(database);
+  if (DB.mainView === 'db') await renderDatabaseOverview(database);
+  await openTable(database, newName.trim());
+  toast(`Table renamed to "${newName.trim()}"`, 'success');
 }
 
 function updateSQLDBSelect(){
@@ -5267,6 +5371,11 @@ function handleSqlEditorKeydown(event) {
     toggleSqlComment();
     return;
   }
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+    event.preventDefault();
+    saveSQLFile();
+    return;
+  }
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
     event.preventDefault();
     runSQL(event.shiftKey ? 'all' : 'current');
@@ -5571,7 +5680,7 @@ async function loadStructureTab(){
       <td>${extraBadge}</td>
       <td style="color:var(--text3)">${escHtml(c.comment||'')}</td>
       <td style="text-align:right;white-space:nowrap">
-        <button class="btn btn-sm" onclick="openEditColumnModal(${i})" title="Edit column definition" style="padding:2px 8px;font-size:11px">
+        <button class="btn btn-sm" onclick="openEditColumnModal(${i})" title="Edit or rename column, change key, and reorder position" style="padding:2px 8px;font-size:11px">
           <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:2px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>Edit
         </button>
         <button class="btn btn-sm btn-danger" onclick="dropColumnAction('${escAttr(c.field)}')" title="Drop column" style="padding:2px 8px;font-size:11px;margin-left:4px">
@@ -5627,7 +5736,20 @@ async function openEditColumnModal(colIndex) {
 
   document.getElementById('edit-column-nullable').checked = col.nullable === 'YES';
   document.getElementById('edit-column-auto').checked = String(col.extra || '').toLowerCase().includes('auto_increment');
+  document.getElementById('edit-column-key').value = col.key_type === 'PRI' ? 'primary' : col.key_type === 'UNI' ? 'unique' : col.key_type === 'MUL' ? 'index' : 'none';
+  const position = document.getElementById('edit-column-position');
+  position.replaceChildren();
+  const first = document.createElement('option');
+  first.value = '__FIRST__'; first.textContent = 'First column'; position.appendChild(first);
+  _currentTableColumns.forEach(item => {
+    if (item.field === col.field) return;
+    const option = document.createElement('option');
+    option.value = item.field; option.textContent = `After ${item.field}`; position.appendChild(option);
+  });
+  position.value = colIndex === 0 ? '__FIRST__' : _currentTableColumns[colIndex - 1].field;
   document.getElementById('edit-column-comment').value = col.comment || '';
+  updateEditColumnType();
+  updateEditColumnKey();
 
   openModal('modal-edit-db-column');
 }
@@ -5643,6 +5765,23 @@ function updateEditColumnType() {
   const usesLength = ['VARCHAR', 'CHAR', 'DECIMAL'].includes(type);
   length.disabled = !usesLength;
   if (!usesLength && !['INT', 'BIGINT', 'SMALLINT', 'TINYINT'].includes(type)) length.value = '';
+  const auto = document.getElementById('edit-column-auto');
+  auto.disabled = !['INT', 'BIGINT', 'SMALLINT', 'TINYINT'].includes(type);
+  if (auto.disabled) auto.checked = false;
+}
+
+function updateEditColumnKey() {
+  const primary = document.getElementById('edit-column-key').value === 'primary';
+  const nullable = document.getElementById('edit-column-nullable');
+  if (primary) { nullable.checked = false; nullable.disabled = true; }
+  else nullable.disabled = false;
+}
+
+function updateEditColumnAuto() {
+  if (document.getElementById('edit-column-auto').checked && document.getElementById('edit-column-key').value === 'none') {
+    document.getElementById('edit-column-key').value = 'index';
+  }
+  updateEditColumnKey();
 }
 
 async function submitEditColumn() {
@@ -5658,6 +5797,9 @@ async function submitEditColumn() {
     defaultValue: document.getElementById('edit-column-default-value').value,
     nullable: document.getElementById('edit-column-nullable').checked,
     autoIncrement: document.getElementById('edit-column-auto').checked,
+    onUpdateCurrentTimestamp: String(_currentTableColumns.find(item => item.field === oldName)?.extra || '').toLowerCase().includes('on update current_timestamp'),
+    key: document.getElementById('edit-column-key').value,
+    position: document.getElementById('edit-column-position').value,
     comment: document.getElementById('edit-column-comment').value.trim()
   };
 
@@ -5780,22 +5922,32 @@ async function loadIndexesTab(){
   });
   const fks = r.foreignKeys||[];
   const idxList = Object.values(idxMap);
-  let html = '<div class="results-table-wrap"><table class="indexes-table"><thead><tr><th>Index Name</th><th>Type</th><th>Columns</th><th>Unique</th></tr></thead><tbody>';
-  if(idxList.length===0) html += '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--text3)">No indexes found</td></tr>';
+  let html = '<div class="results-table-wrap"><table class="indexes-table"><thead><tr><th>Index Name</th><th>Type</th><th>Columns</th><th>Unique</th><th style="text-align:right">Actions</th></tr></thead><tbody>';
+  if(idxList.length===0) html += '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text3)">No indexes found</td></tr>';
   idxList.forEach(idx=>{
     const cls = idx.name==='PRIMARY'?'idx-primary':idx.unique?'idx-unique':'idx-multi';
-    html += `<tr><td class="${cls}">${escHtml(idx.name)}</td><td>${escHtml(idx.type)}</td><td style="font-family:var(--font-mono)">${idx.columns.join(', ')}</td><td>${idx.unique?'<span style="color:var(--green)">Yes</span>':'No'}</td></tr>`;
+    html += `<tr><td class="${cls}">${escHtml(idx.name)}</td><td>${escHtml(idx.type)}</td><td style="font-family:var(--font-mono)">${idx.columns.map(escHtml).join(', ')}</td><td>${idx.unique?'<span style="color:var(--green)">Yes</span>':'No'}</td><td style="text-align:right"><button class="btn btn-sm btn-danger" style="padding:2px 8px;font-size:11px" onclick="dropIndexAction('${escAttr(idx.name)}')">Delete</button></td></tr>`;
   });
   if(fks.length>0){
-    html += `<tr><td colspan="4" style="padding:10px 14px;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Foreign Keys</td></tr>`;
+    html += `<tr><td colspan="5" style="padding:10px 14px;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Foreign Keys</td></tr>`;
     fks.forEach(fk=>{
-      html += `<tr><td style="color:var(--purple)">${escHtml(fk.name)}</td><td>FK</td><td style="font-family:var(--font-mono)">${escHtml(fk.column_name)}</td><td style="color:var(--text3)">${escHtml(fk.ref_table)}.${escHtml(fk.ref_column)}</td></tr>`;
+      html += `<tr><td style="color:var(--purple)">${escHtml(fk.name)}</td><td>FK</td><td style="font-family:var(--font-mono)">${escHtml(fk.column_name)}</td><td style="color:var(--text3)">${escHtml(fk.ref_table)}.${escHtml(fk.ref_column)}</td><td></td></tr>`;
     });
   }
   html += '</tbody></table></div>';
   document.getElementById('db-results-area').innerHTML = html;
   setResultInfo(`<span class="ri-ok">✓</span> ${idxList.length} indexes, ${fks.length} foreign keys`);
   hidePagination();
+}
+
+async function dropIndexAction(indexName) {
+  const label = indexName === 'PRIMARY' ? 'primary key' : `index "${indexName}"`;
+  if (!confirm(`Delete ${label} from "${DB.activeTable}"?\nQueries or foreign-key constraints may depend on it.`)) return;
+  const result = await api.mysql.dropIndex(DB.activeDB, DB.activeTable, indexName);
+  if (!result.success) { toast(`Could not delete ${label}: ${result.error}`, 'error'); return; }
+  toast(`${indexName === 'PRIMARY' ? 'Primary key' : 'Index'} deleted`, 'success');
+  sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
+  await loadIndexesTab();
 }
 
 async function loadInfoTab(){
@@ -7176,9 +7328,24 @@ async function openSQLFileInEditor(){
   }
 }
 
-async function exportDatabaseBackup(){
+async function saveSQLFile(){
+  const editor = document.getElementById('sql-editor');
+  const content = editor?.value || '';
+  if (!content.trim()) { toast('Enter SQL before saving', 'info'); return; }
+  const database = sqlEditorDatabase();
+  const result = await api.export.saveFile({
+    defaultFilename: `${database || 'query'}_${new Date().toISOString().slice(0, 10)}.sql`,
+    content,
+    filters: [{ name: 'SQL Files', extensions: ['sql'] }, { name: 'Text Files', extensions: ['txt'] }]
+  });
+  if (result.canceled) return;
+  if (!result.success) { toast('Could not save SQL: ' + result.error, 'error'); return; }
+  toast('SQL file saved successfully', 'success');
+}
+
+async function exportDatabaseBackup(databaseOverride=''){
   if(!DB.connected){toast('Connect to MySQL before exporting','error');return;}
-  const database=document.getElementById('sql-db-select').value||DB.activeDB;
+  const database=databaseOverride||document.getElementById('sql-db-select').value||DB.activeDB;
   if(!database){toast('Select a database first','error');return;}
   const result=await api.mysql.exportDatabase(database);
   if(result.canceled) return;
@@ -7196,11 +7363,11 @@ async function dropDatabase(db){
 
 async function truncateCurrentTable(){
   if(!DB.activeTable) return;
-  if(!confirm(`Truncate "${DB.activeDB}"."${DB.activeTable}"?\nAll rows will be deleted but the table structure will remain.`)) return;
   await truncateTable(DB.activeDB, DB.activeTable);
 }
 
 async function truncateTable(db, table){
+  if(!confirm(`EMPTY TABLE "${db}"."${table}"?\n\nThis permanently deletes every row. The table structure will remain, but the data cannot be recovered.`)) return;
   const r = await api.mysql.truncateTable(db, table);
   if(r.success){ toast(`Table "${table}" truncated`,'success'); if(DB.activeDB===db&&DB.activeTable===table) await loadDataTab(); }
   else toast('Error: '+r.error,'error');
@@ -9025,6 +9192,32 @@ function applyTheme(themeName){
 // WHAT'S NEW MODAL & POST-UPDATE ANNOUNCEMENT
 // ══════════════════════════════════════════════════════════
 const WHATS_NEW_DATA = {
+  '1.2.12': [
+    {
+      iconColor: '#5865f2',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="M8 9h8M8 13h5M8 17h7"></path></svg>',
+      title: 'Complete Column Editing',
+      desc: 'Rename and reorder columns, change primary, unique, or ordinary keys, and preserve important timestamp behavior from the Structure editor.'
+    },
+    {
+      iconColor: '#10b981',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15"></path></svg>',
+      title: 'Index Management',
+      desc: 'Delete primary and named indexes from the Indexes tab with confirmation and composite-index safety checks.'
+    },
+    {
+      iconColor: '#38bdf8',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"></path><path d="M8 12h8M14 9l3 3-3 3"></path></svg>',
+      title: 'Rename and Right-Click Tools',
+      desc: 'Rename databases and tables, and right-click sidebar objects for browse, structure, backup, refresh, rename, empty, and drop actions.'
+    },
+    {
+      iconColor: '#f59e0b',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h14l2 2v16H3V3h2z"></path><path d="M7 3v6h10V3M7 21v-8h10v8"></path></svg>',
+      title: 'Save SQL and Safer Destructive Actions',
+      desc: 'Save editor queries as .sql files with Ctrl+S, while clear warnings now protect table-empty, index-delete, and drop operations.'
+    }
+  ],
   '1.2.11': [
     {
       iconColor: '#5865f2',
@@ -9346,7 +9539,7 @@ const WHATS_NEW_DATA = {
 };
 
 function openWhatsNewModal(targetVersion, customItems){
-  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.11';
+  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.12';
   const verClean = String(ver).replace(/^v/i, '').trim();
   const verEl = document.getElementById('whatsnew-version');
   if(verEl) verEl.textContent = `Version ${verClean}`;
@@ -9374,7 +9567,7 @@ function openWhatsNewModal(targetVersion, customItems){
 }
 
 function closeWhatsNewModal(){
-  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.11';
+  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.12';
   const verClean = String(ver).replace(/^v/i, '').trim();
   localStorage.setItem('c_script_last_seen_version', verClean);
   closeModal('modal-whats-new');

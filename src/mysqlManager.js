@@ -1050,6 +1050,72 @@ class MySQLManager {
     } catch (err) { return { success: false, error: this._fmtErr(err) }; }
   }
 
+  /** Rename a database by atomically moving its tables into a new schema. */
+  async renameDatabase(oldName, newName) {
+    if (!this.connection) return { success: false, error: 'Not connected' };
+    oldName = String(oldName || '').trim();
+    newName = String(newName || '').trim();
+    if (!oldName || !newName || oldName.length > 64 || newName.length > 64) {
+      return { success: false, error: 'Database names must be between 1 and 64 characters' };
+    }
+    if (oldName === newName) return { success: true };
+    let targetCreated = false;
+    try {
+      const [[source]] = await this.connection.query(
+        `SELECT DEFAULT_CHARACTER_SET_NAME AS charset, DEFAULT_COLLATION_NAME AS collation
+         FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?`,
+        [oldName]
+      );
+      if (!source) return { success: false, error: 'Source database was not found' };
+      const [[target]] = await this.connection.query(
+        'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?',
+        [newName]
+      );
+      if (target) return { success: false, error: 'A database with the new name already exists' };
+      const [objects] = await this.connection.query(
+        `SELECT TABLE_NAME AS name, TABLE_TYPE AS type FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = ? ORDER BY TABLE_TYPE, TABLE_NAME`,
+        [oldName]
+      );
+      const [triggers] = await this.connection.query(
+        'SELECT TRIGGER_NAME FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = ? LIMIT 1',
+        [oldName]
+      );
+      const [programs] = await this.connection.query(
+        `SELECT ROUTINE_NAME AS name FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = ?
+         UNION ALL SELECT EVENT_NAME AS name FROM information_schema.EVENTS WHERE EVENT_SCHEMA = ? LIMIT 1`,
+        [oldName, oldName]
+      );
+      if (triggers.length || programs.length) return { success: false, error: 'Databases containing triggers, routines, or events cannot be safely renamed. Export/import the database instead.' };
+      if (objects.some(item => item.type === 'VIEW')) {
+        return { success: false, error: 'Databases containing views cannot be safely renamed. Export/import the database instead.' };
+      }
+      await this.connection.query(
+        `CREATE DATABASE ${quoteIdent(newName)} CHARACTER SET ${source.charset} COLLATE ${source.collation}`
+      );
+      targetCreated = true;
+      if (objects.length) {
+        const moves = objects.map(item =>
+          `${quoteIdent(oldName)}.${quoteIdent(item.name)} TO ${quoteIdent(newName)}.${quoteIdent(item.name)}`
+        );
+        await this.connection.query(`RENAME TABLE ${moves.join(', ')}`);
+      }
+      await this.connection.query(`DROP DATABASE ${quoteIdent(oldName)}`);
+      return { success: true };
+    } catch (err) {
+      if (targetCreated) {
+        try {
+          const [remaining] = await this.connection.query(
+            'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?',
+            [oldName]
+          );
+          if (remaining.length) await this.connection.query(`DROP DATABASE ${quoteIdent(newName)}`);
+        } catch (_) {}
+      }
+      return { success: false, error: this._fmtErr(err) };
+    }
+  }
+
   /** Drop a database */
   async dropDatabase(name) {
     if (!this.connection) return { success: false, error: 'Not connected' };
@@ -1068,12 +1134,18 @@ class MySQLManager {
     } catch (err) { return { success: false, error: this._fmtErr(err) }; }
   }
 
-  /** Drop a table */
+  /** Drop a table or view after resolving its object type. */
   async dropTable(database, table) {
     if (!this.connection) return { success: false, error: 'Not connected' };
     try {
-      await this.connection.query(`DROP TABLE ${quoteIdent(database)}.${quoteIdent(table)}`);
-      return { success: true };
+      const [[object]] = await this.connection.query(
+        'SELECT TABLE_TYPE AS type FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?',
+        [database, table]
+      );
+      if (!object) return { success: false, error: 'Table or view was not found' };
+      const keyword = object.type === 'VIEW' ? 'VIEW' : 'TABLE';
+      await this.connection.query(`DROP ${keyword} ${quoteIdent(database)}.${quoteIdent(table)}`);
+      return { success: true, objectType: keyword.toLowerCase() };
     } catch (err) { return { success: false, error: this._fmtErr(err) }; }
   }
 
@@ -1150,35 +1222,90 @@ class MySQLManager {
     }
   }
 
-  /** Modify an existing column in a table */
+  /** Modify an existing column, including its position and single-column key. */
   async modifyTableColumn(database, table, oldName, column) {
     if (!this.connection) return { success: false, error: 'Not connected' };
     if (!oldName || !column || !column.name) return { success: false, error: 'Column name is required' };
-    const newName = column.name.trim();
-    const type = (column.type || 'VARCHAR').toUpperCase();
+    const newName = String(column.name).trim();
+    const type = String(column.type || 'VARCHAR').toUpperCase();
     const length = column.length ? String(column.length).trim() : '';
-
-    let definition = `${quoteIdent(newName)} ${type}${length ? `(${length})` : ''} ${column.nullable ? 'NULL' : 'NOT NULL'}`;
-    if (column.defaultMode === 'null') definition += ' DEFAULT NULL';
-    else if (column.defaultMode === 'literal' && column.defaultValue != null && column.defaultValue !== '') definition += ` DEFAULT ${this.connection.escape(String(column.defaultValue))}`;
-    else if (column.defaultMode === 'current_timestamp') definition += ' DEFAULT CURRENT_TIMESTAMP';
-    if (column.autoIncrement) definition += ' AUTO_INCREMENT';
-    if (column.comment) definition += ` COMMENT ${this.connection.escape(String(column.comment))}`;
+    const key = ['none', 'primary', 'unique', 'index'].includes(column.key) ? column.key : 'none';
+    if (!newName || newName.length > 64) return { success: false, error: 'Column name must be between 1 and 64 characters' };
+    if (column.autoIncrement && key === 'none') return { success: false, error: 'AUTO_INCREMENT columns must have a key' };
 
     try {
-      await this.connection.query(
-        `ALTER TABLE ${quoteIdent(database)}.${quoteIdent(table)} CHANGE COLUMN ${quoteIdent(oldName)} ${definition}`
+      const [indexes] = await this.connection.query(
+        `SELECT INDEX_NAME AS name, NON_UNIQUE AS non_unique, COLUMN_NAME AS column_name, SEQ_IN_INDEX AS seq
+         FROM information_schema.STATISTICS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY INDEX_NAME, SEQ_IN_INDEX`,
+        [database, table]
       );
+      const grouped = new Map();
+      for (const item of indexes) {
+        if (!grouped.has(item.name)) grouped.set(item.name, []);
+        grouped.get(item.name).push(item.column_name);
+      }
+      const columnIndexes = [...grouped.entries()].filter(([, names]) => names.includes(oldName));
+      const primary = columnIndexes.find(([name]) => name === 'PRIMARY');
+      const singleSecondary = columnIndexes.filter(([name, names]) => name !== 'PRIMARY' && names.length === 1);
+      const composite = columnIndexes.filter(([name, names]) => name !== 'PRIMARY' && names.length > 1);
+      const currentKey = primary ? 'primary' : singleSecondary.length
+        ? (Number(indexes.find(item => item.name === singleSecondary[0][0])?.non_unique) ? 'index' : 'unique')
+        : (composite.length ? 'index' : 'none');
+
+      if (key !== currentKey && (composite.length || (primary && grouped.get('PRIMARY').length > 1))) {
+        return { success: false, error: 'This column belongs to a composite index. Delete or change that index from the Indexes tab first.' };
+      }
+      if (key === 'primary') {
+        const existingPrimary = grouped.get('PRIMARY') || [];
+        if (existingPrimary.length && !existingPrimary.includes(oldName)) {
+          return { success: false, error: `The table already has a primary key (${existingPrimary.join(', ')})` };
+        }
+      }
+
+      let definition = `${quoteIdent(newName)} ${type}${length ? `(${length})` : ''} ${key === 'primary' ? 'NOT NULL' : (column.nullable ? 'NULL' : 'NOT NULL')}`;
+      if (column.defaultMode === 'null') definition += ' DEFAULT NULL';
+      else if (column.defaultMode === 'literal' && column.defaultValue != null && column.defaultValue !== '') definition += ` DEFAULT ${this.connection.escape(String(column.defaultValue))}`;
+      else if (column.defaultMode === 'current_timestamp') definition += ' DEFAULT CURRENT_TIMESTAMP';
+      if (column.onUpdateCurrentTimestamp && ['TIMESTAMP', 'DATETIME'].includes(type)) definition += ' ON UPDATE CURRENT_TIMESTAMP';
+      if (column.autoIncrement) definition += ' AUTO_INCREMENT';
+      if (column.comment) definition += ` COMMENT ${this.connection.escape(String(column.comment))}`;
+      if (column.position === '__FIRST__') definition += ' FIRST';
+      else if (column.position && column.position !== oldName) definition += ` AFTER ${quoteIdent(column.position)}`;
+
+      const clauses = [`CHANGE COLUMN ${quoteIdent(oldName)} ${definition}`];
+      if (key !== currentKey) {
+        if (primary) clauses.push('DROP PRIMARY KEY');
+        for (const [name] of singleSecondary) clauses.push(`DROP INDEX ${quoteIdent(name)}`);
+        if (key === 'primary') clauses.push(`ADD PRIMARY KEY (${quoteIdent(newName)})`);
+        else if (key === 'unique') clauses.push(`ADD UNIQUE INDEX ${quoteIdent(`uq_${newName}`)} (${quoteIdent(newName)})`);
+        else if (key === 'index') clauses.push(`ADD INDEX ${quoteIdent(`idx_${newName}`)} (${quoteIdent(newName)})`);
+      }
+      await this.connection.query(`ALTER TABLE ${quoteIdent(database)}.${quoteIdent(table)} ${clauses.join(', ')}`);
       return { success: true };
     } catch (err) {
       return { success: false, error: this._fmtErr(err) };
     }
   }
 
+  /** Drop an index or primary key from a table. */
+  async dropTableIndex(database, table, indexName) {
+    if (!this.connection) return { success: false, error: 'Not connected' };
+    if (!indexName) return { success: false, error: 'Index name is required' };
+    try {
+      const clause = indexName === 'PRIMARY' ? 'DROP PRIMARY KEY' : `DROP INDEX ${quoteIdent(indexName)}`;
+      await this.connection.query(`ALTER TABLE ${quoteIdent(database)}.${quoteIdent(table)} ${clause}`);
+      return { success: true };
+    } catch (err) { return { success: false, error: this._fmtErr(err) }; }
+  }
+
   /** Rename an existing table */
   async renameTable(database, oldName, newName) {
     if (!this.connection) return { success: false, error: 'Not connected' };
-    if (!oldName || !newName) return { success: false, error: 'Both old and new table names are required' };
+    oldName = String(oldName || '').trim();
+    newName = String(newName || '').trim();
+    if (!oldName || !newName || newName.length > 64) return { success: false, error: 'Table name must be between 1 and 64 characters' };
+    if (oldName === newName) return { success: true };
     try {
       await this.connection.query(
         `RENAME TABLE ${quoteIdent(database)}.${quoteIdent(oldName)} TO ${quoteIdent(database)}.${quoteIdent(newName)}`

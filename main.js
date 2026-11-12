@@ -1182,6 +1182,10 @@ ipcMain.handle('mysql:drop-db', async (event, name) => {
   return await mysqlManager.dropDatabase(name);
 });
 
+ipcMain.handle('mysql:rename-db', async (event, { oldName, newName }) => {
+  return await mysqlManager.renameDatabase(oldName, newName);
+});
+
 ipcMain.handle('mysql:table-structure', async (event, { database, table }) => {
   return await mysqlManager.getTableStructure(database, table);
 });
@@ -1212,6 +1216,10 @@ ipcMain.handle('mysql:drop-column', async (event, { database, table, column }) =
 
 ipcMain.handle('mysql:modify-column', async (event, { database, table, oldColumn, column }) => {
   return await mysqlManager.modifyTableColumn(database, table, oldColumn, column);
+});
+
+ipcMain.handle('mysql:drop-index', async (event, { database, table, indexName }) => {
+  return await mysqlManager.dropTableIndex(database, table, indexName);
 });
 
 ipcMain.handle('mysql:rename-table', async (event, { database, oldName, newName }) => {

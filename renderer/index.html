@@ -990,7 +990,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
   <div class="titlebar-logo" onclick="switchPanel('about')" style="cursor:pointer" title="About C-Script LocalHost Panel">
     <img src="../assets/icon.png" alt="C-Script" style="width:22px;height:22px;border-radius:6px;">
     <span>C-Script LocalHost Panel</span>
-    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.12</span>
+    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.13</span>
     <button class="titlebar-whatsnew-btn" onclick="event.stopPropagation();openWhatsNewModal()" title="See What's New in this update">
       <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
       <span>What's New</span>
@@ -2130,7 +2130,7 @@ DESCRIBE tablename;"></textarea>
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
               <h1 style="font-size:22px;font-weight:700;color:var(--text1);margin:0">C-Script LocalHost Panel</h1>
-              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.12</span>
+              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.13</span>
               <button class="btn btn-xs" onclick="openWhatsNewModal()" style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;font-size:11px;padding:3px 9px;cursor:pointer">
                 <svg class="tab-icon-svg" style="width:11px;height:11px;margin:0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 What's New
@@ -2293,7 +2293,7 @@ DESCRIBE tablename;"></textarea>
         </div>
         <div>
           <h2 class="whatsnew-header-title" id="whatsnew-title">What's New</h2>
-          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.12</div>
+          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.13</div>
         </div>
       </div>
     </div>
@@ -2363,6 +2363,27 @@ DESCRIBE tablename;"></textarea>
 </div>
 
 <div class="db-context-menu" id="db-context-menu" role="menu" aria-label="Database object actions"></div>
+
+<!-- Rename Database/Table Modal (Electron does not support window.prompt) -->
+<div class="modal-overlay" id="modal-rename-db-object" onclick="if(event.target===this)closeModal('modal-rename-db-object')">
+  <div class="modal" style="width:460px;max-width:92vw">
+    <div class="modal-header">
+      <span id="rename-db-object-title">Rename</span>
+      <button class="btn-icon" onclick="closeModal('modal-rename-db-object')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" id="rename-db-object-label" for="rename-db-object-name">New name</label>
+        <input class="input" id="rename-db-object-name" autocomplete="off" onkeydown="if(event.key==='Enter')submitRenameDbObject()">
+      </div>
+      <div class="form-hint" id="rename-db-object-hint"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-rename-db-object')">Cancel</button>
+      <button class="btn btn-primary" id="rename-db-object-submit" onclick="submitRenameDbObject()">Rename</button>
+    </div>
+  </div>
+</div>
 
 <!-- Create DB Modal -->
 <div class="modal-overlay" id="modal-create-db">
@@ -4862,36 +4883,77 @@ document.addEventListener('pointerdown', event => {
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeDatabaseContextMenu(); });
 window.addEventListener('blur', closeDatabaseContextMenu);
 
-async function renameDatabaseAction(oldName) {
-  const newName = prompt(`Rename database "${oldName}" to:`, oldName);
-  if (newName === null || newName.trim() === oldName) return;
-  if (!newName.trim()) { toast('Database name is required', 'error'); return; }
-  if (!confirm(`Rename database "${oldName}" to "${newName.trim()}"?\nThe app will move all tables to the new schema. Create a backup first for important data.`)) return;
-  const result = await api.mysql.renameDb(oldName, newName.trim());
-  if (!result.success) { toast('Could not rename database: ' + result.error, 'error'); return; }
-  DB.expandedDBs.delete(oldName); DB.expandedDBs.add(newName.trim());
-  DB.activeDB = newName.trim(); DB.activeTable = '';
-  document.getElementById('table-tab-container')?.replaceChildren();
-  sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
-  await loadDatabases();
-  await selectDatabase(newName.trim());
-  toast(`Database renamed to "${newName.trim()}"`, 'success');
+let pendingDbObjectRename = null;
+
+function openDbObjectRenameModal(kind, database, oldName) {
+  pendingDbObjectRename = { kind, database, oldName };
+  const isDatabase = kind === 'database';
+  document.getElementById('rename-db-object-title').textContent = `Rename ${isDatabase ? 'Database' : 'Table'}`;
+  document.getElementById('rename-db-object-label').textContent = `New ${isDatabase ? 'database' : 'table'} name`;
+  document.getElementById('rename-db-object-hint').textContent = isDatabase
+    ? 'Tables will be moved to a new schema. Back up important databases first.'
+    : `Renaming table “${oldName}” in database “${database}”.`;
+  const input = document.getElementById('rename-db-object-name');
+  input.value = oldName;
+  const button = document.getElementById('rename-db-object-submit');
+  button.disabled = false;
+  button.textContent = 'Rename';
+  openModal('modal-rename-db-object');
+  requestAnimationFrame(() => { input.focus(); input.select(); });
 }
 
-async function renameTableAction(database, oldName) {
-  const newName = prompt(`Rename table "${oldName}" to:`, oldName);
-  if (newName === null || newName.trim() === oldName) return;
-  if (!newName.trim()) { toast('Table name is required', 'error'); return; }
-  const result = await api.mysql.renameTable(database, oldName, newName.trim());
-  if (!result.success) { toast('Could not rename table: ' + result.error, 'error'); return; }
-  document.getElementById(`tab-table-${CSS.escape(database + '.' + oldName)}`)?.remove();
-  DB.activeDB = database; DB.activeTable = newName.trim();
-  sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
-  await loadDatabases();
-  await loadTreeTables(database);
-  if (DB.mainView === 'db') await renderDatabaseOverview(database);
-  await openTable(database, newName.trim());
-  toast(`Table renamed to "${newName.trim()}"`, 'success');
+function renameDatabaseAction(oldName) {
+  openDbObjectRenameModal('database', oldName, oldName);
+}
+
+function renameTableAction(database, oldName) {
+  openDbObjectRenameModal('table', database, oldName);
+}
+
+async function submitRenameDbObject() {
+  const request = pendingDbObjectRename;
+  if (!request) return;
+  const input = document.getElementById('rename-db-object-name');
+  const newName = input.value.trim();
+  if (!newName) { toast(`${request.kind === 'database' ? 'Database' : 'Table'} name is required`, 'error'); input.focus(); return; }
+  if (newName === request.oldName) { closeModal('modal-rename-db-object'); return; }
+  if (newName.length > 64) { toast('Names cannot be longer than 64 characters', 'error'); input.focus(); return; }
+  if (request.kind === 'database' && !confirm(`Rename database "${request.oldName}" to "${newName}"?\nThe app will move all tables to the new schema. Create a backup first for important data.`)) return;
+
+  const button = document.getElementById('rename-db-object-submit');
+  button.disabled = true;
+  button.textContent = 'Renaming…';
+  try {
+    if (request.kind === 'database') {
+      const result = await api.mysql.renameDb(request.oldName, newName);
+      if (!result.success) { toast('Could not rename database: ' + result.error, 'error'); return; }
+      DB.expandedDBs.delete(request.oldName); DB.expandedDBs.add(newName);
+      DB.activeDB = newName; DB.activeTable = '';
+      document.getElementById('table-tab-container')?.replaceChildren();
+      sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
+      closeModal('modal-rename-db-object');
+      pendingDbObjectRename = null;
+      await loadDatabases();
+      await selectDatabase(newName);
+      toast(`Database renamed to "${newName}"`, 'success');
+    } else {
+      const result = await api.mysql.renameTable(request.database, request.oldName, newName);
+      if (!result.success) { toast('Could not rename table: ' + result.error, 'error'); return; }
+      document.getElementById(`tab-table-${CSS.escape(request.database + '.' + request.oldName)}`)?.remove();
+      DB.activeDB = request.database; DB.activeTable = newName;
+      sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
+      closeModal('modal-rename-db-object');
+      pendingDbObjectRename = null;
+      await loadDatabases();
+      await loadTreeTables(request.database);
+      if (DB.mainView === 'db') await renderDatabaseOverview(request.database);
+      await openTable(request.database, newName);
+      toast(`Table renamed to "${newName}"`, 'success');
+    }
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Rename';
+  }
 }
 
 function updateSQLDBSelect(){
@@ -9192,6 +9254,20 @@ function applyTheme(themeName){
 // WHAT'S NEW MODAL & POST-UPDATE ANNOUNCEMENT
 // ══════════════════════════════════════════════════════════
 const WHATS_NEW_DATA = {
+  '1.2.13': [
+    {
+      iconColor: '#5865f2',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="M8 9h8M8 13h5M8 17h7"></path></svg>',
+      title: 'Working Rename Dialogs',
+      desc: 'Database and table Rename actions now open a native app-styled dialog instead of relying on a browser prompt that Electron does not support.'
+    },
+    {
+      iconColor: '#10b981',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>',
+      title: 'Clear Rename Feedback',
+      desc: 'Names are preselected for quick editing, Enter submits the change, progress is shown while renaming, and database errors are reported clearly.'
+    }
+  ],
   '1.2.12': [
     {
       iconColor: '#5865f2',
@@ -9539,7 +9615,7 @@ const WHATS_NEW_DATA = {
 };
 
 function openWhatsNewModal(targetVersion, customItems){
-  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.12';
+  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.13';
   const verClean = String(ver).replace(/^v/i, '').trim();
   const verEl = document.getElementById('whatsnew-version');
   if(verEl) verEl.textContent = `Version ${verClean}`;
@@ -9567,7 +9643,7 @@ function openWhatsNewModal(targetVersion, customItems){
 }
 
 function closeWhatsNewModal(){
-  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.12';
+  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.13';
   const verClean = String(ver).replace(/^v/i, '').trim();
   localStorage.setItem('c_script_last_seen_version', verClean);
   closeModal('modal-whats-new');

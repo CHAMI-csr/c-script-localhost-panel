@@ -2364,6 +2364,27 @@ DESCRIBE tablename;"></textarea>
 
 <div class="db-context-menu" id="db-context-menu" role="menu" aria-label="Database object actions"></div>
 
+<!-- Rename Database/Table Modal (Electron does not support window.prompt) -->
+<div class="modal-overlay" id="modal-rename-db-object" onclick="if(event.target===this)closeModal('modal-rename-db-object')">
+  <div class="modal" style="width:460px;max-width:92vw">
+    <div class="modal-header">
+      <span id="rename-db-object-title">Rename</span>
+      <button class="btn-icon" onclick="closeModal('modal-rename-db-object')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" id="rename-db-object-label" for="rename-db-object-name">New name</label>
+        <input class="input" id="rename-db-object-name" autocomplete="off" onkeydown="if(event.key==='Enter')submitRenameDbObject()">
+      </div>
+      <div class="form-hint" id="rename-db-object-hint"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-rename-db-object')">Cancel</button>
+      <button class="btn btn-primary" id="rename-db-object-submit" onclick="submitRenameDbObject()">Rename</button>
+    </div>
+  </div>
+</div>
+
 <!-- Create DB Modal -->
 <div class="modal-overlay" id="modal-create-db">
   <div class="modal">
@@ -4862,36 +4883,77 @@ document.addEventListener('pointerdown', event => {
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeDatabaseContextMenu(); });
 window.addEventListener('blur', closeDatabaseContextMenu);
 
-async function renameDatabaseAction(oldName) {
-  const newName = prompt(`Rename database "${oldName}" to:`, oldName);
-  if (newName === null || newName.trim() === oldName) return;
-  if (!newName.trim()) { toast('Database name is required', 'error'); return; }
-  if (!confirm(`Rename database "${oldName}" to "${newName.trim()}"?\nThe app will move all tables to the new schema. Create a backup first for important data.`)) return;
-  const result = await api.mysql.renameDb(oldName, newName.trim());
-  if (!result.success) { toast('Could not rename database: ' + result.error, 'error'); return; }
-  DB.expandedDBs.delete(oldName); DB.expandedDBs.add(newName.trim());
-  DB.activeDB = newName.trim(); DB.activeTable = '';
-  document.getElementById('table-tab-container')?.replaceChildren();
-  sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
-  await loadDatabases();
-  await selectDatabase(newName.trim());
-  toast(`Database renamed to "${newName.trim()}"`, 'success');
+let pendingDbObjectRename = null;
+
+function openDbObjectRenameModal(kind, database, oldName) {
+  pendingDbObjectRename = { kind, database, oldName };
+  const isDatabase = kind === 'database';
+  document.getElementById('rename-db-object-title').textContent = `Rename ${isDatabase ? 'Database' : 'Table'}`;
+  document.getElementById('rename-db-object-label').textContent = `New ${isDatabase ? 'database' : 'table'} name`;
+  document.getElementById('rename-db-object-hint').textContent = isDatabase
+    ? 'Tables will be moved to a new schema. Back up important databases first.'
+    : `Renaming table “${oldName}” in database “${database}”.`;
+  const input = document.getElementById('rename-db-object-name');
+  input.value = oldName;
+  const button = document.getElementById('rename-db-object-submit');
+  button.disabled = false;
+  button.textContent = 'Rename';
+  openModal('modal-rename-db-object');
+  requestAnimationFrame(() => { input.focus(); input.select(); });
 }
 
-async function renameTableAction(database, oldName) {
-  const newName = prompt(`Rename table "${oldName}" to:`, oldName);
-  if (newName === null || newName.trim() === oldName) return;
-  if (!newName.trim()) { toast('Table name is required', 'error'); return; }
-  const result = await api.mysql.renameTable(database, oldName, newName.trim());
-  if (!result.success) { toast('Could not rename table: ' + result.error, 'error'); return; }
-  document.getElementById(`tab-table-${CSS.escape(database + '.' + oldName)}`)?.remove();
-  DB.activeDB = database; DB.activeTable = newName.trim();
-  sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
-  await loadDatabases();
-  await loadTreeTables(database);
-  if (DB.mainView === 'db') await renderDatabaseOverview(database);
-  await openTable(database, newName.trim());
-  toast(`Table renamed to "${newName.trim()}"`, 'success');
+function renameDatabaseAction(oldName) {
+  openDbObjectRenameModal('database', oldName, oldName);
+}
+
+function renameTableAction(database, oldName) {
+  openDbObjectRenameModal('table', database, oldName);
+}
+
+async function submitRenameDbObject() {
+  const request = pendingDbObjectRename;
+  if (!request) return;
+  const input = document.getElementById('rename-db-object-name');
+  const newName = input.value.trim();
+  if (!newName) { toast(`${request.kind === 'database' ? 'Database' : 'Table'} name is required`, 'error'); input.focus(); return; }
+  if (newName === request.oldName) { closeModal('modal-rename-db-object'); return; }
+  if (newName.length > 64) { toast('Names cannot be longer than 64 characters', 'error'); input.focus(); return; }
+  if (request.kind === 'database' && !confirm(`Rename database "${request.oldName}" to "${newName}"?\nThe app will move all tables to the new schema. Create a backup first for important data.`)) return;
+
+  const button = document.getElementById('rename-db-object-submit');
+  button.disabled = true;
+  button.textContent = 'Renaming…';
+  try {
+    if (request.kind === 'database') {
+      const result = await api.mysql.renameDb(request.oldName, newName);
+      if (!result.success) { toast('Could not rename database: ' + result.error, 'error'); return; }
+      DB.expandedDBs.delete(request.oldName); DB.expandedDBs.add(newName);
+      DB.activeDB = newName; DB.activeTable = '';
+      document.getElementById('table-tab-container')?.replaceChildren();
+      sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
+      closeModal('modal-rename-db-object');
+      pendingDbObjectRename = null;
+      await loadDatabases();
+      await selectDatabase(newName);
+      toast(`Database renamed to "${newName}"`, 'success');
+    } else {
+      const result = await api.mysql.renameTable(request.database, request.oldName, newName);
+      if (!result.success) { toast('Could not rename table: ' + result.error, 'error'); return; }
+      document.getElementById(`tab-table-${CSS.escape(request.database + '.' + request.oldName)}`)?.remove();
+      DB.activeDB = request.database; DB.activeTable = newName;
+      sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: false };
+      closeModal('modal-rename-db-object');
+      pendingDbObjectRename = null;
+      await loadDatabases();
+      await loadTreeTables(request.database);
+      if (DB.mainView === 'db') await renderDatabaseOverview(request.database);
+      await openTable(request.database, newName);
+      toast(`Table renamed to "${newName}"`, 'success');
+    }
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Rename';
+  }
 }
 
 function updateSQLDBSelect(){

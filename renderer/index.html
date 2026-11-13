@@ -990,7 +990,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
   <div class="titlebar-logo" onclick="switchPanel('about')" style="cursor:pointer" title="About C-Script LocalHost Panel">
     <img src="../assets/icon.png" alt="C-Script" style="width:22px;height:22px;border-radius:6px;">
     <span>C-Script LocalHost Panel</span>
-    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.13</span>
+    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.14</span>
     <button class="titlebar-whatsnew-btn" onclick="event.stopPropagation();openWhatsNewModal()" title="See What's New in this update">
       <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
       <span>What's New</span>
@@ -2130,7 +2130,7 @@ DESCRIBE tablename;"></textarea>
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
               <h1 style="font-size:22px;font-weight:700;color:var(--text1);margin:0">C-Script LocalHost Panel</h1>
-              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.13</span>
+              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.14</span>
               <button class="btn btn-xs" onclick="openWhatsNewModal()" style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;font-size:11px;padding:3px 9px;cursor:pointer">
                 <svg class="tab-icon-svg" style="width:11px;height:11px;margin:0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 What's New
@@ -2293,7 +2293,7 @@ DESCRIBE tablename;"></textarea>
         </div>
         <div>
           <h2 class="whatsnew-header-title" id="whatsnew-title">What's New</h2>
-          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.13</div>
+          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.14</div>
         </div>
       </div>
     </div>
@@ -5059,13 +5059,19 @@ let sqlSchemaCache = { database: '', tables: [], columns: new Map(), loaded: fal
 let sqlCompletionItems = [];
 let sqlCompletionIndex = 0;
 let sqlCompletionRequest = 0;
+let sqlCompletionUpdateRequest = 0;
+let suppressSqlCompletionOnce = false;
 
 function initSqlEditor() {
   const editor = document.getElementById('sql-editor');
   const stage = document.getElementById('sql-editor-stage');
   if (!editor || !stage || editor.dataset.enhanced === 'true') return;
   editor.dataset.enhanced = 'true';
-  editor.addEventListener('input', () => { updateSqlHighlight(); updateSqlCompletions(false); });
+  editor.addEventListener('input', () => {
+    updateSqlHighlight();
+    if (suppressSqlCompletionOnce) { suppressSqlCompletionOnce = false; return; }
+    updateSqlCompletions(false);
+  });
   editor.addEventListener('scroll', syncSqlHighlightScroll);
   editor.addEventListener('click', () => updateSqlCompletions(false));
   editor.addEventListener('keyup', event => {
@@ -5218,13 +5224,15 @@ async function loadSqlDatabaseColumns(database) {
 
 function resolveSqlTableName(name, sql) {
   const clean = String(name || '').replace(/^[`"]|[`"]$/g, '');
+  const references = api.sqlUtils?.tableReferences(sql) || [];
+  // Explicit aliases take precedence over a coincidentally identical table
+  // name, which is important in nested and self-referencing queries.
+  const aliasReference = references.find(item => item.alias?.toLowerCase() === clean.toLowerCase());
+  if (aliasReference) return aliasReference.table;
   const actualTable = sqlSchemaCache.tables.find(table => table.toLowerCase() === clean.toLowerCase());
   if (actualTable) return actualTable;
-  const references = api.sqlUtils?.tableReferences(sql) || [];
-  const reference = references.find(item =>
-    item.alias?.toLowerCase() === clean.toLowerCase() || item.table?.toLowerCase() === clean.toLowerCase()
-  );
-  return reference?.table || clean;
+  const tableReference = references.find(item => item.table?.toLowerCase() === clean.toLowerCase());
+  return tableReference?.table || clean;
 }
 
 function getSqlCompletionContext(editor) {
@@ -5280,6 +5288,7 @@ function positionSqlCompletions(editor, popup) {
 }
 
 async function updateSqlCompletions(force = false) {
+  const updateRequest = ++sqlCompletionUpdateRequest;
   const editor = document.getElementById('sql-editor');
   const popup = document.getElementById('sql-completions');
   if (!editor || !popup || document.activeElement !== editor) return hideSqlCompletions();
@@ -5287,6 +5296,7 @@ async function updateSqlCompletions(force = false) {
   const valueSnapshot = editor.value;
   const cursorSnapshot = editor.selectionStart;
   if (database && (sqlSchemaCache.database !== database || !sqlSchemaCache.loaded)) await refreshSqlSchema(database);
+  if (updateRequest !== sqlCompletionUpdateRequest) return;
   if (editor.value !== valueSnapshot || editor.selectionStart !== cursorSnapshot) return updateSqlCompletions(force);
   const context = getSqlCompletionContext(editor);
   const prefix = context.token.toLowerCase();
@@ -5297,6 +5307,7 @@ async function updateSqlCompletions(force = false) {
   if (afterDot && database) {
     const table = resolveSqlTableName(context.qualifiedName, context.statementText);
     const columns = await loadSqlTableColumns(database, table);
+    if (updateRequest !== sqlCompletionUpdateRequest) return;
     if (editor.value !== valueSnapshot || editor.selectionStart !== cursorSnapshot || database !== sqlEditorDatabase()) return updateSqlCompletions(force);
     suggestions = columns.map(label => ({
       label,
@@ -5312,6 +5323,7 @@ async function updateSqlCompletions(force = false) {
     let columnSuggestions = [];
     if (database) {
       const allColumns = await loadSqlDatabaseColumns(database);
+      if (updateRequest !== sqlCompletionUpdateRequest) return;
       if (editor.value !== valueSnapshot || editor.selectionStart !== cursorSnapshot || database !== sqlEditorDatabase()) return updateSqlCompletions(force);
       const currentDb = database.toLowerCase();
       const hasExplicitReferences = context.tableReferences.length > 0;
@@ -5361,6 +5373,7 @@ async function updateSqlCompletions(force = false) {
     return true;
   }).slice(0, 100);
   if (!sqlCompletionItems.length) return hideSqlCompletions();
+  if (updateRequest !== sqlCompletionUpdateRequest) return;
   if (document.activeElement !== editor) return hideSqlCompletions();
   sqlCompletionIndex = 0;
   popup.innerHTML = sqlCompletionItems.map((item, index) => `<button type="button" class="sql-completion-item${index === 0 ? ' active' : ''}" role="option" aria-selected="${index === 0}" data-sql-completion="${index}"><span class="sql-completion-icon">${escapeSqlHtml(item.icon)}</span><span class="sql-completion-copy"><span class="sql-completion-label">${escapeSqlHtml(item.label)}</span>${item.detail ? `<span class="sql-completion-detail">${escapeSqlHtml(item.detail)}</span>` : ''}</span><span class="sql-completion-kind">${escapeSqlHtml(item.kind)}</span></button>`).join('');
@@ -5369,8 +5382,14 @@ async function updateSqlCompletions(force = false) {
 }
 
 function hideSqlCompletions() {
+  // Invalidate metadata requests that were started for an older cursor/value,
+  // otherwise they can reopen the popup after Enter or Escape closed it.
+  sqlCompletionUpdateRequest++;
   const popup = document.getElementById('sql-completions');
-  if (popup) popup.classList.remove('open');
+  if (popup) {
+    popup.classList.remove('open');
+    popup.replaceChildren();
+  }
   sqlCompletionItems = [];
 }
 
@@ -5390,6 +5409,7 @@ function acceptSqlCompletion(index = sqlCompletionIndex) {
   if (!editor || !item) return hideSqlCompletions();
   const context = getSqlCompletionContext(editor);
   const insertion = item.insertion || item.label;
+  suppressSqlCompletionOnce = true;
   editor.setRangeText(insertion, context.tokenStart, editor.selectionEnd, 'end');
   hideSqlCompletions();
   editor.dispatchEvent(new Event('input', { bubbles: true }));
@@ -9254,6 +9274,26 @@ function applyTheme(themeName){
 // WHAT'S NEW MODAL & POST-UPDATE ANNOUNCEMENT
 // ══════════════════════════════════════════════════════════
 const WHATS_NEW_DATA = {
+  '1.2.14': [
+    {
+      iconColor: '#5865f2',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"></path><path d="M8 9h8M8 13h5M8 17h7"></path></svg>',
+      title: 'Nested Alias Autocomplete',
+      desc: 'Column suggestions now resolve aliases reliably in self-referencing and nested queries, including E1 and E2 references to the same table.'
+    },
+    {
+      iconColor: '#10b981',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>',
+      title: 'Autocomplete Popup Fix',
+      desc: 'Accepting a suggestion with Enter, Tab, or the mouse now closes the popup reliably without a stale metadata request reopening it.'
+    },
+    {
+      iconColor: '#38bdf8',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"></path></svg>',
+      title: 'Alias Resolution Reliability',
+      desc: 'Explicit SQL aliases now take precedence over coincidentally same-named database tables when resolving qualified columns.'
+    }
+  ],
   '1.2.13': [
     {
       iconColor: '#5865f2',
@@ -9615,7 +9655,7 @@ const WHATS_NEW_DATA = {
 };
 
 function openWhatsNewModal(targetVersion, customItems){
-  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.13';
+  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.14';
   const verClean = String(ver).replace(/^v/i, '').trim();
   const verEl = document.getElementById('whatsnew-version');
   if(verEl) verEl.textContent = `Version ${verClean}`;
@@ -9643,7 +9683,7 @@ function openWhatsNewModal(targetVersion, customItems){
 }
 
 function closeWhatsNewModal(){
-  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.13';
+  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.14';
   const verClean = String(ver).replace(/^v/i, '').trim();
   localStorage.setItem('c_script_last_seen_version', verClean);
   closeModal('modal-whats-new');

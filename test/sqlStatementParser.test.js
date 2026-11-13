@@ -57,6 +57,20 @@ UPDATE inventory SET count = count - 1;`;
   ]);
 });
 
+test('extracts outer and nested aliases for the same table', () => {
+  const sql = `SELECT E1.EmployeeId, E1.FirstName, E1.LastName, E1.Title, E1.BirthDate
+FROM employee E1
+WHERE E1.BirthDate < (
+  SELECT AVG(E2.BirthDate)
+  FROM employee E2
+  WHERE E2.Title = E1.Title
+);`;
+  assert.deepEqual(extractSqlTableReferences(sql), [
+    { database: '', table: 'employee', alias: 'E1' },
+    { database: '', table: 'employee', alias: 'E2' }
+  ]);
+});
+
 test('does not mistake SQL clauses for table aliases', () => {
   assert.deepEqual(extractSqlTableReferences('SELECT * FROM track WHERE id = 1'), [
     { database: '', table: 'track', alias: '' }

@@ -19,3 +19,16 @@ test('rename modal supports keyboard submission and invokes both rename APIs', (
   assert.match(renderer, /api\.mysql\.renameDb\(request\.oldName, newName\)/);
   assert.match(renderer, /api\.mysql\.renameTable\(request\.database, request\.oldName, newName\)/);
 });
+
+test('accepting SQL autocomplete closes it without an async request reopening it', () => {
+  assert.match(renderer, /let sqlCompletionUpdateRequest = 0;/);
+  assert.match(renderer, /suppressSqlCompletionOnce = true;[\s\S]*hideSqlCompletions\(\);[\s\S]*dispatchEvent\(new Event\('input'/);
+  assert.match(renderer, /function hideSqlCompletions\(\)\s*{[\s\S]*sqlCompletionUpdateRequest\+\+/);
+  assert.match(renderer, /if \(updateRequest !== sqlCompletionUpdateRequest\) return;/);
+});
+
+test('SQL autocomplete resolves explicit aliases before same-named tables', () => {
+  const aliasLookup = renderer.indexOf('const aliasReference = references.find');
+  const tableLookup = renderer.indexOf('const actualTable = sqlSchemaCache.tables.find', aliasLookup);
+  assert.ok(aliasLookup > 0 && tableLookup > aliasLookup);
+});

@@ -214,6 +214,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveFile: (data) => ipcRenderer.invoke('export:save-file', data)
   },
 
+  sqlDocument: {
+    write: (filePath, content) => ipcRenderer.invoke('sql-document:write', { filePath, content }),
+    saveDraft: (content) => ipcRenderer.invoke('sql-document:save-draft', content),
+    loadDraft: () => ipcRenderer.invoke('sql-document:load-draft'),
+    clearDraft: () => ipcRenderer.invoke('sql-document:clear-draft'),
+    onBeforeClose: (callback) => {
+      const listener = (_event, data) => callback(data);
+      ipcRenderer.on('app:before-close', listener);
+      return () => ipcRenderer.removeListener('app:before-close', listener);
+    },
+    closeReady: (result) => ipcRenderer.invoke('app:close-ready', result)
+  },
+
   // ── Ports & Process Termination ────────────────────────────────────────────
   ports: {
     list: () => ipcRenderer.invoke('port:list'),

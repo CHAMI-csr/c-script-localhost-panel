@@ -48,6 +48,7 @@ const PortManager = require('./src/portManager');
 const TunnelManager = require('./src/tunnelManager');
 const PhpInstaller = require('./src/phpInstaller');
 const PhpMyAdminManager = require('./src/phpMyAdminManager');
+const { writeSqlDocument, saveSqlDraft, loadSqlDraft, clearSqlDraft } = require('./src/sqlDocumentStore');
 const NginxInstaller = require('./src/nginxInstaller');
 const MysqlInstaller = require('./src/mysqlInstaller');
 const LaravelManager = require('./src/laravelManager');
@@ -143,6 +144,8 @@ let serviceManager = null;
 let shutdownPromise = null;
 let shutdownComplete = false;
 let closeInstallPromptOpen = false;
+let rendererCloseSavePending = false;
+let rendererCloseApproved = false;
 let laravelManager = null;
 let viteProxyTimer = null;
 let viteProxySyncInFlight = false;
@@ -326,6 +329,18 @@ function createWindow() {
   });
 
   mainWindow.on('close', (event) => {
+    // Give the renderer a chance to flush the active SQL document or recovery
+    // draft before either hiding to tray or actually destroying the window.
+    if (!rendererCloseApproved && !mainWindow.webContents.isDestroyed() && !mainWindow.webContents.isLoadingMainFrame()) {
+      event.preventDefault();
+      if (!rendererCloseSavePending) {
+        rendererCloseSavePending = true;
+        mainWindow.webContents.send('app:before-close', { quitting: isQuitting });
+      }
+      return;
+    }
+    rendererCloseApproved = false;
+
     let cfg = {};
     try { cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch (e) {}
     const minimizeToTray = cfg?.app?.minimizeToTray ?? cfg?.minimizeToTray ?? true;
@@ -2270,12 +2285,37 @@ ipcMain.handle('export:save-file', async (event, { defaultFilename, content, fil
     filters: filters || [{ name: 'All Files', extensions: ['*'] }]
   });
   if (result.canceled || !result.filePath) return { success: false, canceled: true };
-  try {
-    fs.writeFileSync(result.filePath, content, 'utf8');
-    return { success: true, filePath: result.filePath };
-  } catch (err) {
-    return { success: false, error: err.message };
+  return writeSqlDocument(result.filePath, content);
+});
+
+// ─── IPC: SQL Editor Documents & Recovery ────────────────────────────────────
+ipcMain.handle('sql-document:write', (_event, { filePath, content }) =>
+  writeSqlDocument(filePath, content));
+ipcMain.handle('sql-document:save-draft', (_event, content) =>
+  saveSqlDraft(app.getPath('userData'), content));
+ipcMain.handle('sql-document:load-draft', () =>
+  loadSqlDraft(app.getPath('userData')));
+ipcMain.handle('sql-document:clear-draft', () =>
+  clearSqlDraft(app.getPath('userData')));
+
+ipcMain.handle('app:close-ready', async (event, result = {}) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) return { success: false };
+  rendererCloseSavePending = false;
+  if (!result.success) {
+    const message = result.error || 'The SQL editor could not save its pending changes.';
+    await dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      title: 'Could not close safely',
+      message: 'C-Script stayed open to protect your SQL changes.',
+      detail: message,
+      buttons: ['OK'],
+      noLink: true
+    });
+    return { success: false };
   }
+  rendererCloseApproved = true;
+  setImmediate(() => mainWindow?.close());
+  return { success: true };
 });
 
 // ─── IPC: Theme ───────────────────────────────────────────────────────────────

@@ -32,3 +32,19 @@ test('SQL autocomplete resolves explicit aliases before same-named tables', () =
   const tableLookup = renderer.indexOf('const actualTable = sqlSchemaCache.tables.find', aliasLookup);
   assert.ok(aliasLookup > 0 && tableLookup > aliasLookup);
 });
+
+test('SQL editor renders synchronized line numbers without clipping long documents', () => {
+  assert.match(renderer, /id="sql-line-number-content"/);
+  assert.match(renderer, /lineNumbers\.textContent = Array\.from/);
+  assert.match(renderer, /lineNumbers\.style\.transform = `translateY/);
+  assert.match(renderer, /\.sql-highlight\{position:absolute;top:0;left:0;width:100%;min-height:100%;height:auto/);
+  assert.match(renderer, /if \(sql\.length > 500000\) return escapeSqlHtml/);
+});
+
+test('SQL editor saves current files directly and flushes changes before close', () => {
+  assert.match(renderer, /api\.sqlDocument\.write\(filePath, content\)/);
+  assert.match(renderer, /api\.sqlDocument\.saveDraft\(content\)/);
+  assert.match(renderer, /api\.sqlDocument\.onBeforeClose/);
+  assert.match(renderer, /await flushSqlDocument\(\)/);
+  assert.match(renderer, /saveSQLFile\(event\.shiftKey\)/);
+});

@@ -47,10 +47,23 @@ test('startTunnel refuses to spawn a provider when the local site is unreachable
   assert.match(result.error, /not reachable|did not respond/);
 });
 
+test('localhost.run URL parsing removes ANSI styling and understands terminal hyperlinks', () => {
+  const styled = '\x1b[0mhttps://\x1b[7mbright\x1b[0m.lhr.life\x1b[0m';
+  assert.equal(TunnelManager.extractSshTunnelUrl(styled), 'https://bright.lhr.life');
+  const hyperlink = '\x1b]8;;https://linked.lhr.rocks\x1b\\Open tunnel\x1b]8;;\x1b\\';
+  assert.equal(TunnelManager.extractSshTunnelUrl(hyperlink), 'https://linked.lhr.rocks');
+  const cleaned = TunnelManager.sanitizeTerminalOutput(`\x1b[0m\x1b[7m banner\rline`);
+  assert.equal(cleaned.includes('\x1b'), false);
+  assert.match(cleaned, /banner\nline/);
+});
+
 test('SSH tunnel ignores the localhost.run admin link and parses a split public URL', async () => {
   const proc = fakeProcess();
-  const manager = new TunnelManager({ spawn: () => proc });
+  let spawnOptions;
+  const manager = new TunnelManager({ spawn: (_bin, _args, options) => { spawnOptions = options; return proc; } });
   const pending = manager._startSshTunnel('site-b', 8080);
+  assert.equal(spawnOptions.env.TERM, 'dumb');
+  assert.equal(spawnOptions.env.NO_COLOR, '1');
   proc.stdout.emit('data', Buffer.from('Manage domains at https://admin.localhost.run/\n'));
   const early = await Promise.race([
     pending.then(() => 'resolved'),
@@ -69,6 +82,18 @@ test('SSH tunnel ignores the localhost.run admin link and parses a split public 
   });
   assert.equal(manager.getStatus('site-b').active, true);
   await manager.stopTunnel('site-b');
+});
+
+test('SSH detects a public URL before a large ANSI banner can evict it from the buffer', async () => {
+  const proc = fakeProcess();
+  const manager = new TunnelManager({ spawn: () => proc });
+  const pending = manager._startSshTunnel('site-large-banner', 8080);
+  const qrBanner = '\x1b[7m \x1b[0m'.repeat(12000);
+  proc.stdout.emit('data', Buffer.from(`https://large-output.lhr.life\n${qrBanner}`));
+  const result = await pending;
+  assert.equal(result.success, true);
+  assert.equal(result.url, 'https://large-output.lhr.life');
+  await manager.stopTunnel('site-large-banner');
 });
 
 test('Cloudflare waits for both URL allocation and edge registration', async () => {

@@ -10,13 +10,31 @@ const { spawn, exec } = require('child_process');
 const { EventEmitter } = require('events');
 const http = require('http');
 
+function sanitizeTerminalOutput(output) {
+  let text = String(output || '');
+  // Preserve the target of OSC-8 terminal hyperlinks before removing OSC data.
+  // localhost.run can use these hyperlinks and ANSI styling in its SSH banner.
+  text = text.replace(/\x1b\]8;;([^\x07\x1b]*)(?:\x07|\x1b\\)/gi, ' $1 ');
+  text = text.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, ' '); // Other OSC commands.
+  text = text.replace(/(?:\x1b\[|\x9b)[0-?]*[ -\/]*[@-~]/g, ''); // CSI color/cursor commands.
+  text = text.replace(/\x1b[()][0-2A-Z0-9]/g, ''); // Character-set selection.
+  text = text.replace(/\x1b./g, '');
+  // Backspace/carriage-return animations should not leak into errors or split URLs.
+  text = text.replace(/\x08/g, '').replace(/\r/g, '\n');
+  return text.replace(/[\x00-\x07\x0b\x0c\x0e-\x1f\x7f]/g, ' ');
+}
+
 function extractSshTunnelUrl(output) {
-  const matches = String(output || '').match(/https:\/\/[a-z0-9][a-z0-9.-]*(?:\.lhr\.(?:life|rocks)|\.localhost\.run)/ig) || [];
+  const normalized = sanitizeTerminalOutput(output);
+  const matches = normalized.match(/\b(?:https:\/\/)?[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*(?:\.lhr\.(?:life|rocks)|\.localhost\.run)\b/ig) || [];
   const reservedLocalhostRunHosts = new Set(['admin.localhost.run', 'localhost.run', 'www.localhost.run']);
-  return matches.find(candidate => {
-    try { return !reservedLocalhostRunHosts.has(new URL(candidate).hostname.toLowerCase()); }
-    catch (_) { return false; }
-  }) || null;
+  for (const candidate of matches) {
+    try {
+      const url = new URL(/^https:\/\//i.test(candidate) ? candidate : `https://${candidate}`);
+      if (!reservedLocalhostRunHosts.has(url.hostname.toLowerCase())) return url.origin;
+    } catch (_) {}
+  }
+  return null;
 }
 
 function extractCloudflareTunnelUrl(output) {
@@ -265,16 +283,24 @@ class TunnelManager extends EventEmitter {
       const timeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
+          const diagnostic = sanitizeTerminalOutput(output).replace(/\s+/g, ' ').trim().slice(-700);
           this.stopTunnel(siteId).finally(() => resolve({
             success: false,
-            error: `Timed out waiting for localhost.run to provide a public URL. ${output.slice(-500)}`.trim()
+            error: `Timed out waiting for localhost.run to provide a public URL.${diagnostic ? ` ${diagnostic}` : ''}`
           }));
         }
       }, 30000);
 
       const proc = this.spawnProcess(sshBin, args, {
         windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe']
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          TERM: 'dumb',
+          NO_COLOR: '1',
+          CLICOLOR: '0',
+          FORCE_COLOR: '0'
+        }
       });
       this.tunnels[siteId] = {
         process: proc,
@@ -286,9 +312,13 @@ class TunnelManager extends EventEmitter {
 
       const onData = (data) => {
         const text = data.toString();
-        output = (output + text).slice(-8000);
-        this.emit('log', { siteId, message: text });
-        const url = extractSshTunnelUrl(output);
+        const combinedOutput = output + text;
+        // Parse before trimming: localhost.run may append a large ANSI QR/banner to
+        // the same chunk after the URL, which previously pushed the URL out of the
+        // small rolling buffer before it could be detected.
+        const url = extractSshTunnelUrl(combinedOutput);
+        output = combinedOutput.slice(-65536);
+        this.emit('log', { siteId, message: sanitizeTerminalOutput(text) });
         if (url && !resolved) {
           clearTimeout(timeout);
           resolved = true;
@@ -505,4 +535,6 @@ class TunnelManager extends EventEmitter {
   }
 }
 
+TunnelManager.sanitizeTerminalOutput = sanitizeTerminalOutput;
+TunnelManager.extractSshTunnelUrl = extractSshTunnelUrl;
 module.exports = TunnelManager;

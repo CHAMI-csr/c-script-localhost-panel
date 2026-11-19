@@ -160,7 +160,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ensureTrusted: () => ipcRenderer.invoke('ssl:ensure-trusted')
   },
 
-  // ── Cloudflare Tunnel (Share to Web) ───────────────────────────────────────
+  // ── Public Tunnel Tools (Share to Web) ─────────────────────────────────────
+  ngrok: {
+    getInfo: () => ipcRenderer.invoke('ngrok:info'),
+    install: () => ipcRenderer.invoke('ngrok:install'),
+    onInstallProgress: (callback) => {
+      const dlHandler = (event, data) => callback('download', data);
+      const stHandler = (event, data) => callback('status', data);
+      ipcRenderer.on('ngrok:download-progress', dlHandler);
+      ipcRenderer.on('ngrok:install-status', stHandler);
+      return () => {
+        ipcRenderer.removeListener('ngrok:download-progress', dlHandler);
+        ipcRenderer.removeListener('ngrok:install-status', stHandler);
+      };
+    }
+  },
   tunnel: {
     status: (siteId) => ipcRenderer.invoke('tunnel:status', siteId),
     start: (siteId, port, options) => ipcRenderer.invoke('tunnel:start', { siteId, port, options }),

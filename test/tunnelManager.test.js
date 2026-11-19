@@ -47,10 +47,16 @@ test('startTunnel refuses to spawn a provider when the local site is unreachable
   assert.match(result.error, /not reachable|did not respond/);
 });
 
-test('SSH tunnel parses a URL split across output chunks', async () => {
+test('SSH tunnel ignores the localhost.run admin link and parses a split public URL', async () => {
   const proc = fakeProcess();
   const manager = new TunnelManager({ spawn: () => proc });
   const pending = manager._startSshTunnel('site-b', 8080);
+  proc.stdout.emit('data', Buffer.from('Manage domains at https://admin.localhost.run/\n'));
+  const early = await Promise.race([
+    pending.then(() => 'resolved'),
+    new Promise(resolve => setTimeout(() => resolve('pending'), 20))
+  ]);
+  assert.equal(early, 'pending', 'the account administration URL is not a public tunnel');
   proc.stdout.emit('data', Buffer.from('your app tunneled at https://sample.lhr.'));
   proc.stderr.emit('data', Buffer.from('life\n'));
   const result = await pending;
@@ -99,6 +105,22 @@ test('Cloudflare handles registration arriving before a split URL without crashi
   assert.equal(result.success, true);
   assert.equal(result.url, 'https://split.trycloudflare.com');
   await manager.stopTunnel('site-d');
+});
+
+test('missing ngrok returns an installable error code before token validation or spawn', async () => {
+  let spawned = false;
+  const manager = new TunnelManager({
+    exec: (_command, callback) => setImmediate(() => callback(new Error('not found'))),
+    spawn: () => { spawned = true; return fakeProcess(); }
+  });
+  const result = await manager._startNgrokTunnel('site-ngrok', 8080, '');
+  assert.deepEqual(result, {
+    success: false,
+    code: 'NGROK_NOT_INSTALLED',
+    error: 'ngrok is not installed.'
+  });
+  assert.equal(spawned, false);
+  assert.equal(manager.getStatus('site-ngrok').active, false);
 });
 
 test('auto provider falls back from SSH to Cloudflare', async () => {

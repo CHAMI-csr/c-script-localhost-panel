@@ -11,8 +11,12 @@ const { EventEmitter } = require('events');
 const http = require('http');
 
 function extractSshTunnelUrl(output) {
-  const match = String(output || '').match(/https:\/\/[a-z0-9][a-z0-9.-]*(?:\.lhr\.(?:life|rocks)|\.localhost\.run)/i);
-  return match ? match[0] : null;
+  const matches = String(output || '').match(/https:\/\/[a-z0-9][a-z0-9.-]*(?:\.lhr\.(?:life|rocks)|\.localhost\.run)/ig) || [];
+  const reservedLocalhostRunHosts = new Set(['admin.localhost.run', 'localhost.run', 'www.localhost.run']);
+  return matches.find(candidate => {
+    try { return !reservedLocalhostRunHosts.has(new URL(candidate).hostname.toLowerCase()); }
+    catch (_) { return false; }
+  }) || null;
 }
 
 function extractCloudflareTunnelUrl(output) {
@@ -93,6 +97,14 @@ class TunnelManager extends EventEmitter {
       this.execCommand('where.exe ssh', (err) => {
         resolve(!err);
       });
+    });
+  }
+
+  async isNgrokAvailable() {
+    const bin = this.getNgrokPath();
+    if (fs.existsSync(bin)) return true;
+    return new Promise(resolve => {
+      this.execCommand('where.exe ngrok', error => resolve(!error));
     });
   }
 
@@ -178,6 +190,9 @@ class TunnelManager extends EventEmitter {
   }
 
   async _startNgrokTunnel(siteId, port, suppliedToken) {
+    if (!(await this.isNgrokAvailable())) {
+      return { success: false, code: 'NGROK_NOT_INSTALLED', error: 'ngrok is not installed.' };
+    }
     const authToken = String(suppliedToken || process.env.NGROK_AUTHTOKEN || '').trim();
     if (!authToken) return { success: false, error: 'Ngrok requires an authtoken. Set NGROK_AUTHTOKEN or enter it in the sharing prompt.' };
     const bin = this.getNgrokPath();
@@ -216,7 +231,9 @@ class TunnelManager extends EventEmitter {
       proc.stderr.on('data', onData);
       proc.once('error', error => {
         if (this.tunnels[siteId]?.process === proc) delete this.tunnels[siteId];
-        finish({ success: false, error: error.code === 'ENOENT' ? 'ngrok was not found. Install ngrok or place ngrok.exe in the app bin folder.' : error.message });
+        finish(error.code === 'ENOENT'
+          ? { success: false, code: 'NGROK_NOT_INSTALLED', error: 'ngrok is not installed.' }
+          : { success: false, error: error.message });
       });
       proc.once('exit', code => {
         if (this.tunnels[siteId]?.process === proc) delete this.tunnels[siteId];

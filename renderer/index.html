@@ -993,7 +993,7 @@ body{font-family:'Segoe UI',Inter,system-ui,sans-serif;font-size:13px;line-heigh
   <div class="titlebar-logo" onclick="switchPanel('about')" style="cursor:pointer" title="About C-Script LocalHost Panel">
     <img src="../assets/icon.png" alt="C-Script" style="width:22px;height:22px;border-radius:6px;">
     <span>C-Script LocalHost Panel</span>
-    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.16</span>
+    <span class="titlebar-badge" id="titlebar-app-version" onclick="event.stopPropagation();openWhatsNewModal()" style="cursor:pointer" title="View What's New">v1.2.17</span>
     <button class="titlebar-whatsnew-btn" onclick="event.stopPropagation();openWhatsNewModal()" title="See What's New in this update">
       <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
       <span>What's New</span>
@@ -2021,6 +2021,25 @@ DESCRIBE tablename;"></textarea>
               <button class="btn btn-sm btn-primary" onclick="setupTrustedLocalSsl()">Create trusted certificate</button>
             </div>
           </div>
+
+          <!-- Standalone ngrok tunnel client -->
+          <div style="margin-top:16px;padding:14px;background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.25);border-radius:var(--radius-sm)">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:9px;min-width:0">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                <div><div style="font-weight:700;font-size:13px;color:var(--text1)">ngrok Public Tunnel Client</div><div style="font-size:11px;color:var(--text3);margin-top:3px">Official ngrok v3 client for Share Site. An ngrok authtoken is still required.</div></div>
+              </div>
+              <button class="btn btn-sm btn-accent" id="btn-install-ngrok" onclick="installNgrokAction()">Install ngrok</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px;margin-top:11px;padding:9px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:4px">
+              <span id="ngrok-status-pill" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">Checking…</span>
+              <span id="ngrok-version-text" style="font-size:11px;color:var(--text2)">Checking installation…</span>
+            </div>
+            <div id="ngrok-download-progress-wrap" style="display:none;margin-top:10px">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:#38bdf8;margin-bottom:5px"><span id="ngrok-dl-status-text">Downloading official ngrok…</span><span id="ngrok-dl-percent-text">0%</span></div>
+              <div style="height:6px;background:var(--bg1);border-radius:3px;overflow:hidden"><div id="ngrok-dl-bar" style="height:100%;width:0;background:#38bdf8;transition:width .2s"></div></div>
+            </div>
+          </div>
         </div>
 
         <!-- phpMyAdmin local database UI -->
@@ -2136,7 +2155,7 @@ DESCRIBE tablename;"></textarea>
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
               <h1 style="font-size:22px;font-weight:700;color:var(--text1);margin:0">C-Script LocalHost Panel</h1>
-              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.16</span>
+              <span id="about-app-version" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);cursor:pointer;" onclick="openWhatsNewModal()" title="View What's New">v1.2.17</span>
               <button class="btn btn-xs" onclick="openWhatsNewModal()" style="display:inline-flex;align-items:center;gap:4px;border-radius:8px;font-size:11px;padding:3px 9px;cursor:pointer">
                 <svg class="tab-icon-svg" style="width:11px;height:11px;margin:0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 What's New
@@ -2299,7 +2318,7 @@ DESCRIBE tablename;"></textarea>
         </div>
         <div>
           <h2 class="whatsnew-header-title" id="whatsnew-title">What's New</h2>
-          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.16</div>
+          <div class="whatsnew-header-version" id="whatsnew-version">Version 1.2.17</div>
         </div>
       </div>
     </div>
@@ -3544,6 +3563,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   setInterval(() => refreshDatabaseWorkspace(false), 4000);
   await checkNginxStatus();
   loadNginxInfo();
+  loadNgrokInfo();
   loadMysqlInstallerInfo();
   loadPhpMyAdminStatus();
   api.on('phpmyadmin:progress', data => {
@@ -3706,7 +3726,7 @@ function switchPanel(panel) {
   document.getElementById('panel-'+panel)?.classList.add('active');
   document.querySelector(`[data-panel="${panel}"]`)?.classList.add('active');
   if(panel==='php') { loadPHPInfo(); loadPhpCatalog(); }
-  if(panel==='settings') { loadPhpCatalog(); loadNginxInfo(); loadMysqlInstallerInfo(); loadLocalProxyBypassStatus(); loadPhpMyAdminSettingsInfo(); }
+  if(panel==='settings') { loadPhpCatalog(); loadNginxInfo(); loadNgrokInfo(); loadMysqlInstallerInfo(); loadLocalProxyBypassStatus(); loadPhpMyAdminSettingsInfo(); }
   if(panel==='databases') { loadMysqlInstallerInfo(); loadPhpMyAdminStatus(); }
   if(panel==='dashboard') loadDashboardServices();
   if(panel==='mail') loadMailInbox();
@@ -8145,7 +8165,24 @@ async function toggleShareSite(siteId) {
   }
 
   try {
-    const res = await api.tunnel.start(siteId, site.port, tunnelConfig);
+    let res = await api.tunnel.start(siteId, site.port, tunnelConfig);
+    if (res?.code === 'NGROK_NOT_INSTALLED') {
+      if (btn) btn.disabled = false;
+      const shouldInstall = confirm('ngrok is required to share with this provider. Do you want C-Script LocalHost Panel to download and install the official ngrok client now?');
+      if (!shouldInstall) {
+        if (btn) btn.innerHTML = 'Share';
+        toast('ngrok installation was cancelled.', 'info');
+        return;
+      }
+      const installed = await installNgrokAction();
+      if (!installed?.success) {
+        if (btn) btn.innerHTML = 'Share';
+        return;
+      }
+      if (btn) { btn.disabled = true; btn.innerHTML = 'Connecting…'; }
+      toast(`Creating Public Web Tunnel for ${site.name} with ngrok...`, 'info');
+      res = await api.tunnel.start(siteId, site.port, tunnelConfig);
+    }
     if (res.success && res.url) {
       _activeTunnels[siteId] = { url: res.url, provider: res.provider || 'Public Tunnel' };
       if (btn) btn.disabled = false;
@@ -9426,6 +9463,26 @@ function applyTheme(themeName){
 // WHAT'S NEW MODAL & POST-UPDATE ANNOUNCEMENT
 // ══════════════════════════════════════════════════════════
 const WHATS_NEW_DATA = {
+  '1.2.17': [
+    {
+      iconColor: '#38bdf8',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>',
+      title: 'One-Click ngrok Installation',
+      desc: 'When ngrok is missing, Share Site now offers to download, verify, and install the official client, then automatically retries the tunnel.'
+    },
+    {
+      iconColor: '#10b981',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>',
+      title: 'Correct localhost.run Public Links',
+      desc: 'The localhost.run account administration link is no longer mistaken for the site tunnel URL.'
+    },
+    {
+      iconColor: '#f59e0b',
+      iconSvg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18"></path></svg>',
+      title: 'ngrok Manager in Settings',
+      desc: 'Settings now detects app-managed or system ngrok installations and provides Install, Reinstall, Repair, status, version, and download progress controls.'
+    }
+  ],
   '1.2.16': [
     {
       iconColor: '#38bdf8',
@@ -9853,7 +9910,7 @@ const WHATS_NEW_DATA = {
 };
 
 function openWhatsNewModal(targetVersion, customItems){
-  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.16';
+  const ver = targetVersion || window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.17';
   const verClean = String(ver).replace(/^v/i, '').trim();
   const verEl = document.getElementById('whatsnew-version');
   if(verEl) verEl.textContent = `Version ${verClean}`;
@@ -9881,7 +9938,7 @@ function openWhatsNewModal(targetVersion, customItems){
 }
 
 function closeWhatsNewModal(){
-  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.16';
+  const ver = window.__currentAppVersion || document.getElementById('titlebar-app-version')?.textContent?.replace(/^v/, '') || '1.2.17';
   const verClean = String(ver).replace(/^v/i, '').trim();
   localStorage.setItem('c_script_last_seen_version', verClean);
   closeModal('modal-whats-new');
@@ -10417,6 +10474,70 @@ async function reloadNginxAction() {
     else toast('Could not reload NGINX. Trying restart...', 'warn');
   } catch (e) {
     toast(`Reload error: ${e.message}`, 'error');
+  }
+}
+
+async function loadNgrokInfo() {
+  const pill = document.getElementById('ngrok-status-pill');
+  const version = document.getElementById('ngrok-version-text');
+  const button = document.getElementById('btn-install-ngrok');
+  if (!pill || !api.ngrok) return;
+  try {
+    const info = await api.ngrok.getInfo();
+    if (info?.installed) {
+      pill.textContent = '✓ Installed';
+      pill.style.background = 'rgba(63,207,142,.15)';
+      pill.style.color = 'var(--green)';
+      if (version) version.textContent = `ngrok ${info.version || 'v3'} · ${info.exePath || 'AppData'}`;
+      if (button) button.textContent = 'Reinstall / Repair';
+    } else {
+      pill.textContent = 'Not Installed';
+      pill.style.background = 'rgba(234,179,8,.15)';
+      pill.style.color = 'var(--yellow)';
+      if (version) version.textContent = 'Official ngrok v3 is available for one-click installation.';
+      if (button) button.textContent = 'Install ngrok';
+    }
+  } catch (error) {
+    pill.textContent = 'Status Error';
+    if (version) version.textContent = error.message;
+  }
+}
+
+async function installNgrokAction() {
+  const button = document.getElementById('btn-install-ngrok');
+  const wrap = document.getElementById('ngrok-download-progress-wrap');
+  const statusText = document.getElementById('ngrok-dl-status-text');
+  const percentText = document.getElementById('ngrok-dl-percent-text');
+  const bar = document.getElementById('ngrok-dl-bar');
+  if (button) { button.disabled = true; button.textContent = 'Installing…'; }
+  if (wrap) wrap.style.display = 'block';
+  if (bar) bar.style.width = '0%';
+  if (percentText) percentText.textContent = '0%';
+  const removeProgress = api.ngrok.onInstallProgress((type, data) => {
+    if (type === 'download' && data?.percent !== undefined) {
+      if (bar) bar.style.width = `${data.percent}%`;
+      if (percentText) percentText.textContent = `${data.percent}%`;
+    }
+    if (data?.message && statusText) statusText.textContent = data.message;
+  });
+  try {
+    toast('Installing the official ngrok client…', 'info');
+    const result = await api.ngrok.install();
+    if (!result?.success) {
+      toast(`ngrok installation failed: ${result?.error || 'Unknown error'}`, 'error');
+      return result || { success: false };
+    }
+    toast(`ngrok ${result.version || ''} installed successfully.`, 'success');
+    await loadNgrokInfo();
+    return result;
+  } catch (error) {
+    toast(`ngrok installation failed: ${error.message}`, 'error');
+    return { success: false, error: error.message };
+  } finally {
+    removeProgress();
+    if (wrap) wrap.style.display = 'none';
+    if (button) button.disabled = false;
+    await loadNgrokInfo();
   }
 }
 

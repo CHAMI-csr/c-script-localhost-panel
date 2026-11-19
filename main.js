@@ -51,6 +51,7 @@ const PhpMyAdminManager = require('./src/phpMyAdminManager');
 const { writeSqlDocument, saveSqlDraft, loadSqlDraft, clearSqlDraft } = require('./src/sqlDocumentStore');
 const NginxInstaller = require('./src/nginxInstaller');
 const MysqlInstaller = require('./src/mysqlInstaller');
+const NgrokInstaller = require('./src/ngrokInstaller');
 const LaravelManager = require('./src/laravelManager');
 const LocalProxyBypass = require('./src/localProxyBypass');
 
@@ -60,6 +61,7 @@ let phpInstaller = null;
 let phpMyAdminManager = null;
 let nginxInstaller = null;
 let mysqlInstaller = null;
+let ngrokInstaller = null;
 let liveLogStreamer = null;
 let autoUpdater = null;
 let updaterCheckInFlight = false;
@@ -428,6 +430,7 @@ app.whenReady().then(async () => {
   phpInstaller = new PhpInstaller();
   nginxInstaller = new NginxInstaller();
   mysqlInstaller = new MysqlInstaller();
+  ngrokInstaller = new NgrokInstaller();
 
   phpManager = new PhpManager();
   const userProfile = process.env.USERPROFILE || os.homedir();
@@ -538,6 +541,11 @@ app.whenReady().then(async () => {
     mysqlInstaller.on('install-status', (data) => {
       mainWindow?.webContents.send('mysql-installer:install-status', data);
     });
+  }
+
+  if (ngrokInstaller) {
+    ngrokInstaller.on('download-progress', data => mainWindow?.webContents.send('ngrok:download-progress', data));
+    ngrokInstaller.on('install-status', data => mainWindow?.webContents.send('ngrok:install-status', data));
   }
 
   createWindow();
@@ -2254,7 +2262,22 @@ ipcMain.handle('logs:report-app-error', (event, { title, message, stack, details
   return { success: true };
 });
 
-// ─── IPC: Cloudflare Tunnel (Share to Web) ──────────────────────────────────
+// ─── IPC: Public Tunnel Tools & Share to Web ─────────────────────────────────
+ipcMain.handle('ngrok:info', async () => {
+  return ngrokInstaller ? ngrokInstaller.getInfo() : { installed: false };
+});
+
+ipcMain.handle('ngrok:install', async () => {
+  if (!ngrokInstaller) return { success: false, error: 'ngrok installer is not ready.' };
+  const result = await ngrokInstaller.downloadAndInstall();
+  if (logManager) {
+    logManager.log('Tunnel', result.success
+      ? `ngrok ${result.version} installed to ${result.exePath}`
+      : `ngrok installation failed: ${result.error}`, result.success ? 'success' : 'error');
+  }
+  return result;
+});
+
 ipcMain.handle('tunnel:status', (event, siteId) => {
   return tunnelManager ? tunnelManager.getStatus(siteId) : { active: false };
 });

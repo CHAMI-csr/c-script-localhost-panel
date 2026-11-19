@@ -2259,9 +2259,14 @@ ipcMain.handle('tunnel:status', (event, siteId) => {
   return tunnelManager ? tunnelManager.getStatus(siteId) : { active: false };
 });
 
-ipcMain.handle('tunnel:start', async (event, { siteId, port, options }) => {
+ipcMain.handle('tunnel:start', async (event, { siteId, port, options } = {}) => {
   if (!tunnelManager) return { success: false, error: 'TunnelManager not ready' };
-  const res = await tunnelManager.startTunnel(siteId, port, options);
+  const site = siteManager?.getSite(siteId);
+  if (!site) return { success: false, error: 'Site not found.' };
+  if (!phpManager?.isRunning(siteId)) return { success: false, error: 'Start the site before sharing it.' };
+  const runningPort = phpManager.getPort(siteId);
+  if (!runningPort) return { success: false, error: 'The running site does not have an HTTP port.' };
+  const res = await tunnelManager.startTunnel(siteId, runningPort, options);
   if (logManager) {
     const detail = res.success ? `Public URL generated: ${res.url} (${res.provider || 'Tunnel'})` : `Tunnel failed: ${res.error}`;
     logManager.log('Tunnel', detail, res.success ? 'success' : 'error');

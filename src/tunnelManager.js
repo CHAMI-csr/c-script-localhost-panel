@@ -8,10 +8,24 @@ const fs = require('fs');
 const path = require('path');
 const { spawn, exec } = require('child_process');
 const { EventEmitter } = require('events');
+const http = require('http');
+
+function extractSshTunnelUrl(output) {
+  const match = String(output || '').match(/https:\/\/[a-z0-9][a-z0-9.-]*(?:\.lhr\.(?:life|rocks)|\.localhost\.run)/i);
+  return match ? match[0] : null;
+}
+
+function extractCloudflareTunnelUrl(output) {
+  const match = String(output || '').match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i);
+  return match ? match[0] : null;
+}
 
 class TunnelManager extends EventEmitter {
-  constructor() {
+  constructor(dependencies = {}) {
     super();
+    this.spawnProcess = dependencies.spawn || spawn;
+    this.execCommand = dependencies.exec || exec;
+    this.httpClient = dependencies.http || http;
     this.tunnels = {}; // siteId -> { process, url, port, provider }
     this.stoppingTunnels = new Map();
   }
@@ -62,7 +76,7 @@ class TunnelManager extends EventEmitter {
     if (fs.existsSync(bin)) return true;
 
     return new Promise((resolve) => {
-      exec('where.exe cloudflared', (err) => {
+      this.execCommand('where.exe cloudflared', (err) => {
         resolve(!err);
       });
     });
@@ -76,8 +90,41 @@ class TunnelManager extends EventEmitter {
     if (fs.existsSync(bin)) return true;
 
     return new Promise((resolve) => {
-      exec('where.exe ssh', (err) => {
+      this.execCommand('where.exe ssh', (err) => {
         resolve(!err);
+      });
+    });
+  }
+
+  /** Verify the local HTTP origin is reachable before exposing it publicly. */
+  checkLocalOrigin(port, timeoutMs = 5000) {
+    const numericPort = Number(port);
+    if (!Number.isInteger(numericPort) || numericPort < 1 || numericPort > 65535) {
+      return Promise.resolve({ success: false, error: 'The site does not have a valid running HTTP port.' });
+    }
+    return new Promise(resolve => {
+      let settled = false;
+      const finish = result => {
+        if (settled) return;
+        settled = true;
+        resolve(result);
+      };
+      const request = this.httpClient.get({
+        hostname: '127.0.0.1',
+        port: numericPort,
+        path: '/',
+        headers: { Host: 'localhost', Connection: 'close' },
+        timeout: timeoutMs
+      }, response => {
+        response.resume();
+        finish({ success: true, statusCode: response.statusCode });
+      });
+      request.once('timeout', () => {
+        request.destroy();
+        finish({ success: false, error: `The local site on port ${numericPort} did not respond in time.` });
+      });
+      request.once('error', error => {
+        finish({ success: false, error: `The local site on port ${numericPort} is not reachable: ${error.message}` });
       });
     });
   }
@@ -100,6 +147,8 @@ class TunnelManager extends EventEmitter {
       };
     }
 
+    const origin = await this.checkLocalOrigin(port);
+    if (!origin.success) return origin;
     const provider = options.provider || 'auto';
 
     if (provider === 'ngrok') return this._startNgrokTunnel(siteId, port, options.authToken);
@@ -135,19 +184,24 @@ class TunnelManager extends EventEmitter {
     return new Promise(resolve => {
       let settled = false;
       let output = '';
-      const timer = setTimeout(() => finish({ success: false, error: 'Timed out waiting for ngrok to provide a public URL.' }), 25000);
-      const proc = spawn(bin, ['http', '--log', 'stdout', '--log-format', 'logfmt', `127.0.0.1:${port}`], {
+      let timer;
+      const proc = this.spawnProcess(bin, ['http', '--log', 'stdout', '--log-format', 'logfmt', `127.0.0.1:${port}`], {
         windowsHide: true,
         stdio: ['ignore', 'pipe', 'pipe'],
         env: { ...process.env, NGROK_AUTHTOKEN: authToken }
       });
       this.tunnels[siteId] = { process: proc, url: null, port, provider: 'Connecting to ngrok', engine: 'ngrok' };
-      const finish = result => {
+      const finish = (result, cleanup = false) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        resolve(result);
+        if (cleanup) this.stopTunnel(siteId).finally(() => resolve(result));
+        else resolve(result);
       };
+      timer = setTimeout(() => finish({
+        success: false,
+        error: `Timed out waiting for ngrok to provide a public URL. ${output.slice(-500)}`.trim()
+      }, true), 25000);
       const onData = chunk => {
         const text = chunk.toString();
         output = (output + text).slice(-16000);
@@ -178,23 +232,30 @@ class TunnelManager extends EventEmitter {
   async _startSshTunnel(siteId, port, reason = '') {
     const sshBin = this.getSshPath();
     const args = [
+      '-T',
       '-o', 'StrictHostKeyChecking=no',
+      '-o', 'ExitOnForwardFailure=yes',
+      '-o', 'ConnectTimeout=12',
       '-o', 'ServerAliveInterval=30',
+      '-o', 'ServerAliveCountMax=3',
       '-R', `80:127.0.0.1:${port}`,
       'nokey@localhost.run'
     ];
 
     return new Promise((resolve) => {
       let resolved = false;
+      let output = '';
       const timeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          this.stopTunnel(siteId);
-          resolve({ success: false, error: 'Timed out waiting for SSH Tunnel connection (15s).' });
+          this.stopTunnel(siteId).finally(() => resolve({
+            success: false,
+            error: `Timed out waiting for localhost.run to provide a public URL. ${output.slice(-500)}`.trim()
+          }));
         }
-      }, 15000);
+      }, 30000);
 
-      const proc = spawn(sshBin, args, {
+      const proc = this.spawnProcess(sshBin, args, {
         windowsHide: true,
         stdio: ['ignore', 'pipe', 'pipe']
       });
@@ -208,12 +269,12 @@ class TunnelManager extends EventEmitter {
 
       const onData = (data) => {
         const text = data.toString();
-        // Regex to extract localhost.run URL: https://xxx.lhr.life
-        const match = text.match(/https:\/\/[a-zA-Z0-9-]+\.lhr\.life/i);
-        if (match && !resolved) {
+        output = (output + text).slice(-8000);
+        this.emit('log', { siteId, message: text });
+        const url = extractSshTunnelUrl(output);
+        if (url && !resolved) {
           clearTimeout(timeout);
           resolved = true;
-          const url = match[0];
           this.tunnels[siteId] = { ...this.tunnels[siteId], url, provider: 'SSH Tunnel (localhost.run)' };
           this.emit('tunnel-started', { siteId, url, provider: 'ssh' });
           resolve({ success: true, url, siteId, provider: 'SSH Tunnel (localhost.run)' });
@@ -262,20 +323,20 @@ class TunnelManager extends EventEmitter {
     return new Promise((resolve) => {
       let resolved = false;
       let detectedUrl = null;
+      let registered = false;
+      let output = '';
 
       const timeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          this.stopTunnel(siteId);
-          // If URL was detected but edge registration timed out (typical port 7844 block)
           const errMsg = detectedUrl
-            ? 'Cloudflare edge connection blocked by ISP (Port 7844). Switching to SSH...'
-            : 'Timed out waiting for Cloudflare Tunnel to initialize (15s).';
+            ? 'Cloudflare created a URL but did not register an edge connection. Check firewall access to port 7844.'
+            : `Timed out waiting for Cloudflare Tunnel to initialize. ${output.slice(-500)}`.trim();
           this.stopTunnel(siteId).finally(() => resolve({ success: false, error: errMsg }));
         }
-      }, 15000);
+      }, 30000);
 
-      const proc = spawn(bin, args, {
+      const proc = this.spawnProcess(bin, args, {
         windowsHide: true,
         stdio: ['ignore', 'pipe', 'pipe']
       });
@@ -289,34 +350,32 @@ class TunnelManager extends EventEmitter {
 
       const onData = (data) => {
         const text = data.toString();
+        output = (output + text).slice(-16000);
+        this.emit('log', { siteId, message: text });
+        detectedUrl = detectedUrl || extractCloudflareTunnelUrl(output);
+        registered = registered || /Registered tunnel connection/i.test(output);
 
-        // Check for URL
-        const match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/i);
-        if (match && !detectedUrl) {
-          detectedUrl = match[0];
-        }
-
-        // Check for edge connectivity or immediate readiness
-        // If "Registered tunnel connection" is seen, it's 100% active without Error 1033!
-        const hasRegistered = /Registered tunnel connection/i.test(text);
-        if ((hasRegistered || detectedUrl) && !resolved) {
-          // If registered or url detected, wait slightly or resolve
+        // A Quick Tunnel URL is allocated before the connector reaches Cloudflare's
+        // edge. Do not expose it until both signals are present, otherwise users see
+        // a public URL that only returns Cloudflare Error 1033.
+        if (registered && detectedUrl && !resolved) {
           clearTimeout(timeout);
           resolved = true;
-          const url = detectedUrl || match[0];
+          const url = detectedUrl;
           this.tunnels[siteId] = { ...this.tunnels[siteId], url, provider: 'Cloudflare Tunnel' };
           this.emit('tunnel-started', { siteId, url, provider: 'cloudflare' });
           resolve({ success: true, url, siteId, provider: 'Cloudflare Tunnel' });
         }
 
-        // If precheck failed or UDP connection failed, abort fast so fallback can run
-        if (/UDP Connectivity.*status=fail|failed to dial to edge with quic|TLS handshake with edge error/i.test(text)) {
+        // Do not abort on a single QUIC/UDP dial error: cloudflared can retry or
+        // switch transports. Only terminal Quick Tunnel setup errors fail early.
+        if (/failed to request quick tunnel|quick tunnel request failed|error parsing tunnel configuration/i.test(text)) {
           if (!resolved) {
             clearTimeout(timeout);
             resolved = true;
             const result = {
               success: false,
-              error: 'Cloudflare edge connection blocked by ISP or firewall (port 7844 UDP/QUIC blocked).'
+              error: `Cloudflare Quick Tunnel setup failed. ${text.trim().slice(-500)}`.trim()
             };
             this.stopTunnel(siteId).finally(() => resolve(result));
           }
@@ -372,7 +431,7 @@ class TunnelManager extends EventEmitter {
       proc.once('exit', finish);
       try {
         if (process.platform === 'win32' && proc.pid) {
-          const killer = spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+          const killer = this.spawnProcess('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
           killer.once('error', finish);
           killer.once('close', () => {
             if (proc.exitCode !== null) finish();
